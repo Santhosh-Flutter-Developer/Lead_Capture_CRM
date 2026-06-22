@@ -236,6 +236,18 @@ class _TicketListingViewState extends State<TicketListingView> {
                         ),
                         DataColumn(
                           label: Text(
+                            "Project",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            "Task",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
                             "Created By",
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
@@ -625,6 +637,27 @@ class _TicketListingViewState extends State<TicketListingView> {
           context,
           Text(
             ticket.category.label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          ticket.uid ?? '',
+        ),
+        dataCell(
+          context,
+          Text(
+            ticket.project != null
+                ? CacheService.getProjectByUid(ticket.project!)?.projectName ??
+                      '-'
+                : '-',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          ticket.uid ?? '',
+        ),
+        dataCell(
+          context,
+          Text(
+            ticket.task != null
+                ? CacheService.getTaskByUid(ticket.task!)?.taskName ?? '-'
+                : '-',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           ticket.uid ?? '',

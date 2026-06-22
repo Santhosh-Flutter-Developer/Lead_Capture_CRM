@@ -291,6 +291,14 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   }
 
   Widget _buildInfoGrid() {
+    // Get project and task names
+    final projectName = _ticketModel.project != null
+        ? CacheService.getProjectByUid(_ticketModel.project!)?.projectName
+        : null;
+    final taskName = _ticketModel.task != null
+        ? CacheService.getTaskByUid(_ticketModel.task!)?.taskName
+        : null;
+
     return Wrap(
       spacing: 16,
       runSpacing: 16,
@@ -302,6 +310,9 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
             "Company",
             _ticketModel.clientCompanyName!,
           ),
+        if (projectName != null)
+          _infoBox(Iconsax.folder, "Project", projectName),
+        if (taskName != null) _infoBox(Iconsax.task, "Task", taskName),
         if (_ticketModel.deadline != null)
           _infoBox(
             Iconsax.calendar_1,

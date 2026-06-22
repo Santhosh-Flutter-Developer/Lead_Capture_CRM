@@ -30,6 +30,8 @@ class CacheService {
     'leadStatus': _BoxConfig('leadStatus', 'leadStatus'),
     'leadPriority': _BoxConfig('leadPriority', 'leadPriority'),
     'dealStatus': _BoxConfig('dealStatus', 'dealStatus'),
+    'project': _BoxConfig('projects', 'projects'),
+    'task': _BoxConfig('tasks', 'tasks'),
   };
 
   static const String _metaBox = 'meta';
@@ -266,6 +268,22 @@ class CacheService {
       uid: uid,
       configKey: 'dealStatus',
       fromMap: DealStatusModel.fromMap,
+    );
+  }
+
+  static ProjectModel? getProjectByUid(String uid) {
+    return _getEntity<ProjectModel>(
+      uid: uid,
+      configKey: 'project',
+      fromMap: ProjectModel.fromMap,
+    );
+  }
+
+  static TaskModel? getTaskByUid(String uid) {
+    return _getEntity<TaskModel>(
+      uid: uid,
+      configKey: 'task',
+      fromMap: TaskModel.fromMap,
     );
   }
 

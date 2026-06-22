@@ -37,6 +37,11 @@ class _TicketCreateState extends State<TicketCreate> {
   final List<String> _selectedObservers = [];
   final List<String> _selectedParticipants = [];
 
+  List<ProjectModel> _projectList = [];
+  List<TaskModel> _taskList = [];
+  String? _selectedProject;
+  String? _selectedTask;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final List<File> _selectedAttachments = [];
@@ -59,7 +64,12 @@ class _TicketCreateState extends State<TicketCreate> {
   }
 
   Future<void> _init() async {
-    // No extra data needed for tickets
+    try {
+      _projectList = await ProjectService.getAllProjects();
+      _taskList = await TaskService.getAllTasks();
+    } catch (e) {
+      FlushBar.show(context, e.toString(), isSuccess: false);
+    }
   }
 
   @override
@@ -176,6 +186,34 @@ class _TicketCreateState extends State<TicketCreate> {
             child: Column(
               children: [
                 _buildSectionCard(
+                  title: "Context",
+                  icon: Iconsax.hierarchy,
+                  child: Column(
+                    children: [
+                      _buildDropdownField(
+                        "Project",
+                        _projectList.map((e) => e.projectName).toList(),
+                        (val) {
+                          _selectedProject = _projectList
+                              .firstWhere((e) => e.projectName == val)
+                              .uid;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildDropdownField(
+                        "Task",
+                        _taskList.map((e) => e.taskName).toList(),
+                        (val) {
+                          _selectedTask = _taskList
+                              .firstWhere((e) => e.taskName == val)
+                              .uid;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildSectionCard(
                   title: "Ticket Settings",
                   icon: Iconsax.calendar_1,
                   child: Column(
@@ -241,6 +279,34 @@ class _TicketCreateState extends State<TicketCreate> {
                 ),
                 const SizedBox(height: 16),
                 _buildDescriptionField(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildSectionCard(
+            title: "Context",
+            icon: Iconsax.hierarchy,
+            child: Column(
+              children: [
+                _buildDropdownField(
+                  "Project",
+                  _projectList.map((e) => e.projectName).toList(),
+                  (val) {
+                    _selectedProject = _projectList
+                        .firstWhere((e) => e.projectName == val)
+                        .uid;
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildDropdownField(
+                  "Task",
+                  _taskList.map((e) => e.taskName).toList(),
+                  (val) {
+                    _selectedTask = _taskList
+                        .firstWhere((e) => e.taskName == val)
+                        .uid;
+                  },
+                ),
               ],
             ),
           ),
@@ -519,6 +585,26 @@ class _TicketCreateState extends State<TicketCreate> {
     );
   }
 
+  Widget _buildDropdownField(
+    String label,
+    List<String> items,
+    Function(dynamic) onChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        FormDropdownSearch(items: items, onChanged: onChanged),
+      ],
+    );
+  }
+
   Widget _buildDeadlinePicker() {
     return FormFields(
       controller: _deadline,
@@ -727,6 +813,8 @@ class _TicketCreateState extends State<TicketCreate> {
           status: _status,
           attachments: attachments,
           ticketCreatedBy: await Spdb.getUser(),
+          project: _selectedProject,
+          task: _selectedTask,
         );
 
         await TicketService.createTicket(ticket: ticket);
