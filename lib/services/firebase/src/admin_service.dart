@@ -30,11 +30,25 @@ class AdminService {
   }) async {
     try {
       var cid = await Spdb.getCid();
-      await CommonService.update(
+
+      // Check if document exists to decide activity message
+      var docRef = firebase.users
+          .doc(cid)
+          .collection(Collections.admins.name)
+          .doc(id);
+      var docSnap = await docRef.get();
+
+      String activity = docSnap.exists
+          ? '${data.name} has been updated'
+          : '${data.name} has been added as an admin';
+
+      // Use CommonService.add with merge to either create or update
+      await CommonService.add(
         '${Collections.users.name}/$cid/${Collections.admins.name}',
-        id,
-        data.toUpdateMap(),
-        activity: '${data.name} has been updated',
+        data.toMap(),
+        docId: id,
+        activity: activity,
+        merge: true,
       );
     } catch (e, st) {
       await ErrorService.recordError(e, st);

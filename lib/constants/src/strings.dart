@@ -140,8 +140,10 @@ class AppStrings {
     "Company",
     "Contact",
     "Companies",
+    "Calendar",
     "Projects",
     "Tasks",
+    "Tickets",
     "Downloads",
     "Developer Area",
   ];

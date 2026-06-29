@@ -144,25 +144,37 @@ class ClientService {
           .collection(Collections.clients.name)
           .get();
 
-      debugPrint("Total Client Docs: ${querySnapshot.docs.length}");
+      // debugPrint("Total Client Docs: ${querySnapshot.docs.length}");
 
       List<ClientModel> clients = querySnapshot.docs.map((doc) {
-        debugPrint("Client Data: ${doc.data()}");
+        // debugPrint("Client Data: ${doc.data()}");
 
         return ClientModel.fromMap(doc.id, doc.data());
       }).toList();
 
       // Remove null/empty names
       clients = clients.where((e) {
-        return e.clientName != null && e.clientName!.trim().isNotEmpty;
+        if (e.isCompany) {
+          return e.companyName != null && e.companyName!.trim().isNotEmpty;
+        } else {
+          return e.clientName != null && e.clientName!.trim().isNotEmpty;
+        }
       }).toList();
 
       // Safe sort
-      clients.sort(
-        (a, b) => (a.clientName ?? '').compareTo(b.clientName ?? ''),
-      );
+      clients.sort((a, b) {
+        final nameA = a.isCompany
+            ? (a.companyName ?? '')
+            : (a.clientName ?? '');
+        final nameB = b.isCompany
+            ? (b.companyName ?? '')
+            : (b.clientName ?? '');
+        return nameA.compareTo(nameB);
+      });
 
-      debugPrint("Client Names: ${clients.map((e) => e.clientName).toList()}");
+      debugPrint(
+        "Client Names: ${clients.map((e) => e.isCompany ? e.companyName : e.clientName).toList()}",
+      );
 
       return clients;
     } catch (e, st) {

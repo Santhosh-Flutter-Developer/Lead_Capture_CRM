@@ -283,13 +283,13 @@ class MenuService {
             route: '/activity-logs',
             isAdminOnly: true,
           ),
-          MenuItem(
-            id: 'backup',
-            title: 'Backup',
-            icon: Iconsax.cloud,
-            route: '/backup',
-            isAdminOnly: true,
-          ),
+          // MenuItem(
+          //   id: 'backup',
+          //   title: 'Backup',
+          //   icon: Iconsax.cloud,
+          //   route: '/backup',
+          //   isAdminOnly: true,
+          // ),
         ],
       ),
 

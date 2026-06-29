@@ -63,6 +63,13 @@ class DashboardService {
       final assignedTasks = await _fetchAssignedTasks(cid, userId, dateRange);
       final pendingFollowUps = await _fetchPendingFollowUps(cid, dateRange);
       final leadsAssigned = await _fetchLeadsAssigned(cid, userId, dateRange);
+      final totalTickets = await _fetchTotalTickets(cid, dateRange);
+      final pendingTickets = await _fetchPendingTickets(cid, dateRange);
+      final assignedTickets = await _fetchAssignedTickets(
+        cid,
+        userId,
+        dateRange,
+      );
 
       final recentActivities = await RecentActivityService()
           .getRecentActivities();
@@ -73,6 +80,7 @@ class DashboardService {
       final allLeads = await LeadService.getAllLeads();
       final allDeals = await DealService.getAllDeals();
       final allTasks = await TaskService.getAllTasks();
+      final allTickets = await TicketService.getAllTickets();
       List<HolidayModel> holidays = [];
 
       final attendanceStats = await AttendanceService.getAttendanceStats(
@@ -96,12 +104,16 @@ class DashboardService {
         assignedTasks: assignedTasks,
         pendingFollowUps: pendingFollowUps,
         leadsAssigned: leadsAssigned,
+        totalTickets: totalTickets,
+        pendingTickets: pendingTickets,
+        assignedTickets: assignedTickets,
         recentActivities: recentActivities,
         notifications: notifications,
         upcomingTasks: upcomingTasks,
         allLeads: allLeads,
         allDeals: allDeals,
         allTasks: allTasks,
+        allTickets: allTickets,
         attendanceStats: attendanceStats,
         salary: salary,
       );
@@ -277,6 +289,69 @@ class DashboardService {
     return snap.count ?? 0;
   }
 
+  Future<int> _fetchTotalTickets(String cid, DateTimeRange range) async {
+    final snap = await _firestore
+        .collection(Collections.users.name)
+        .doc(cid)
+        .collection(Collections.customerTickets.name)
+        .where(
+          "createdAt",
+          isGreaterThanOrEqualTo: range.start.millisecondsSinceEpoch,
+        )
+        .where(
+          "createdAt",
+          isLessThanOrEqualTo: range.end.millisecondsSinceEpoch,
+        )
+        .count()
+        .get();
+
+    return snap.count ?? 0;
+  }
+
+  Future<int> _fetchPendingTickets(String cid, DateTimeRange range) async {
+    final snap = await _firestore
+        .collection(Collections.users.name)
+        .doc(cid)
+        .collection(Collections.customerTickets.name)
+        .where("status", isEqualTo: TicketStatus.open.name)
+        .where(
+          "createdAt",
+          isGreaterThanOrEqualTo: range.start.millisecondsSinceEpoch,
+        )
+        .where(
+          "createdAt",
+          isLessThanOrEqualTo: range.end.millisecondsSinceEpoch,
+        )
+        .count()
+        .get();
+
+    return snap.count ?? 0;
+  }
+
+  Future<int> _fetchAssignedTickets(
+    String cid,
+    String userId,
+    DateTimeRange range,
+  ) async {
+    final snap = await _firestore
+        .collection(Collections.users.name)
+        .doc(cid)
+        .collection(Collections.customerTickets.name)
+        .where("assignTo", arrayContains: userId)
+        .where(
+          "createdAt",
+          isGreaterThanOrEqualTo: range.start.millisecondsSinceEpoch,
+        )
+        .where(
+          "createdAt",
+          isLessThanOrEqualTo: range.end.millisecondsSinceEpoch,
+        )
+        .count()
+        .get();
+
+    return snap.count ?? 0;
+  }
+
   // Future<List<String>> _fetchPersonalActivities(String userId) async {
   //   final snap = await _firestore
   //       .collection("personalActivities")
@@ -340,6 +415,14 @@ class DashboardService {
           .where("eventDateTime", isLessThanOrEqualTo: end)
           .get();
 
+      final ticketsSnap = await FirebaseFirestore.instance
+          .collection(Collections.users.name)
+          .doc(cid)
+          .collection(Collections.customerTickets.name)
+          .where("deadline", isGreaterThan: start)
+          .where("deadline", isLessThanOrEqualTo: end)
+          .get();
+
       final upcoming = <UpcomingDeadlineItemModel>[];
 
       for (final d in tasksSnap.docs) {
@@ -365,6 +448,19 @@ class DashboardService {
             title: event.eventName,
             scheduledAt: event.eventDateTime,
             source: 'event',
+          ),
+        );
+      }
+
+      for (final d in ticketsSnap.docs) {
+        final ticket = CustomerTicketModel.fromMap(d.id, d.data());
+        if (ticket.deadline == null || ticket.status == TicketStatus.closed) continue;
+        upcoming.add(
+          UpcomingDeadlineItemModel(
+            id: d.id,
+            title: ticket.ticketTitle,
+            scheduledAt: ticket.deadline!,
+            source: 'ticket',
           ),
         );
       }

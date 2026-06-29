@@ -6,8 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/constants/src/enum.dart';
 import 'package:leadcapture/models/src/attendance_model.dart';
-import 'package:leadcapture/views/screens/attendance/attendance.dart';
-import 'package:leadcapture/views/screens/worktime/src/worktime_create.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
 import '/utils/utils.dart';
@@ -49,6 +47,7 @@ class _DashboardState extends State<Dashboard> {
       'Employees',
       'Contacts',
       'Company',
+      'Tickets',
     ];
     for (var page in pages) {
       _permissions[page] = await PermissionService.getPermissions(page);
@@ -99,14 +98,21 @@ class _DashboardState extends State<Dashboard> {
                                 _permissions,
                               ),
                               ValueListenableBuilder<bool>(
-                                valueListenable: AppSettingsNotifier.payrollEnabled,
+                                valueListenable:
+                                    AppSettingsNotifier.payrollEnabled,
                                 builder: (context, payrollEnabled, _) {
-                                  if (!payrollEnabled) return const SizedBox.shrink();
+                                  if (!payrollEnabled)
+                                    return const SizedBox.shrink();
                                   return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const SizedBox(height: 20),
-                                      _buildPayroll(context, widget.isAdmin, data),
+                                      _buildPayroll(
+                                        context,
+                                        widget.isAdmin,
+                                        data,
+                                      ),
                                     ],
                                   );
                                 },
@@ -152,14 +158,21 @@ class _DashboardState extends State<Dashboard> {
                                     _permissions,
                                   ),
                                   ValueListenableBuilder<bool>(
-                                    valueListenable: AppSettingsNotifier.payrollEnabled,
+                                    valueListenable:
+                                        AppSettingsNotifier.payrollEnabled,
                                     builder: (context, payrollEnabled, _) {
-                                      if (!payrollEnabled) return const SizedBox.shrink();
+                                      if (!payrollEnabled)
+                                        return const SizedBox.shrink();
                                       return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const SizedBox(height: 20),
-                                          _buildPayroll(context, widget.isAdmin, data),
+                                          _buildPayroll(
+                                            context,
+                                            widget.isAdmin,
+                                            data,
+                                          ),
                                         ],
                                       );
                                     },
@@ -1082,6 +1095,10 @@ Widget _buildRightPanel(
 ) {
   final notifications = data.notifications;
   final upcomingTasks = data.upcomingTasks;
+  // Sort tickets by createdAt descending and take first 5
+  final tickets = List<CustomerTicketModel>.from(data.allTickets)
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  final recentTickets = tickets.take(5).toList();
 
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -1124,6 +1141,22 @@ Widget _buildRightPanel(
 
           const SizedBox(height: 20),
 
+          // 🎫 TICKETS
+          _sectionTitle(context, "Recent Tickets"),
+          const SizedBox(height: 15),
+
+          if (recentTickets.isEmpty)
+            _emptyText(context, "No tickets yet.")
+          else
+            ...recentTickets.map(
+              (ticket) => TicketTile(
+                ticket: ticket,
+                onTap: () => _openSheet(context, TicketView(uid: ticket.uid!)),
+              ),
+            ),
+
+          const SizedBox(height: 20),
+
           // 📌 TASKS
           _sectionTitle(context, isAdmin ? "Upcoming Deadlines" : "Your Tasks"),
           const SizedBox(height: 15),
@@ -1151,9 +1184,14 @@ Future<void> _openUpcomingItem(
   BuildContext context,
   UpcomingDeadlineItemModel item,
 ) async {
-  final widget = item.source == 'event'
-      ? EventEdit(uid: item.id)
-      : TaskView(uid: item.id);
+  final Widget widget;
+  if (item.source == 'event') {
+    widget = EventEdit(uid: item.id);
+  } else if (item.source == 'ticket') {
+    widget = TicketView(uid: item.id);
+  } else {
+    widget = TaskView(uid: item.id);
+  }
 
   if (kIsMobile) {
     await Sheet.showSheet(context, widget: widget);
@@ -1205,6 +1243,13 @@ List<Widget> _adminActions(
     color: Colors.orange,
     enabled: permissions['Tasks']?.canCreate ?? true,
     onTap: () => _openSheet(context, const TaskCreate(employees: [])),
+  ),
+  QuickActionCard(
+    icon: Icons.confirmation_number_outlined,
+    label: "Add Ticket",
+    color: Colors.teal,
+    enabled: permissions['Tickets']?.canCreate ?? true,
+    onTap: () => _openSheet(context, const TicketCreate()),
   ),
 
   // QuickActionCard(
@@ -1259,6 +1304,13 @@ List<Widget> _userActions(
     color: Colors.orange,
     enabled: permissions['Tasks']?.canView ?? true,
     onTap: () => _openSheet(context, const TasksListing()),
+  ),
+  QuickActionCard(
+    icon: Icons.confirmation_number_outlined,
+    label: "Add Ticket",
+    color: Colors.teal,
+    enabled: permissions['Tickets']?.canCreate ?? true,
+    onTap: () => _openSheet(context, const TicketCreate()),
   ),
   QuickActionCard(
     icon: Icons.chat_bubble_outline,
@@ -1573,6 +1625,8 @@ class _NotificationTileState extends State<NotificationTile> {
         return Colors.orange;
       case NotificationType.error:
         return Colors.red;
+      case NotificationType.ticket:
+        return Colors.teal;
       case NotificationType.info:
       default:
         return Colors.blue;
@@ -1587,6 +1641,8 @@ class _NotificationTileState extends State<NotificationTile> {
         return Icons.warning_amber_rounded;
       case NotificationType.error:
         return Icons.error_outline;
+      case NotificationType.ticket:
+        return Icons.confirmation_number_outlined;
       case NotificationType.info:
       default:
         return Icons.notifications_active_outlined;
@@ -1602,6 +1658,22 @@ class _NotificationTileState extends State<NotificationTile> {
   }
 
   Future<void> _handleTap(BuildContext context) async {
+    // debugPrint('=== Dashboard notification tapped ===');
+    // debugPrint('Type: ${widget.notification.type}');
+    // debugPrint('Title: ${widget.notification.title}');
+    // debugPrint('Payload: ${widget.notification.payload}');
+    // debugPrint('====================================');
+
+    if (widget.notification.payload['ticketId'] != null &&
+        (widget.notification.payload['ticketId'] as String).isNotEmpty) {
+      debugPrint('Found ticketId in payload (dashboard), opening TicketView');
+      await _openPlatformSheet(
+        context,
+        TicketView(uid: widget.notification.payload['ticketId'] as String),
+      );
+      return;
+    }
+
     switch (widget.notification.type) {
       case NotificationType.chat:
         final chatId = widget.notification.collectionId;
@@ -1622,6 +1694,17 @@ class _NotificationTileState extends State<NotificationTile> {
           await _openPlatformSheet(context, TaskView(uid: taskId));
         } else {
           await _openPlatformSheet(context, TasksListing());
+        }
+        break;
+
+      case NotificationType.ticket:
+        final ticketId = widget.notification.payload['ticketId'] as String?;
+
+        if (ticketId != null && ticketId.isNotEmpty) {
+          await _openPlatformSheet(context, TicketView(uid: ticketId));
+        } else {
+          // If no ticketId, open tickets listing
+          await _openPlatformSheet(context, const TicketsListing());
         }
         break;
 
@@ -1853,6 +1936,136 @@ class TaskReminderTile extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TicketTile extends StatelessWidget {
+  final CustomerTicketModel ticket;
+  final VoidCallback? onTap;
+
+  const TicketTile({super.key, required this.ticket, this.onTap});
+
+  Color _statusColor() {
+    switch (ticket.status) {
+      case TicketStatus.open:
+        return Colors.blue;
+      case TicketStatus.inProgress:
+        return Colors.orange;
+      case TicketStatus.closed:
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _statusIcon() {
+    switch (ticket.status) {
+      case TicketStatus.open:
+        return Icons.confirmation_number_outlined;
+      case TicketStatus.inProgress:
+        return Icons.work_outline;
+      case TicketStatus.closed:
+        return Icons.check_circle_outline;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              /// ICON
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      statusColor.withValues(alpha: 0.9),
+                      statusColor.withValues(alpha: 0.6),
+                    ],
+                  ),
+                ),
+                child: Icon(_statusIcon(), color: Colors.white, size: 20),
+              ),
+
+              const SizedBox(width: 12),
+
+              /// CONTENT
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ticket.ticketTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat(
+                        'dd MMM yyyy, hh:mm a',
+                      ).format(ticket.createdAt),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              /// STATUS
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  ticket.status.name,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),

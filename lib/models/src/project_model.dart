@@ -44,7 +44,7 @@ class ProjectModel {
     String? projectName,
     String? projectDescription,
     String? projectOwner,
-    String? teamLaed,
+    String? teamLead,
     List<String>? members,
     String? client,
     String? projectCode,
@@ -62,7 +62,7 @@ class ProjectModel {
       projectName: projectName ?? this.projectName,
       projectDescription: projectDescription ?? this.projectDescription,
       projectOwner: projectOwner ?? this.projectOwner,
-      teamLead: teamLaed ?? teamLead,
+      teamLead: teamLead ?? this.teamLead,
       members: members ?? this.members,
       client: client ?? this.client,
       projectCode: projectCode ?? this.projectCode,
@@ -186,6 +186,7 @@ class ProjectModel {
         other.projectName == projectName &&
         other.projectDescription == projectDescription &&
         other.projectOwner == projectOwner &&
+        other.teamLead == teamLead &&
         listEquals(other.members, members) &&
         other.client == client &&
         other.projectCode == projectCode &&
@@ -204,6 +205,7 @@ class ProjectModel {
         projectName.hashCode ^
         projectDescription.hashCode ^
         projectOwner.hashCode ^
+        teamLead.hashCode ^
         members.hashCode ^
         client.hashCode ^
         projectCode.hashCode ^

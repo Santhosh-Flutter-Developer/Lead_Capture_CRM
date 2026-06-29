@@ -90,8 +90,6 @@ dependencies:
   pdf: ^3.11.1
   table_calendar: ^3.2.0
   flutter_face_api: ^8.1.765
-  facesdk_plugin:
-    path: ./facesdk_plugin
   image_cropper: ^12.2.1
   geolocator: ^13.0.1
   video_thumbnail: ^0.5.6

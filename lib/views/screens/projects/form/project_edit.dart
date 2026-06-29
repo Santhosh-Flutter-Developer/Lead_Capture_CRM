@@ -86,6 +86,12 @@ class _ProjectEditState extends State<ProjectEdit> {
         uid: _projectModel.projectOwner,
       );
 
+      // Initialize Team Lead
+      _selectedTeamLead = _projectModel.teamLead;
+      _selectedTeamLeadModel = await EmployeeService.getEmployee(
+        uid: _projectModel.teamLead,
+      );
+
       _selectedProjectMembers.clear();
       _selectedProjectMemberModels.clear();
       _selectedProjectMembers = _projectModel.members;
@@ -143,9 +149,9 @@ class _ProjectEditState extends State<ProjectEdit> {
               return Center(
                 child: Text(
                   'Error: ${snapshot.error}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               );
             }
@@ -328,11 +334,24 @@ class _ProjectEditState extends State<ProjectEdit> {
           width: itemWidth,
           child: FormDropdownSearch(
             label: 'Client',
-            initialItem: _selectedClientModel?.clientName,
-            items: _clientList.map((e) => e.clientName).toList(),
+            initialItem: _selectedClientModel?.isCompany == true
+                ? _selectedClientModel?.companyName
+                : _selectedClientModel?.clientName,
+            items: _clientList
+                .map(
+                  (e) => e.isCompany
+                      ? (e.companyName ?? '')
+                      : (e.clientName ?? ''),
+                )
+                .where((e) => e.isNotEmpty)
+                .toList(),
             onChanged: (value) async {
               var clientModel = _clientList.firstWhere(
-                (element) => element.clientName == value,
+                (element) =>
+                    (element.isCompany
+                        ? element.companyName
+                        : element.clientName) ==
+                    value,
               );
               _selectedClient = clientModel.uid;
 

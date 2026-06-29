@@ -96,9 +96,9 @@ class _ProjectCreateState extends State<ProjectCreate> {
               return Center(
                 child: Text(
                   'Error: ${snapshot.error}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               );
             }
@@ -286,12 +286,20 @@ class _ProjectCreateState extends State<ProjectCreate> {
             key: ValueKey(_clientList.length),
             label: 'Client',
             items: _clientList
-                .map((e) => e.clientName ?? '')
+                .map(
+                  (e) => e.isCompany
+                      ? (e.companyName ?? '')
+                      : (e.clientName ?? ''),
+                )
                 .where((e) => e.isNotEmpty)
                 .toList(),
             onChanged: (value) {
               final clientModel = _clientList.firstWhere(
-                (element) => element.clientName == value,
+                (element) =>
+                    (element.isCompany
+                        ? element.companyName
+                        : element.clientName) ==
+                    value,
               );
 
               setState(() {
@@ -311,9 +319,9 @@ class _ProjectCreateState extends State<ProjectCreate> {
         SizedBox(
           width: itemWidth,
           child: FormFields(
-            label: 'Department',
+            label: 'Category',
             controller: _categoryController,
-            hintText: 'Enter Department',
+            hintText: 'Enter Category',
           ),
         ),
 

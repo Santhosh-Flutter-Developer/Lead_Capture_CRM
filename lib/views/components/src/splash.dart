@@ -20,10 +20,7 @@ class _SplashState extends State<Splash> {
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: _splashBody(),
-    );
+    return Scaffold(backgroundColor: AppColors.white, body: _splashBody());
   }
 
   Widget _splashBody() {
@@ -39,7 +36,9 @@ class _SplashState extends State<Splash> {
           ),
           const SizedBox(height: 10),
           LoadingAnimationWidget.progressiveDots(
-              color: AppColors.primary, size: 40),
+            color: AppColors.primary,
+            size: 40,
+          ),
         ],
       ),
     );

@@ -12,6 +12,9 @@ class DashboardModel {
   final int assignedTasks;
   final int pendingFollowUps;
   final int leadsAssigned;
+  final int totalTickets;
+  final int pendingTickets;
+  final int assignedTickets;
   final List<ActivityItem> recentActivities;
   final List<String> personalActivities;
   final List<NotificationModel> notifications;
@@ -19,6 +22,7 @@ class DashboardModel {
   final List<LeadModel> allLeads;
   final List<DealModel> allDeals;
   final List<TaskModel> allTasks;
+  final List<CustomerTicketModel> allTickets;
   final AttendanceStats attendanceStats;
   final SalaryModel salary;
 
@@ -31,6 +35,9 @@ class DashboardModel {
     this.assignedTasks = 0,
     this.pendingFollowUps = 0,
     this.leadsAssigned = 0,
+    this.totalTickets = 0,
+    this.pendingTickets = 0,
+    this.assignedTickets = 0,
     this.recentActivities = const [],
     this.personalActivities = const [],
     this.notifications = const [],
@@ -38,6 +45,7 @@ class DashboardModel {
     required this.allLeads,
     required this.allDeals,
     required this.allTasks,
+    this.allTickets = const [],
     required this.attendanceStats,
     required this.salary,
   });
@@ -68,6 +76,15 @@ class DashboardModel {
       leadsAssigned: map['leadsAssigned'] is int
           ? map['leadsAssigned'] as int
           : int.tryParse(map['leadsAssigned']?.toString() ?? '0') ?? 0,
+      totalTickets: map['totalTickets'] is int
+          ? map['totalTickets'] as int
+          : int.tryParse(map['totalTickets']?.toString() ?? '0') ?? 0,
+      pendingTickets: map['pendingTickets'] is int
+          ? map['pendingTickets'] as int
+          : int.tryParse(map['pendingTickets']?.toString() ?? '0') ?? 0,
+      assignedTickets: map['assignedTickets'] is int
+          ? map['assignedTickets'] as int
+          : int.tryParse(map['assignedTickets']?.toString() ?? '0') ?? 0,
       recentActivities:
           map['recentActivities'] != null && map['recentActivities'] is List
           ? List<ActivityItem>.from(
@@ -124,6 +141,16 @@ class DashboardModel {
               ),
             )
           : [],
+      allTickets: map['allTickets'] != null && map['allTickets'] is List
+          ? List<CustomerTicketModel>.from(
+              (map['allTickets'] as List).map(
+                (e) => CustomerTicketModel.fromMap(
+                  e['uid'],
+                  e as Map<String, dynamic>,
+                ),
+              ),
+            )
+          : [],
       attendanceStats: map['attendanceStats'] != null
           ? AttendanceStats.fromMap(
               map['attendanceStats'] as Map<String, dynamic>,
@@ -177,6 +204,9 @@ class DashboardModel {
       "assignedTasks": assignedTasks,
       "pendingFollowUps": pendingFollowUps,
       "leadsAssigned": leadsAssigned,
+      "totalTickets": totalTickets,
+      "pendingTickets": pendingTickets,
+      "assignedTickets": assignedTickets,
       "recentActivities": recentActivities,
       "personalActivities": personalActivities,
       "notifications": notifications,
@@ -184,6 +214,7 @@ class DashboardModel {
       "allLeads": allLeads.map((e) => e.toMap()).toList(),
       "allDeals": allDeals.map((e) => e.toMap()).toList(),
       "allTasks": allTasks.map((e) => e.toMap()).toList(),
+      "allTickets": allTickets.map((e) => e.toMap()).toList(),
       "attendanceStats": attendanceStats.toMap(),
       "salary": salary.toMap(),
     };

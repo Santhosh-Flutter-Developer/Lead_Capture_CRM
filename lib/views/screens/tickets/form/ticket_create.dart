@@ -42,6 +42,12 @@ class _TicketCreateState extends State<TicketCreate> {
   String? _selectedProject;
   String? _selectedTask;
 
+  List<ClientModel> _clientList = [];
+  List<CompanyModel> _companyList = [];
+  String? _selectedClient;
+  String? _selectedClientUid;
+  String? _selectedCompany;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final List<File> _selectedAttachments = [];
@@ -67,6 +73,8 @@ class _TicketCreateState extends State<TicketCreate> {
     try {
       _projectList = await ProjectService.getAllProjects();
       _taskList = await TaskService.getAllTasks();
+      _clientList = await ClientService.getAllClients();
+      _companyList = await CompanyService.getAllCompanies();
     } catch (e) {
       FlushBar.show(context, e.toString(), isSuccess: false);
     }
@@ -132,22 +140,9 @@ class _TicketCreateState extends State<TicketCreate> {
                   icon: Iconsax.document_text,
                   child: Column(
                     children: [
-                      FormFields(
-                        controller: _clientName,
-                        label: "Client Name",
-                        hintText: "Enter client name",
-                        valid: (v) => Validation.commonValidation(
-                          input: v,
-                          label: "Client Name",
-                          isReq: true,
-                        ),
-                      ),
+                      _buildClientDropdown(),
                       const SizedBox(height: 16),
-                      FormFields(
-                        controller: _clientCompanyName,
-                        label: "Client Company Name",
-                        hintText: "Enter company name (optional)",
-                      ),
+                      _buildCompanyDropdown(),
                       const SizedBox(height: 16),
                       _buildModeOfContactSelector(),
                       const SizedBox(height: 16),
@@ -192,9 +187,21 @@ class _TicketCreateState extends State<TicketCreate> {
                     children: [
                       _buildDropdownField(
                         "Project",
-                        _projectList.map((e) => e.projectName).toList(),
+                        _selectedClientUid != null
+                            ? _projectList
+                                  .where((p) => p.client == _selectedClientUid)
+                                  .map((e) => e.projectName)
+                                  .toList()
+                            : _projectList.map((e) => e.projectName).toList(),
                         (val) {
-                          _selectedProject = _projectList
+                          var filteredProjects = _selectedClientUid != null
+                              ? _projectList
+                                    .where(
+                                      (p) => p.client == _selectedClientUid,
+                                    )
+                                    .toList()
+                              : _projectList;
+                          _selectedProject = filteredProjects
                               .firstWhere((e) => e.projectName == val)
                               .uid;
                         },
@@ -248,22 +255,9 @@ class _TicketCreateState extends State<TicketCreate> {
             icon: Iconsax.document_text,
             child: Column(
               children: [
-                FormFields(
-                  controller: _clientName,
-                  label: "Client Name",
-                  hintText: "Enter client name",
-                  valid: (v) => Validation.commonValidation(
-                    input: v,
-                    label: "Client Name",
-                    isReq: true,
-                  ),
-                ),
+                _buildClientDropdown(),
                 const SizedBox(height: 16),
-                FormFields(
-                  controller: _clientCompanyName,
-                  label: "Client Company Name",
-                  hintText: "Enter company name (optional)",
-                ),
+                _buildCompanyDropdown(),
                 const SizedBox(height: 16),
                 _buildModeOfContactSelector(),
                 const SizedBox(height: 16),
@@ -290,9 +284,19 @@ class _TicketCreateState extends State<TicketCreate> {
               children: [
                 _buildDropdownField(
                   "Project",
-                  _projectList.map((e) => e.projectName).toList(),
+                  _selectedClientUid != null
+                      ? _projectList
+                            .where((p) => p.client == _selectedClientUid)
+                            .map((e) => e.projectName)
+                            .toList()
+                      : _projectList.map((e) => e.projectName).toList(),
                   (val) {
-                    _selectedProject = _projectList
+                    var filteredProjects = _selectedClientUid != null
+                        ? _projectList
+                              .where((p) => p.client == _selectedClientUid)
+                              .toList()
+                        : _projectList;
+                    _selectedProject = filteredProjects
                         .firstWhere((e) => e.projectName == val)
                         .uid;
                   },
@@ -601,6 +605,75 @@ class _TicketCreateState extends State<TicketCreate> {
         ),
         const SizedBox(height: 8),
         FormDropdownSearch(items: items, onChanged: onChanged),
+      ],
+    );
+  }
+
+  Widget _buildClientDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Client Name",
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        FormDropdownSearch(
+          items: _clientList
+              .map(
+                (e) => e.isCompany ? e.companyName ?? '' : e.clientName ?? '',
+              )
+              .toList(),
+          onChanged: (val) {
+            setState(() {
+              _selectedClient = val;
+              // Auto-populate company when client is selected
+              final selectedClientModel = _clientList.firstWhere(
+                (e) =>
+                    (e.isCompany ? e.companyName ?? '' : e.clientName ?? '') ==
+                    val,
+                orElse: () => _clientList.first,
+              );
+              _selectedClientUid = selectedClientModel.uid;
+              // Populate client contact name and company name separately
+              _clientName.text = selectedClientModel.clientName ?? '';
+              if (selectedClientModel.companyName != null &&
+                  selectedClientModel.companyName!.isNotEmpty) {
+                _selectedCompany = selectedClientModel.companyName;
+                _clientCompanyName.text = selectedClientModel.companyName!;
+              }
+              // Reset project selection when client changes
+              _selectedProject = null;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompanyDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Client Company Name",
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        FormDropdownSearch(
+          items: _companyList.map((e) => e.name).toList(),
+          initialItem: _selectedCompany,
+          onChanged: (val) {
+            setState(() {
+              _selectedCompany = val;
+              _clientCompanyName.text = val;
+            });
+          },
+        ),
       ],
     );
   }

@@ -220,7 +220,7 @@ class EmployeeModel {
     };
   }
 
-  Map<String, dynamic> toUpdateMap({bool updatePassword = false}) {
+  Map<String, dynamic> toUpdateMap({bool updatePassword = true}) {
     return {
       'employeeId': employeeId,
       'lowercaseEmployeeId': lowercaseEmployeeId,

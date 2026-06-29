@@ -6,7 +6,9 @@ import '/models/models.dart';
 class TicketService {
   static final FirebaseConfig firebase = FirebaseConfig();
 
-  static Future<void> createTicket({required CustomerTicketModel ticket}) async {
+  static Future<void> createTicket({
+    required CustomerTicketModel ticket,
+  }) async {
     try {
       var cid = await Spdb.getCid();
       var uid = await Spdb.getUid();
@@ -70,7 +72,7 @@ class TicketService {
         toFcms: fcmIds,
         toUids: toUids,
         senderId: await Spdb.getUid(),
-        type: NotificationType.task,
+        type: NotificationType.ticket,
         payload: {'ticketId': ticketDoc.id},
       );
 
@@ -85,7 +87,7 @@ class TicketService {
             body: 'Ticket "${ticket.ticketTitle}" reminder',
             toFcms: fcmIds,
             toUids: users,
-            type: NotificationType.task,
+            type: NotificationType.ticket,
             payload: {'ticketId': ticketDoc.id},
           ),
         );
@@ -148,7 +150,7 @@ class TicketService {
         toFcms: fcmIds,
         toUids: toUids,
         senderId: await Spdb.getUid(),
-        type: NotificationType.task,
+        type: NotificationType.ticket,
         payload: {'ticketId': uid},
       );
 
@@ -163,7 +165,7 @@ class TicketService {
             body: 'Ticket "${ticket.ticketTitle}" reminder',
             toFcms: fcmIds,
             toUids: users,
-            type: NotificationType.task,
+            type: NotificationType.ticket,
             payload: {'ticketId': uid},
           ),
         );
@@ -195,8 +197,10 @@ class TicketService {
       ActivityLogModel activityLogModel = ActivityLogModel(
         userData: user,
         activity: '${data['ticketTitle'] ?? 'N/A'} has been deleted',
-        description: 'User has deleted an entry in ${Collections.customerTickets.name}',
-        collection: '${Collections.users.name}/$cid/${Collections.customerTickets.name}',
+        description:
+            'User has deleted an entry in ${Collections.customerTickets.name}',
+        collection:
+            '${Collections.users.name}/$cid/${Collections.customerTickets.name}',
         docId: docRef.id,
       );
       await CommonService.add(
@@ -272,8 +276,9 @@ class TicketService {
         .orderBy("timestamp", descending: true)
         .snapshots()
         .map(
-          (snap) =>
-              snap.docs.map((d) => TicketHistoryModel.fromMap(d.data())).toList(),
+          (snap) => snap.docs
+              .map((d) => TicketHistoryModel.fromMap(d.data()))
+              .toList(),
         )
         .asBroadcastStream(); // allows multiple listeners
   }
@@ -290,8 +295,9 @@ class TicketService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map(
-          (snap) =>
-              snap.docs.map((d) => TicketCommentModel.fromMap(d.data())).toList(),
+          (snap) => snap.docs
+              .map((d) => TicketCommentModel.fromMap(d.data()))
+              .toList(),
         )
         .asBroadcastStream(); // allows multiple listeners
   }

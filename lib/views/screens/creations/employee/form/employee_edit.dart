@@ -1038,15 +1038,27 @@ class _EmployeeEditState extends State<EmployeeEdit> {
           }
 
           AdminModel adminModel = AdminModel(
+            uid: widget.uid,
             email: _emailController.text.trim(),
             name: _nameController.text.trim(),
             password: _passwordController.text,
             mobileNumber: _mobileNumberController.text.trim(),
             profileImageUrl: profileImageUrl,
+            isActive: _isActive,
             createdBy: await Spdb.getUser(),
           );
 
           await AdminService.updateAdmin(id: widget.uid, data: adminModel);
+
+          // Delete the employee document since they're now an admin
+          try {
+            await EmployeeService.deleteEmployee(uid: widget.uid);
+          } catch (e) {
+            // If deleting fails, just log it but don't fail the whole process
+            debugPrint(
+              "Failed to delete employee document after converting to admin: $e",
+            );
+          }
 
           if (Navigator.canPop(context)) {
             Navigator.pop(context);

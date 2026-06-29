@@ -241,4 +241,5 @@ enum NotificationType {
   warning,
   error,
   feed,
+  ticket,
 }

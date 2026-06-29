@@ -168,7 +168,7 @@ class _NotificationsListingState extends State<NotificationsListing> {
           context,
           widget: EmployeeDetails(employee: profile),
         );
-      } else {
+      } else { 
         await GeneralDialog.showRTLSheet(
           context,
           EmployeeDetails(employee: profile),
@@ -203,6 +203,22 @@ class _NotificationsListingState extends State<NotificationsListing> {
     if (!mounted) return;
     final id = item.collectionId;
 
+    // debugPrint('=== Notification tapped ===');
+    // debugPrint('Type: ${item.type}');
+    // debugPrint('Title: ${item.title}');
+    // debugPrint('Payload: ${item.payload}');
+    // debugPrint('==========================');
+
+    if (item.payload['ticketId'] != null &&
+        (item.payload['ticketId'] as String).isNotEmpty) {
+      debugPrint('Found ticketId in payload, opening TicketView');
+      if (!mounted) return;
+      await _openPlatformSheet(
+        TicketView(uid: item.payload['ticketId'] as String),
+      );
+      return;
+    }
+
     switch (item.type) {
       case NotificationType.chat:
         if (!mounted) return;
@@ -220,6 +236,18 @@ class _NotificationsListingState extends State<NotificationsListing> {
         } else {
           if (!mounted) return;
           await _openPlatformSheet(TasksListing());
+        }
+        break;
+
+      /// 🎫 TICKET → SHEET
+      case NotificationType.ticket:
+        final ticketId = item.payload['ticketId'] as String?;
+        if (ticketId != null && ticketId.isNotEmpty) {
+          if (!mounted) return;
+          await _openPlatformSheet(TicketView(uid: ticketId));
+        } else {
+          if (!mounted) return;
+          await _openPlatformSheet(const TicketsListing());
         }
         break;
 

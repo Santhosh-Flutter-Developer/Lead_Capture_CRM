@@ -1,8 +1,5 @@
 import 'dart:io';
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:facesdk_plugin/facesdk_plugin.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -29,39 +26,13 @@ class _ProfileState extends State<Profile> {
   bool isAdmin = false;
   bool isLoading = true;
   String? editingField;
-  String _faceTemplate = '';
   File? _selectedFile;
-  final _facesdkPlugin = FacesdkPlugin();
   final Map<String, TextEditingController> controllers = {};
 
   @override
   void initState() {
     super.initState();
-    _init();
     _loadProfile();
-  }
-
-  Future<void> _init() async {
-    try {
-      if (kIsMobile) {
-        if (Platform.isAndroid) {
-          await _facesdkPlugin.setActivation(AppStrings.androidfacesdkLicence);
-        } else {
-          await _facesdkPlugin.setActivation(AppStrings.iosfacesdkLicence);
-        }
-        await _facesdkPlugin.init();
-      }
-    } catch (e, st) {
-      await ErrorService.recordError(e, st);
-      debugPrint("${e.toString()}, ${st.toString()}");
-      FlushBar.show(
-        context,
-        e.toString(),
-        isSuccess: false,
-        error: e,
-        stackTrace: st,
-      );
-    }
   }
 
   Future<void> _loadProfile() async {
@@ -137,122 +108,19 @@ class _ProfileState extends State<Profile> {
   }
 
   Future<void> _changeProfileImage() async {
-    // ── Admin: simple gallery pick, no face enrollment ──────────────────
-    if (isAdmin) {
-      if (admin == null || admin!.uid == null || admin!.uid!.isEmpty) return;
+    File? imageFile;
 
-      final picker = ImagePicker();
-      final pickedImage = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 65,
-      );
-      if (pickedImage == null) return;
-
-      File imageFile = File(pickedImage.path);
-      FlushBar.show(context, "Uploading profile picture...");
-
-      try {
-        String downloadUrl = await StorageService.uploadFile(
-          file: imageFile,
-          folder: StorageFolder.adminProfile,
-        );
-        final updatedAdmin = admin!.copyWith(profileImageUrl: downloadUrl);
-        await AdminService.updateAdmin(
-          id: updatedAdmin.uid!,
-          data: updatedAdmin,
-        );
-
-        String? cid = await Spdb.getCid();
-        await Spdb.setAdminLogin(model: updatedAdmin, cid: cid ?? '');
-
-        setState(() => admin = updatedAdmin);
-        FlushBar.show(
-          context,
-          "Profile picture updated successfully",
-          isSuccess: true,
-        );
-      } catch (e) {
-        FlushBar.show(
-          context,
-          "Failed to update profile picture: $e",
-          isSuccess: false,
-        );
-      }
-      return;
-    }
-
-    // ── Employee: face enrollment ────────────────────────────────────────
-    if (employee == null || employee!.uid == null || employee!.uid!.isEmpty) {
-      return;
-    }
-
-    _faceTemplate = '';
-    File? capturedFile;
-
-    // Windows: file picker only (no camera/ImagePicker support)
     if (kIsWindows) {
-      try {
-        final result = await FilePicker.platform.pickFiles(
-          type: FileType.image,
-          allowMultiple: false,
-          dialogTitle: 'Select a photo for face enrollment',
-        );
-        if (result == null || result.files.isEmpty) return;
-        final pickedPath = result.files.single.path;
-        if (pickedPath == null) return;
-
-        capturedFile = File(pickedPath);
-
-        if (!mounted) return;
-        futureLoading(context);
-
-        try {
-          final faceList = await _facesdkPlugin.extractFaces(capturedFile.path);
-          if (Navigator.canPop(context)) Navigator.pop(context);
-
-          if (faceList != null && faceList.isNotEmpty) {
-            final face = faceList[0];
-            setState(() {
-              _selectedFile = capturedFile;
-              _faceTemplate = face['templates'] != null
-                  ? base64Encode(face['templates'])
-                  : '';
-            });
-            if (_faceTemplate.isEmpty && mounted) {
-              FlushBar.show(
-                context,
-                'Image selected but no face template could be generated.',
-                isSuccess: false,
-              );
-            }
-          } else {
-            setState(() => _selectedFile = capturedFile);
-            if (mounted) {
-              FlushBar.show(
-                context,
-                'No face detected. Please choose a clear front-facing photo.',
-                isSuccess: false,
-              );
-            }
-          }
-        } catch (e) {
-          if (Navigator.canPop(context)) Navigator.pop(context);
-          setState(() => _selectedFile = capturedFile);
-          if (mounted) {
-            FlushBar.show(
-              context,
-              'Face detection failed: $e',
-              isSuccess: false,
-            );
-          }
-        }
-      } catch (e, st) {
-        await ErrorService.recordError(e, st);
-        if (mounted) {
-          FlushBar.show(context, 'Failed to pick image: $e', isSuccess: false);
-        }
-        return;
-      }
+      // Windows: file picker only
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        dialogTitle: 'Select a profile photo',
+      );
+      if (result == null || result.files.isEmpty) return;
+      final pickedPath = result.files.single.path;
+      if (pickedPath == null) return;
+      imageFile = File(pickedPath);
     } else {
       // Mobile: bottom sheet → camera or gallery
       final source = await showModalBottomSheet<ImageSource>(
@@ -292,146 +160,79 @@ class _ProfileState extends State<Profile> {
 
       if (source == null) return;
 
-      try {
-        if (source == ImageSource.camera) {
-          // Use FaceCaptureView for camera (same as EmployeeCreate)
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => FaceCaptureView()),
-          );
+      final picker = ImagePicker();
+      final pickedImage = await picker.pickImage(
+        source: source,
+        imageQuality: 65,
+      );
+      if (pickedImage == null) return;
 
-          if (result != null && result is Map) {
-            final faceJpg = result['face_URL'] as Uint8List?;
-            final templates = result['face_template'] as Uint8List?;
-
-            if (faceJpg != null && mounted) {
-              final tempFile = File(
-                '${Directory.systemTemp.path}/face_${DateTime.now().millisecondsSinceEpoch}.jpg',
-              );
-              await tempFile.writeAsBytes(faceJpg);
-              capturedFile = tempFile;
-
-              setState(() {
-                _selectedFile = capturedFile;
-                _faceTemplate = templates != null
-                    ? base64Encode(templates)
-                    : '';
-              });
-            }
-          }
-        } else {
-          // Gallery pick with EXIF rotation + face extraction
-          final xFile = await ImagePicker().pickImage(
-            source: ImageSource.gallery,
-            imageQuality: 85,
-            maxWidth: 512,
-          );
-          if (xFile == null) return;
-
-          final rotated = await FlutterExifRotation.rotateImage(
-            path: xFile.path,
-          );
-          capturedFile = rotated;
-
-          if (mounted) {
-            futureLoading(context);
-            try {
-              final faceList = await _facesdkPlugin.extractFaces(rotated.path);
-              if (Navigator.canPop(context)) Navigator.pop(context);
-
-              if (faceList != null && faceList.isNotEmpty) {
-                final face = faceList[0];
-                setState(() {
-                  _selectedFile = capturedFile;
-                  _faceTemplate = face['templates'] != null
-                      ? base64Encode(face['templates'])
-                      : '';
-                });
-                if (_faceTemplate.isEmpty && mounted) {
-                  FlushBar.show(
-                    context,
-                    'No face template generated from this image.',
-                    isSuccess: false,
-                  );
-                }
-              } else {
-                setState(() {
-                  _selectedFile = capturedFile;
-                  _faceTemplate = '';
-                });
-                if (mounted) {
-                  FlushBar.show(
-                    context,
-                    'No face detected in the selected image.',
-                    isSuccess: false,
-                  );
-                }
-              }
-            } catch (e) {
-              if (Navigator.canPop(context)) Navigator.pop(context);
-              setState(() {
-                _selectedFile = capturedFile;
-                _faceTemplate = '';
-              });
-            }
-          }
-        }
-      } catch (e, st) {
-        await ErrorService.recordError(e, st);
-        if (mounted) {
-          FlushBar.show(
-            context,
-            'Failed to capture image: $e',
-            isSuccess: false,
-          );
-        }
-        return;
+      if (source == ImageSource.gallery) {
+        final rotated = await FlutterExifRotation.rotateImage(
+          path: pickedImage.path,
+        );
+        imageFile = rotated;
+      } else {
+        imageFile = File(pickedImage.path);
       }
     }
 
-    // ── Upload & save to Firestore ───────────────────────────────────────
-    if (capturedFile == null) return;
-
     FlushBar.show(context, "Uploading profile picture...");
+    setState(() => _selectedFile = imageFile);
 
     try {
-      String uid = employee!.uid!;
-      final storageRef = FirebaseStorage.instance.ref().child(
-        "profile_images/profile_$uid.jpg",
-      );
-      await storageRef.putFile(capturedFile);
-      final downloadUrl = await storageRef.getDownloadURL();
-      final updatedEmployee = employee!.copyWith(
-        profileImageUrl: downloadUrl,
-        // faceTemplate: _faceTemplate.isNotEmpty ? _faceTemplate : null,
-        updatedAt: DateTime.now(),
-      );
+      String downloadUrl;
+      if (isAdmin) {
+        downloadUrl = await StorageService.uploadFile(
+          file: imageFile,
+          folder: StorageFolder.adminProfile,
+        );
+        final updatedAdmin = admin!.copyWith(profileImageUrl: downloadUrl);
+        await AdminService.updateAdmin(
+          id: updatedAdmin.uid!,
+          data: updatedAdmin,
+        );
 
-      await EmployeeService.editEmployee(
-        uid: updatedEmployee.uid!,
-        employee: updatedEmployee,
-      );
+        String? cid = await Spdb.getCid();
+        await Spdb.setAdminLogin(model: updatedAdmin, cid: cid ?? '');
 
-      String? cid = await Spdb.getCid();
-      await Spdb.setEmployeeLogin(
-        model: updatedEmployee,
-        cid: cid ?? '',
-        logoUrl: downloadUrl,
-      );
+        setState(() => admin = updatedAdmin);
+      } else {
+        String uid = employee!.uid!;
+        final storageRef = FirebaseStorage.instance.ref().child(
+          "profile_images/profile_$uid.jpg",
+        );
+        await storageRef.putFile(imageFile);
+        downloadUrl = await storageRef.getDownloadURL();
+        final updatedEmployee = employee!.copyWith(
+          profileImageUrl: downloadUrl,
+          updatedAt: DateTime.now(),
+        );
 
-      setState(() => employee = updatedEmployee);
+        await EmployeeService.editEmployee(
+          uid: updatedEmployee.uid!,
+          employee: updatedEmployee,
+        );
+
+        String? cid = await Spdb.getCid();
+        await Spdb.setEmployeeLogin(
+          model: updatedEmployee,
+          cid: cid ?? '',
+          logoUrl: downloadUrl,
+        );
+
+        setState(() => employee = updatedEmployee);
+      }
 
       FlushBar.show(
         context,
-        _faceTemplate.isNotEmpty
-            ? "Profile picture updated and face enrolled ✓"
-            : "Profile picture updated successfully",
+        "Profile picture updated successfully",
         isSuccess: true,
       );
     } catch (e) {
       FlushBar.show(
         context,
-        "Failed to save profile picture: $e",
+        "Failed to update profile picture: $e",
         isSuccess: false,
       );
     }
@@ -506,7 +307,6 @@ class _ProfileState extends State<Profile> {
         setState(() {
           employee = updated;
           _selectedFile = null;
-          _faceTemplate = '';
         });
       } else {
         await AdminService.deleteAdminProfileImage(uid: admin!.uid!);
@@ -768,9 +568,7 @@ class _ProfileState extends State<Profile> {
                 ),
               ),
               Material(
-                color: _faceTemplate.isNotEmpty
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.secondary,
+                color: Theme.of(context).colorScheme.secondary,
                 shape: const CircleBorder(),
                 child: InkWell(
                   onTap: _changeProfileImage,
@@ -778,11 +576,7 @@ class _ProfileState extends State<Profile> {
                   child: Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Icon(
-                      _faceTemplate.isNotEmpty
-                          ? Icons.face_retouching_natural
-                          : (kIsWindows
-                                ? Icons.upload_file_rounded
-                                : Iconsax.camera),
+                      kIsWindows ? Icons.upload_file_rounded : Iconsax.camera,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -791,64 +585,7 @@ class _ProfileState extends State<Profile> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Face enrollment status badge
-          if (!isAdmin) ...[
-            GestureDetector(
-              onTap: _changeProfileImage,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _faceTemplate.isNotEmpty
-                      ? Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.1)
-                      : Theme.of(
-                          context,
-                        ).colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _faceTemplate.isNotEmpty
-                        ? Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.4)
-                        : Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _faceTemplate.isNotEmpty
-                          ? Icons.face_retouching_natural
-                          : Icons.face_outlined,
-                      size: 14,
-                      color: _faceTemplate.isNotEmpty
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _faceTemplate.isNotEmpty
-                          ? 'Face enrolled'
-                          : 'Tap to enroll face',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: _faceTemplate.isNotEmpty
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
+
           const SizedBox(height: 12),
           Text(
             name,
