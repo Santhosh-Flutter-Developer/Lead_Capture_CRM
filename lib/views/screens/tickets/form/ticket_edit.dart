@@ -34,6 +34,8 @@ class _TicketEditState extends State<TicketEdit> {
   List<EmployeeModel> _employeeList = [];
   List<ProjectModel> _projectList = [];
   List<TaskModel> _taskList = [];
+  List<ClientModel> _clientList = [];
+  List<CompanyModel> _companyList = [];
   List<String> _selectedAssignTo = [];
   final List<dynamic> _initialAssignTo = [];
   List<String> _selectedCreatedBy = [];
@@ -45,6 +47,9 @@ class _TicketEditState extends State<TicketEdit> {
 
   String? _selectedProject;
   String? _selectedTask;
+  String? _selectedClient;
+  String? _selectedClientUid;
+  String? _selectedCompany;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -83,6 +88,8 @@ class _TicketEditState extends State<TicketEdit> {
       _existingAttachments = List<FileModel>.from(_ticketModel!.attachments);
       _selectedProject = _ticketModel!.project;
       _selectedTask = _ticketModel!.task;
+      _selectedClient = _ticketModel!.clientName;
+      _selectedCompany = _ticketModel!.clientCompanyName;
 
       _employeeList.clear();
       _employeeList = await EmployeeService.getAllEmployees();
@@ -90,6 +97,26 @@ class _TicketEditState extends State<TicketEdit> {
       _projectList = await ProjectService.getAllProjects();
       _taskList.clear();
       _taskList = await TaskService.getAllTasks();
+      _clientList.clear();
+      _clientList = await ClientService.getAllClients();
+      _companyList.clear();
+      _companyList = await CompanyService.getAllCompanies();
+
+      // Set client UID from client list after loading
+      if (_selectedClient != null) {
+        final matchingClient = _clientList.firstWhere(
+          (e) => (e.clientName ?? '') == _selectedClient,
+          orElse: () => _clientList.isNotEmpty
+              ? _clientList.first
+              : ClientModel(
+                  uid: '',
+                  clientName: '',
+                  createdBy: UserDataModel.fromEmptyMap(),
+                  isCompany: false,
+                ),
+        );
+        _selectedClientUid = matchingClient.uid;
+      }
 
       _initialAssignTo.clear();
       for (var i in _selectedAssignTo) {
@@ -204,22 +231,9 @@ class _TicketEditState extends State<TicketEdit> {
                   icon: Iconsax.document_text,
                   child: Column(
                     children: [
-                      FormFields(
-                        controller: _clientName,
-                        label: "Client Name",
-                        hintText: "Enter client name",
-                        valid: (v) => Validation.commonValidation(
-                          input: v,
-                          label: "Client Name",
-                          isReq: true,
-                        ),
-                      ),
+                      _buildClientDropdown(),
                       const SizedBox(height: 16),
-                      FormFields(
-                        controller: _clientCompanyName,
-                        label: "Client Company Name",
-                        hintText: "Enter company name (optional)",
-                      ),
+                      _buildCompanyDropdown(),
                       const SizedBox(height: 16),
                       _buildModeOfContactSelector(),
                       const SizedBox(height: 16),
@@ -264,7 +278,12 @@ class _TicketEditState extends State<TicketEdit> {
                     children: [
                       _buildDropdownField(
                         "Project",
-                        _projectList.map((e) => e.projectName).toList(),
+                        _selectedClientUid != null
+                            ? _projectList
+                                  .where((p) => p.client == _selectedClientUid)
+                                  .map((e) => e.projectName)
+                                  .toList()
+                            : _projectList.map((e) => e.projectName).toList(),
                         initialItem: _selectedProject != null
                             ? _projectList
                                   .where((e) => e.uid == _selectedProject)
@@ -272,7 +291,14 @@ class _TicketEditState extends State<TicketEdit> {
                                   .firstOrNull
                             : null,
                         (val) {
-                          _selectedProject = _projectList
+                          var filteredProjects = _selectedClientUid != null
+                              ? _projectList
+                                    .where(
+                                      (p) => p.client == _selectedClientUid,
+                                    )
+                                    .toList()
+                              : _projectList;
+                          _selectedProject = filteredProjects
                               .firstWhere((e) => e.projectName == val)
                               .uid;
                         },
@@ -332,22 +358,9 @@ class _TicketEditState extends State<TicketEdit> {
             icon: Iconsax.document_text,
             child: Column(
               children: [
-                FormFields(
-                  controller: _clientName,
-                  label: "Client Name",
-                  hintText: "Enter client name",
-                  valid: (v) => Validation.commonValidation(
-                    input: v,
-                    label: "Client Name",
-                    isReq: true,
-                  ),
-                ),
+                _buildClientDropdown(),
                 const SizedBox(height: 16),
-                FormFields(
-                  controller: _clientCompanyName,
-                  label: "Client Company Name",
-                  hintText: "Enter company name (optional)",
-                ),
+                _buildCompanyDropdown(),
                 const SizedBox(height: 16),
                 _buildModeOfContactSelector(),
                 const SizedBox(height: 16),
@@ -374,7 +387,12 @@ class _TicketEditState extends State<TicketEdit> {
               children: [
                 _buildDropdownField(
                   "Project",
-                  _projectList.map((e) => e.projectName).toList(),
+                  _selectedClientUid != null
+                      ? _projectList
+                            .where((p) => p.client == _selectedClientUid)
+                            .map((e) => e.projectName)
+                            .toList()
+                      : _projectList.map((e) => e.projectName).toList(),
                   initialItem: _selectedProject != null
                       ? _projectList
                             .where((e) => e.uid == _selectedProject)
@@ -382,7 +400,12 @@ class _TicketEditState extends State<TicketEdit> {
                             .firstOrNull
                       : null,
                   (val) {
-                    _selectedProject = _projectList
+                    var filteredProjects = _selectedClientUid != null
+                        ? _projectList
+                              .where((p) => p.client == _selectedClientUid)
+                              .toList()
+                        : _projectList;
+                    _selectedProject = filteredProjects
                         .firstWhere((e) => e.projectName == val)
                         .uid;
                   },
@@ -704,6 +727,83 @@ class _TicketEditState extends State<TicketEdit> {
           items: items,
           onChanged: onChanged,
           initialItem: initialItem,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildClientDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Client Name",
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        FormDropdownSearch(
+          items: _clientList
+              .map((e) => e.clientName)
+              .where((name) => name != null && name.isNotEmpty)
+              .toList(),
+          initialItem: _selectedClient,
+          onChanged: (val) {
+            setState(() {
+              _selectedClient = val;
+              // Auto-populate company when client is selected
+              final selectedClientModel = _clientList.firstWhere(
+                (e) => (e.clientName ?? '') == val,
+                orElse: () => _clientList.isNotEmpty
+                    ? _clientList.first
+                    : ClientModel(
+                        uid: '',
+                        clientName: '',
+                        createdBy: UserDataModel.fromEmptyMap(),
+                        isCompany: false,
+                      ),
+              );
+              _selectedClientUid = selectedClientModel.uid;
+              if (selectedClientModel.companyName != null &&
+                  selectedClientModel.companyName!.isNotEmpty) {
+                _selectedCompany = selectedClientModel.companyName;
+                _clientCompanyName.text = selectedClientModel.companyName!;
+              }
+              _clientName.text = val;
+              // Reset project selection when client changes
+              _selectedProject = null;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompanyDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Client Company Name",
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        FormDropdownSearch(
+          items: _clientList
+              .map((e) => e.companyName)
+              .where((name) => name != null && name.isNotEmpty)
+              .toSet()
+              .toList(),
+          initialItem: _selectedCompany,
+          onChanged: (val) {
+            setState(() {
+              _selectedCompany = val;
+              _clientCompanyName.text = val;
+            });
+          },
         ),
       ],
     );

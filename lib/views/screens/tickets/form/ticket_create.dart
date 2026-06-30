@@ -622,18 +622,15 @@ class _TicketCreateState extends State<TicketCreate> {
         const SizedBox(height: 8),
         FormDropdownSearch(
           items: _clientList
-              .map(
-                (e) => e.isCompany ? e.companyName ?? '' : e.clientName ?? '',
-              )
+              .map((e) => e.clientName)
+              .where((name) => name != null && name.isNotEmpty)
               .toList(),
           onChanged: (val) {
             setState(() {
               _selectedClient = val;
               // Auto-populate company when client is selected
               final selectedClientModel = _clientList.firstWhere(
-                (e) =>
-                    (e.isCompany ? e.companyName ?? '' : e.clientName ?? '') ==
-                    val,
+                (e) => (e.clientName ?? '') == val,
                 orElse: () => _clientList.first,
               );
               _selectedClientUid = selectedClientModel.uid;
@@ -665,7 +662,11 @@ class _TicketCreateState extends State<TicketCreate> {
         ),
         const SizedBox(height: 8),
         FormDropdownSearch(
-          items: _companyList.map((e) => e.name).toList(),
+          items: _clientList
+              .map((e) => e.companyName)
+              .where((name) => name != null && name.isNotEmpty)
+              .toSet()
+              .toList(),
           initialItem: _selectedCompany,
           onChanged: (val) {
             setState(() {

@@ -93,6 +93,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
   int expandedIndex = -1;
   late Future _future;
   List<Map<String, dynamic>> _menus = [];
+  final ScrollController _scrollController = ScrollController();
 
   static const double _expandedWidth = 240.0;
   static const double _collapsedWidth = 72.0;
@@ -101,6 +102,12 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
   void initState() {
     super.initState();
     _future = _updateExpandedIndex();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -254,12 +261,11 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                       ),
                     );
                   }
-                  return ScrollConfiguration(
-                    behavior: const ScrollBehavior().copyWith(
-                      scrollbars: false,
-                      overscroll: false,
-                    ),
+                  return Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
                     child: ListView(
+                      controller: _scrollController,
                       children: _menus.asMap().entries.map((entry) {
                         int index = entry.key;
                         var menu = entry.value;

@@ -250,7 +250,7 @@ class _AdminProfileState extends State<AdminProfile> {
           appBar: AppBar(
             backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
-            leading: Back(color: Theme.of(context).colorScheme.onSurface),
+            // leading: Back(color: Theme.of(context).colorScheme.onSurface),
             title: Text(
               "Admin Profile",
               style: TextStyle(
@@ -317,21 +317,21 @@ class _AdminProfileState extends State<AdminProfile> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
                         width: 4,
                       ),
                     ),
                     child: CircleAvatar(
                       radius: 60,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.surfaceContainer,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainer,
                       backgroundImage: hasImage
                           ? NetworkImage(image)
                           : const NetworkImage(AppStrings.emptyProfilePhotoUrl)
-                              as ImageProvider,
+                                as ImageProvider,
                     ),
                   ),
                 ),

@@ -35,7 +35,8 @@ class TicketListView extends StatelessWidget {
         filterLogic: (ticket, query) {
           final q = query.toLowerCase();
           return ticket.ticketTitle.toLowerCase().contains(q) ||
-              ticket.clientName.toLowerCase().contains(q);
+              ticket.clientName.toLowerCase().contains(q) ||
+              ticket.ticketNumber?.toString().contains(q) == true;
         },
         sortLogic: (a, b, col, asc) {
           int compare;
