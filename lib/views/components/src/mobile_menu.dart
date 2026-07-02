@@ -81,6 +81,8 @@ class _MobileMenuState extends State<MobileMenu> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Only show Contacts if user has Contact permission
+              if (_hasPermission('Contact'))
               ListTile(
                 leading: const Icon(Iconsax.user),
                 title: const Text("Contacts"),
@@ -92,6 +94,8 @@ class _MobileMenuState extends State<MobileMenu> {
                   );
                 },
               ),
+               // Only show Company if user has Company permission
+              if (_hasPermission('Company'))
               ListTile(
                 leading: const Icon(Iconsax.building),
                 title: const Text("Company"),
@@ -107,6 +111,18 @@ class _MobileMenuState extends State<MobileMenu> {
           ),
         );
       },
+    );
+  }
+
+  bool _hasPermission(String permission) {
+    if (_isAdmin) return true;
+    final clientsMenuItem = _menuItems.firstWhere(
+      (item) => item.id == 'clients',
+      orElse: () => MenuItem(id: '', title: '', icon: Iconsax.info_circle),
+    );
+    if (clientsMenuItem.children == null) return false;
+    return clientsMenuItem.children!.any(
+      (child) => child.id == 'client_$permission.toLowerCase()',
     );
   }
 
@@ -266,7 +282,7 @@ class _MobileMenuState extends State<MobileMenu> {
   void _handleMenuTap(MenuItem item) {
     switch (item.id) {
       case 'dashboard':
-        Navigate.routeReplace(context, RouteScreen());
+        Navigate.routeReplace(context, MobileMainScreen(isAdmin: _isAdmin));
         break;
       case 'feed':
         Navigate.route(

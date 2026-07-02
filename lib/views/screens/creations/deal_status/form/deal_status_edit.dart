@@ -18,7 +18,7 @@ class _DealStatusEditState extends State<DealStatusEdit> {
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _colorController = TextEditingController();
-  Color _selectedColor = const Color(0x0fffffff);
+  Color _selectedColor = const Color(0xFF64748B);
 
   late Future _future;
   DealStatusModel? _dealStatusModel;

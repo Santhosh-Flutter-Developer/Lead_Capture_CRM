@@ -12,7 +12,7 @@ class Back extends StatelessWidget {
       tooltip: "Back",
       icon: Icon(
         Icons.arrow_back_ios_new_rounded,
-        color: color ?? Theme.of(context).colorScheme.onPrimary,
+        color: color ?? Theme.of(context).colorScheme.onSurface,
       ),
       onPressed: () async {
         if (pop) {

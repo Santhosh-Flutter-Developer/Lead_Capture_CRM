@@ -244,11 +244,11 @@ class _AdminProfileState extends State<AdminProfile> {
         final canEdit = snapshot.data ?? false;
 
         return Scaffold(
-          backgroundColor: AppColors.grey50,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             backgroundColor: Theme.of(context).colorScheme.surface,
             elevation: 0,
-            // leading: Back(color: Theme.of(context).colorScheme.onSurface),
+            leading: Back(color: Theme.of(context).colorScheme.onSurface),
             title: Text(
               "Admin Profile",
               style: TextStyle(
@@ -274,7 +274,7 @@ class _AdminProfileState extends State<AdminProfile> {
                   Iconsax.edit,
                   color: canEdit
                       ? Theme.of(context).colorScheme.onSurface
-                      : AppColors.grey400,
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -345,7 +345,7 @@ class _AdminProfileState extends State<AdminProfile> {
                       child: const Padding(
                         padding: EdgeInsets.all(10.0),
                         child: Icon(
-                          Iconsax.camera,
+                          Iconsax.image,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -371,7 +371,7 @@ class _AdminProfileState extends State<AdminProfile> {
               label: Text(
                 _admin.isActive ? 'Active' : 'Inactive',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.white,
+                  color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
               ),

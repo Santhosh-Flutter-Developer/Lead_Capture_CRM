@@ -16,7 +16,7 @@ class _LeadStatusCreateState extends State<LeadStatusCreate> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _colorController = TextEditingController();
-  Color _selectedColor = const Color(0x0fffffff);
+  Color _selectedColor = const Color(0xFF64748B);
   bool _isFinal = false;
   bool _showFinalWarning = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();

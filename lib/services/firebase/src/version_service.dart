@@ -76,7 +76,7 @@ class VersionService {
       return versionModel;
     } catch (e, st) {
       await ErrorService.recordError(e, st);
-      throw 'Error: $e';
+      return null;
     }
   }
 

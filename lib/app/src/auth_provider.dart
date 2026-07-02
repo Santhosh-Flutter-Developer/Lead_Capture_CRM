@@ -25,49 +25,58 @@ class AuthProvider with ChangeNotifier {
   Widget? get homeWidget => _homeWidget;
 
   Future<void> checkLoginStatus() async {
-    var isLogin = await Spdb.checkLogin();
+    try {
+      var isLogin = await Spdb.checkLogin();
 
-    bool isUpdateNeed = VersionService.version?.isUpdateNeed ?? false;
+      bool isUpdateNeed = VersionService.version?.isUpdateNeed ?? false;
 
-    if (!isUpdateNeed) {
-      // Windows runtime check — only on native Windows, never on web
-      if (!kIsWeb && kIsWindows) {
-        var isInstalled = await runtimeInstalled();
-        if (!isInstalled) {
-          _homeWidget = const RuntimeInstall();
-          _isLoggedIn = true;
-          notifyListeners();
-          return;
+      if (!isUpdateNeed) {
+        // Windows runtime check — only on native Windows, never on web
+        if (!kIsWeb && kIsWindows) {
+          var isInstalled = await runtimeInstalled();
+          if (!isInstalled) {
+            _homeWidget = const RuntimeInstall();
+            _isLoggedIn = true;
+            notifyListeners();
+            return;
+          }
         }
-      }
 
-      if (isLogin) {
-        var isAdmin = await Spdb.isAdminLoggedIn();
-        // Web gets the same sidebar (desktop) layout as native desktop
-        if (kIsDesktop || kIsWeb) {
-          _homeWidget = RouteScreen();
+        if (isLogin) {
+          var isAdmin = await Spdb.isAdminLoggedIn();
+          // Web gets the same sidebar (desktop) layout as native desktop
+          if (kIsDesktop || kIsWeb) {
+            _homeWidget = RouteScreen();
+          } else {
+            _homeWidget = MainScreen(isAdmin: isAdmin);
+          }
         } else {
-          _homeWidget = MainScreen(isAdmin: isAdmin);
+          _homeWidget = const Login();
         }
       } else {
-        _homeWidget = const Login();
-      }
-    } else {
-      // Update screens — only relevant on native platforms
-      if (!kIsWeb) {
-        if (kIsWindows) {
-          _homeWidget = WindowsUpdate();
-        } else if (kIsMobile) {
-          // Android update screen (already guarded in the original)
-          _homeWidget = AndroidUpdate();
+        // Update screens — only relevant on native platforms
+        if (!kIsWeb) {
+          if (kIsWindows) {
+            _homeWidget = WindowsUpdate();
+          } else if (kIsMobile) {
+            // Android update screen (already guarded in the original)
+            _homeWidget = AndroidUpdate();
+          } else {
+            _homeWidget = const Login();
+          }
+          // For other native platforms (macOS, Linux) fall through to Login
         }
-        // For other native platforms (macOS, Linux) fall through to Login
+        // On web: version update is handled server-side; skip update screen
       }
-      // On web: version update is handled server-side; skip update screen
-    }
 
-    _isLoggedIn = true;
-    notifyListeners();
+      _isLoggedIn = true;
+      notifyListeners();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      _homeWidget = const Login();
+      _isLoggedIn = true;
+      notifyListeners();
+    }
   }
 }
 

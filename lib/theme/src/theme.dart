@@ -111,6 +111,21 @@ final ThemeData lightTheme = ThemeData(
       return null;
     }),
   ),
+  scrollbarTheme: ScrollbarThemeData(
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.hovered)) {
+        return const Color(0xFF94A3B8);
+      }
+      return const Color(0xFFCBD5E1);
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      return const Color(0xFFE2E8F0).withValues(alpha: 0.5);
+    }),
+    trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+    crossAxisMargin: -4,
+    thickness: WidgetStateProperty.all(4),
+    radius: const Radius.circular(2),
+  ),
   listTileTheme: ListTileThemeData(
     iconColor: const Color(0xFF64748B),
     titleTextStyle: const TextStyle(
@@ -234,6 +249,21 @@ final ThemeData darkTheme = ThemeData(
         return AppColors.primary.withValues(alpha: 0.5);
       return null;
     }),
+  ),
+  scrollbarTheme: ScrollbarThemeData(
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.hovered)) {
+        return const Color(0xFF64748B);
+      }
+      return const Color(0xFF475569);
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      return const Color(0xFF334155).withValues(alpha: 0.5);
+    }),
+    trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+    crossAxisMargin: -4,
+    thickness: WidgetStateProperty.all(4),
+    radius: const Radius.circular(2),
   ),
   listTileTheme: ListTileThemeData(
     iconColor: const Color(0xFF94A3B8),

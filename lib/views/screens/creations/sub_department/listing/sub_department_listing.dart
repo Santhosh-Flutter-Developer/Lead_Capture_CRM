@@ -305,10 +305,12 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
   }
 
   Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _searchBox(onSearchChanged: onSearchChanged),
+        if (!kIsMobile && width >= 1000)
         Row(
           children: [
             ElevatedButton.icon(

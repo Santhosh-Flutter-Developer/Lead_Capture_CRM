@@ -138,59 +138,22 @@ class _ProfileState extends State<Profile> {
       if (pickedPath == null) return;
       imageFile = XFile(pickedPath);
     } else {
-      // Mobile: bottom sheet → camera or gallery
-      final source = await showModalBottomSheet<ImageSource>(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (_) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Take Photo'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Choose from Gallery'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      );
-
-      if (source == null) return;
+      // Mobile: gallery only
+      
 
       final picker = ImagePicker();
       final pickedImage = await picker.pickImage(
-        source: source,
+        source: ImageSource.gallery,
         imageQuality: 65,
       );
       if (pickedImage == null) return;
 
-      if (source == ImageSource.gallery) {
+     
         final rotated = await FlutterExifRotation.rotateImage(
           path: pickedImage.path,
         );
         imageFile = XFile(rotated.path);
-      } else {
-        imageFile = pickedImage;
-      }
+      
     }
 
     FlushBar.show(context, "Uploading profile picture...");
@@ -602,7 +565,7 @@ class _ProfileState extends State<Profile> {
                   child: Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Icon(
-                      kIsWindows ? Icons.upload_file_rounded : Iconsax.camera,
+                      kIsWindows ? Icons.upload_file_rounded : Iconsax.image,
                       color: Colors.white,
                       size: 20,
                     ),

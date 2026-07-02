@@ -147,9 +147,9 @@ class _ClientListingViewState extends State<ClientListingView> {
             }
 
             if (state is ClientLoaded) {
-              if (!(permissions?.canView ?? false)) {
-                return buildNoPermissionView(context);
-              }
+              // if (!(permissions?.canView ?? false)) {
+              //   return buildNoPermissionView(context);
+              // }
               return RefreshIndicator(
                 onRefresh: () => _refreshClients(context),
                 child: ListView(

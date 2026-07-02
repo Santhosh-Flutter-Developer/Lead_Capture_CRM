@@ -18,7 +18,7 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _colorController = TextEditingController();
-  Color _selectedColor = const Color(0x0fffffff);
+  Color _selectedColor = const Color(0xFF64748B);
 
   late Future _future;
   LeadStatusModel? _leadStatusModel;
