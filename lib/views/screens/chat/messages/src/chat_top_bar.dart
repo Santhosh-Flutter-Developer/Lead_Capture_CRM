@@ -1,9 +1,10 @@
 part of 'chat_messages.dart';
 
 void openUser(BuildContext context, dynamic user) {
+  final width = MediaQuery.of(context).size.width;
   if (user == null) return;
 
-  if (kIsMobile) {
+  if (kIsMobile || width < 1000) {
     Sheet.showSheet(
       context,
       widget: user is AdminModel

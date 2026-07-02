@@ -72,8 +72,9 @@ class _ChatListingViewState extends State<ChatListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocBuilder<ChatBloc, ChatState>(
@@ -89,7 +90,7 @@ class _ChatListingViewState extends State<ChatListingView> {
                 : null;
             return LayoutBuilder(
               builder: (context, constraints) {
-                if (constraints.maxWidth < 900) {
+                if (constraints.maxWidth < 1000) {
                   if (state.chats.isNotEmpty) {
                     return ChatListPanel(
                       onSelect: (index) {
@@ -154,7 +155,7 @@ class _ChatListingViewState extends State<ChatListingView> {
           return const NoData(text: "No chats available");
         },
       ),
-      floatingActionButton: kIsMobile
+      floatingActionButton: kIsMobile || width < 1000
           ? FloatingActionButton(
               heroTag: null,
               foregroundColor: Theme.of(context).colorScheme.surface,
@@ -307,8 +308,9 @@ class _ChatListPanelState extends State<ChatListPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return Container(
-      width: kIsMobile ? double.infinity : 320,
+      width: kIsMobile || width < 1000 ? double.infinity : 320,
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).dividerColor),
         color: Theme.of(context).colorScheme.surface,
@@ -337,7 +339,7 @@ class _ChatListPanelState extends State<ChatListPanel> {
                   ),
                 ),
 
-                if (kIsDesktop||kIsWeb) ...[
+                if (kIsDesktop|| (kIsWeb && width >= 1000)) ...[
                   const SizedBox(width: 8),
                   Material(
                     color: Theme.of(context).colorScheme.surface,
@@ -531,11 +533,12 @@ class _ChatListItem extends StatelessWidget {
   }
 
   Future<void> _openChatUserProfile(BuildContext context, String uid) async {
+    final width = MediaQuery.of(context).size.width;
     final profile = await _resolveProfileByUid(uid);
     if (!context.mounted) return;
 
     if (profile is EmployeeModel) {
-      if (kIsMobile) {
+      if (kIsMobile || width < 1000) {
         await Sheet.showSheet(
           context,
           widget: EmployeeDetails(employee: profile),
@@ -550,7 +553,7 @@ class _ChatListItem extends StatelessWidget {
     }
 
     if (profile is AdminModel) {
-      if (kIsMobile) {
+      if (kIsMobile || width < 1000) {
         await Sheet.showSheet(context, widget: AdminProfile(admin: profile));
       } else {
         await GeneralDialog.showRTLSheet(context, AdminProfile(admin: profile));

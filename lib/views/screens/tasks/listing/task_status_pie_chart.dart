@@ -21,6 +21,7 @@ class _TaskStatusPieChartState extends State<TaskStatusPieChart> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     // 1. Grouping Logic
     int notStartedCount = 0;
     int ongoingCount = 0;
@@ -40,7 +41,7 @@ class _TaskStatusPieChartState extends State<TaskStatusPieChart> {
 
     return GestureDetector(
       onTap: () {
-        if (kIsMobile) {
+        if (kIsMobile || width < 1000) {
           Sheet.showSheet(context, widget: const TasksListing());
         } else {
           GeneralDialog.showRTLSheet(context, const TasksListing());

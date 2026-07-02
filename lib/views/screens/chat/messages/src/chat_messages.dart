@@ -100,11 +100,12 @@ class _ChatMessagesState extends State<ChatMessages> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return ChatData(
       uid: widget.chat.uid ?? '',
       currentUser: widget.currentUser,
       child: Scaffold(
-        appBar: kIsMobile
+        appBar: kIsMobile || width < 1000
             ? ChatTopBar(
                 userUid: widget.opponentUid,
                 currentUserUid: widget.currentUser,

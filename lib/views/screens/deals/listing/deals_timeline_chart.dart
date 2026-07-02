@@ -15,6 +15,7 @@ class DealsTimelineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     // 1. Setup Current Month Data
     final DateTime now = DateTime.now();
     final int daysInMonth = DateTime(now.year, now.month + 1, 0).day;
@@ -46,7 +47,7 @@ class DealsTimelineChart extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        if (kIsMobile) {
+        if (kIsMobile || width < 1000) {
           Sheet.showSheet(context, widget: const DealsListing());
         } else {
           GeneralDialog.showRTLSheet(context, const DealsListing());

@@ -1325,10 +1325,11 @@ List<Widget> _userActions(
 ];
 
 void _openSheet(BuildContext context, Widget widget) {
+  final width = MediaQuery.of(context).size.width;
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!context.mounted) return;
 
-    if (kIsMobile) {
+    if (kIsMobile || width < 1000) {
       Sheet.showSheet(context, widget: widget);
     } else {
       GeneralDialog.showRTLSheet(context, widget);

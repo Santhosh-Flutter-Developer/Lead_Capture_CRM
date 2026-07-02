@@ -421,6 +421,7 @@ class _AboutChatState extends State<AboutChat> {
   }
 
   Widget _buildActionsCard(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
@@ -491,7 +492,7 @@ class _AboutChatState extends State<AboutChat> {
             showChevron: true,
             onTap: () {
               Navigator.pop(context);
-              if (kIsMobile) {
+              if (kIsMobile || width < 1000) {
                 Sheet.showSheet(
                   context,
                   widget: ChatAttachment(chatId: widget.chat.uid ?? ''),

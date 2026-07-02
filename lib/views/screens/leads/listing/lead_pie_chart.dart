@@ -20,6 +20,7 @@ class _LeadsSourcePieChartState extends State<LeadsSourcePieChart> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     // 1. Group data by Lead Source
     final Map<String, int> sourceCounts = {};
     for (var lead in widget.leads) {
@@ -31,7 +32,7 @@ class _LeadsSourcePieChartState extends State<LeadsSourcePieChart> {
 
     return GestureDetector(
       onTap: () {
-        if (kIsMobile) {
+        if (kIsMobile || width < 1000) {
           Sheet.showSheet(context, widget: const LeadsListing());
         } else {
           GeneralDialog.showRTLSheet(context, const LeadsListing());
