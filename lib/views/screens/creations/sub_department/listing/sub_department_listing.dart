@@ -308,26 +308,27 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _searchBox(onSearchChanged: onSearchChanged),
-        Row(
-          children: [
-            ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.filter_list, size: 18),
-              label: Text(
-                "Filters",
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                foregroundColor: Theme.of(context).colorScheme.onSurface,
-                elevation: 0,
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+        if (!kIsMobile)
+          Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.filter_list, size: 18),
+                label: Text(
+                  "Filters",
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  elevation: 0,
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }

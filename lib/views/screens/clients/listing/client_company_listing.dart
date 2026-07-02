@@ -141,9 +141,9 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
             }
 
             if (state is ClientCompanyLoaded) {
-              if (!(permissions?.canView ?? false)) {
-                return buildNoPermissionView(context);
-              }
+              // if (!(permissions?.canView ?? false)) {
+              //   return buildNoPermissionView(context);
+              // }
               if (state.clients.isEmpty) {
                 return const NoData(text: "No clients company available");
               }
@@ -386,7 +386,9 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
             ElevatedButton.icon(
               label: Text("Export"),
               icon: const Icon(Iconsax.export_3),
-              onPressed: (permissions?.canExport ?? false) == false || controllerWatch.paginatedItems.isEmpty
+              onPressed:
+                  (permissions?.canExport ?? false) == false ||
+                      controllerWatch.paginatedItems.isEmpty
                   ? null
                   : () async {
                       try {

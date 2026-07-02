@@ -15,41 +15,49 @@ class AuthProvider with ChangeNotifier {
   Widget? get homeWidget => _homeWidget;
 
   Future<void> checkLoginStatus() async {
-    var isLogin = await Spdb.checkLogin();
+    try {
+      var isLogin = await Spdb.checkLogin();
+      bool isUpdateNeed = VersionService.version?.isUpdateNeed ?? false;
 
-    bool isUpdateNeed = VersionService.version?.isUpdateNeed ?? false;
-
-    if (!isUpdateNeed) {
-      if (Platform.isWindows) {
-        var isInstalled = await runtimeInstalled();
-        if (!isInstalled) {
-          _homeWidget = const RuntimeInstall();
-          _isLoggedIn = true;
-          notifyListeners();
-          return;
+      if (!isUpdateNeed) {
+        if (Platform.isWindows) {
+          var isInstalled = await runtimeInstalled();
+          if (!isInstalled) {
+            _homeWidget = const RuntimeInstall();
+            _isLoggedIn = true;
+            notifyListeners();
+            return;
+          }
         }
-      }
 
-      if (isLogin) {
-        var isAdmin = await Spdb.isAdminLoggedIn();
-        if (kIsDesktop) {
-          _homeWidget = RouteScreen();
+        if (isLogin) {
+          var isAdmin = await Spdb.isAdminLoggedIn();
+          if (kIsDesktop) {
+            _homeWidget = RouteScreen();
+          } else {
+            _homeWidget = MainScreen(isAdmin: isAdmin);
+          }
         } else {
-          _homeWidget = MainScreen(isAdmin: isAdmin);
+          _homeWidget = const Login();
         }
       } else {
-        _homeWidget = const Login();
+        if (Platform.isWindows) {
+          _homeWidget = WindowsUpdate();
+        } else if (Platform.isAndroid) {
+          _homeWidget = AndroidUpdate();
+        } else {
+          _homeWidget = const Login();
+        }
       }
-    } else {
-      if (Platform.isWindows) {
-        _homeWidget = WindowsUpdate();
-      } else if(Platform.isAndroid) {
-        _homeWidget = AndroidUpdate();
-      }
-    }
 
-    _isLoggedIn = true;
-    notifyListeners();
+      _isLoggedIn = true;
+      notifyListeners();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      _homeWidget = const Login();
+      _isLoggedIn = true;
+      notifyListeners();
+    }
   }
 }
 

@@ -1247,38 +1247,32 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   }
 
   Widget _buildTimelineTab() {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-        child: BlocBuilder<LeadBloc, LeadState>(
-          builder: (context, state) {
-            if (state is LeadDetailLoaded) {
-              if (state.history.isEmpty) {
-                return _emptyState(Iconsax.activity, "No activity logs yet");
-              }
-
-              return SizedBox(
-                height: MediaQuery.of(context).size.height * 0.55,
-                child: ListView.builder(
-                  itemCount: state.history.length,
-                  itemBuilder: (context, index) => _buildTimelineItem(
-                    state.history[index],
-                    index == state.history.length - 1,
-                  ),
-                ),
-              );
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: BlocBuilder<LeadBloc, LeadState>(
+        builder: (context, state) {
+          if (state is LeadDetailLoaded) {
+            if (state.history.isEmpty) {
+              return _emptyState(Iconsax.activity, "No activity logs yet");
             }
-
-            return const WaitingLoading();
-          },
-        ),
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * 0.55,
+              child: ListView.builder(
+                itemCount: state.history.length,
+                itemBuilder: (context, index) => _buildTimelineItem(
+                  state.history[index],
+                  index == state.history.length - 1,
+                ),
+              ),
+            );
+          }
+          return const WaitingLoading();
+        },
       ),
     );
   }

@@ -44,7 +44,7 @@ class VersionService {
           .limit(1)
           .get();
 
-      // if (versionDoc.docs.isEmpty) return null;
+      if (versionDoc.docs.isEmpty) return null;
       var versionData = versionDoc.docs.first.data();
 
       var versionModel = VersionModel.fromMap(versionData);
@@ -60,7 +60,7 @@ class VersionService {
       return versionModel;
     } catch (e, st) {
       await ErrorService.recordError(e, st);
-      throw 'Error: $e';
+      return null;
     }
   }
 

@@ -354,6 +354,7 @@ class MenuService {
         }
 
         // Only add parent if it has accessible children
+        // Parent items without requiredPermissions should not be shown if all children are filtered
         if (filteredChildren.isNotEmpty) {
           filteredItems.add(
             MenuItem(
@@ -370,6 +371,8 @@ class MenuService {
             ),
           );
         }
+        // Skip parent if no children are accessible
+        continue;
       } else {
         filteredItems.add(item);
       }
