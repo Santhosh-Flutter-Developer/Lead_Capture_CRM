@@ -116,9 +116,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
         .read<PaginatedDataController<UserRowModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<UserRowModel>>();
-
+  final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<UsersBloc, UsersState>(
@@ -594,6 +594,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
   }
 
   Widget _buildActionRow() {
+    final width = MediaQuery.of(context).size.width;
     return LayoutBuilder(
       builder: (context, constraints) {
         // final bool isMobile = constraints.maxWidth < 600;
@@ -605,7 +606,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
           buttons.add(
             ElevatedButton.icon(
               onPressed: () {
-                if (kIsMobile) {
+                if (kIsMobile || width < 1000) {
                   Sheet.showSheet(context, widget: const EmployeeCreate());
                 } else {
                   GeneralDialog.showRTLSheet(context, const EmployeeCreate());
@@ -652,7 +653,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
           buttons.add(
             ElevatedButton.icon(
               onPressed: () {
-                if (kIsMobile) {
+                if (kIsMobile || width < 1000) {
                   Sheet.showSheet(context, widget: const EmployeeUploadPage());
                 } else {
                   GeneralDialog.showRTLSheet(
@@ -835,12 +836,12 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
                 }
-                if (kIsDesktop) {
+                if (kIsDesktop || (kIsWeb && width >= 1000)) {
                   GeneralDialog.showRTLSheet(
                     context,
                     OrgChart(rawData: resultMap),
                   );
-                } else if (kIsMobile) {
+                } else if (kIsMobile || (kIsWeb && width < 1000)) {
                   Sheet.showSheet(
                     context,
                     widget: OrgChart(rawData: resultMap),
@@ -1277,7 +1278,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: kIsMobile
+                  child: kIsMobile || width < 1000
                       ? Wrap(spacing: 10, runSpacing: 10, children: buttons)
                       : SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
@@ -1389,6 +1390,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
     PaginatedDataController<UserRowModel> controllerWatch,
     PaginatedDataController<UserRowModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     final devices = (user.devices ?? [])
         .map((e) => DeviceModel.fromMap(e))
         .toList();
@@ -1424,7 +1426,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
     // }
 
     void openUser(BuildContext context, UserRowModel user) {
-      if (kIsMobile) {
+      if (kIsMobile || width < 1000) {
         Sheet.showSheet(
           context,
           widget: user.isAdmin
@@ -1633,7 +1635,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                       icon: const Icon(Iconsax.edit),
                       color: Theme.of(context).colorScheme.secondary,
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: EmployeeEdit(

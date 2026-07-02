@@ -81,9 +81,10 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
         .read<PaginatedDataController<SubDepartmentModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<SubDepartmentModel>>();
+    final width = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<SubDepartmentBloc, SubDepartmentState>(
@@ -333,6 +334,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
   }
 
   Widget _buildActionRow(context) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -341,7 +343,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
             (permissions?.canCreate ?? false)
                 ? ElevatedButton.icon(
                     onPressed: () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: const SubDepartmentCreate(),
@@ -502,6 +504,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
     PaginatedDataController<SubDepartmentModel> controllerRead,
   ) {
     bool isSelected = controllerWatch.selectedIds.contains(subDepartment.uid);
+    final width = MediaQuery.of(context).size.width;
     return DataRow(
       selected: isSelected,
       onSelectChanged: (selected) {
@@ -542,7 +545,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
                   ? IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: SubDepartmentEdit(

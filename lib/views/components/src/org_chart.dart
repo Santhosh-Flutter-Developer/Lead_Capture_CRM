@@ -22,15 +22,27 @@ class _OrgChartState extends State<OrgChart> {
   late Map<String, List<String>> reportingMap;
   final Map<String, Node> nodeCache = {};
 
+  // Guards so the graph (which needs Theme.of(context)) is only
+  // built once automatically, right after the first safe opportunity.
+  bool _graphBuilt = false;
+
   @override
   void initState() {
     super.initState();
-    _initializeGraph();
+    // Safe here: normalize() only processes widget.rawData and does NOT
+    // touch Theme.of(context) or any other InheritedWidget lookup.
+    reportingMap = normalize(widget.rawData);
   }
 
-  void _initializeGraph() {
-    reportingMap = normalize(widget.rawData);
-    _buildGraph();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // didChangeDependencies() runs AFTER initState() and after the widget
+    // is attached to the tree, so Theme.of(context) is safe here.
+    if (!_graphBuilt) {
+      _buildGraph();
+      _graphBuilt = true;
+    }
   }
 
   void _buildGraph() {
@@ -162,7 +174,10 @@ class _OrgChartState extends State<OrgChart> {
                 nodeCache.clear();
                 graph.nodes.clear();
                 graph.edges.clear();
-                _initializeGraph();
+                // Safe to call directly here — we're well past initState()
+                // and didChangeDependencies(), so Theme.of(context) works fine.
+                reportingMap = normalize(widget.rawData);
+                _buildGraph();
               });
             },
           ),
