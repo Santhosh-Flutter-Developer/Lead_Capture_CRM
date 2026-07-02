@@ -98,13 +98,14 @@ class _TicketListingViewState extends State<TicketListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<CustomerTicketModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<CustomerTicketModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<TicketBloc, TicketState>(
@@ -333,6 +334,7 @@ class _TicketListingViewState extends State<TicketListingView> {
   }
 
   Widget _buildActionRow(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return LayoutBuilder(
       builder: (context, constraints) {
         final addDeleteButtons = Row(
@@ -341,7 +343,7 @@ class _TicketListingViewState extends State<TicketListingView> {
             if (permissions?.canCreate ?? false) ...[
               ElevatedButton.icon(
                 onPressed: () {
-                  if (kIsMobile) {
+                  if (kIsMobile || width < 1000) {
                     Sheet.showSheet(context, widget: const TicketCreate());
                   } else {
                     GeneralDialog.showRTLSheet(context, const TicketCreate());
@@ -475,7 +477,7 @@ class _TicketListingViewState extends State<TicketListingView> {
           ],
         );
 
-        if (kIsMobile) {
+        if (kIsMobile || width < 1000) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -538,9 +540,10 @@ class _TicketListingViewState extends State<TicketListingView> {
     PaginatedDataController<CustomerTicketModel> controllerWatch,
     PaginatedDataController<CustomerTicketModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(ticket.uid);
     void openTicket(BuildContext context, String uid) {
-      if (kIsMobile) {
+      if (kIsMobile || width < 1000) {
         Sheet.showSheet(context, widget: TicketView(uid: uid));
       } else {
         GeneralDialog.showRTLSheet(context, TicketView(uid: uid));
@@ -689,7 +692,7 @@ class _TicketListingViewState extends State<TicketListingView> {
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   onPressed: () {
-                    if (kIsMobile) {
+                    if (kIsMobile || width < 1000) {
                       Sheet.showSheet(
                         context,
                         widget: TicketEdit(uid: ticket.uid ?? ''),

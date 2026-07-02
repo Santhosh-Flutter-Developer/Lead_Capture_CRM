@@ -88,13 +88,14 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<ProjectModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<ProjectModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<ProjectsBloc, ProjectsState>(
@@ -280,6 +281,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   }
 
   Widget _buildActionRow(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -288,7 +290,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
             if (permissions?.canCreate ?? false) ...[
               ElevatedButton.icon(
                 onPressed: () {
-                  if (kIsMobile) {
+                  if (kIsMobile || width < 1000) {
                     Sheet.showSheet(context, widget: const ProjectCreate());
                   } else {
                     GeneralDialog.showRTLSheet(context, const ProjectCreate());
@@ -483,6 +485,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
     PaginatedDataController<ProjectModel> controllerWatch,
     PaginatedDataController<ProjectModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(project.uid);
     return DataRow(
       selected: isSelected,
@@ -528,7 +531,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   onPressed: () {
-                    if (kIsMobile) {
+                    if (kIsMobile || width < 1000) {
                       Sheet.showSheet(
                         context,
                         widget: ProjectEdit(uid: project.uid ?? ''),

@@ -117,6 +117,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = Provider.of<PaginatedDataController<ClientModel>>(
       context,
       listen: false,
@@ -127,7 +128,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     );
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(pageTitle))
           : null,
       body: BlocListener<ClientCompanyBloc, ClientCompanyState>(
@@ -328,6 +329,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
   }
 
   Widget _buildActionRow(context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerWatch = Provider.of<PaginatedDataController<ClientModel>>(
       context,
       listen: true,
@@ -344,7 +346,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                       ? const ContactCreate()
                       : const CompanyCreate();
 
-                  if (kIsMobile) {
+                  if (kIsMobile || width < 1000) {
                     Sheet.showSheet(context, widget: form);
                   } else {
                     GeneralDialog.showRTLSheet(context, form);
@@ -762,10 +764,11 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     String? imageUrl,
     bool isCompany,
   ) {
+    final width = MediaQuery.of(context).size.width;
     return InkWell(
       onTap: () {
         final profile = ClientProfile(client: company, isCompany: isCompany);
-        kIsMobile
+        kIsMobile || width < 1000
             ? Sheet.showSheet(context, widget: profile)
             : GeneralDialog.showRTLSheet(context, profile);
       },
@@ -809,6 +812,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
   }
 
   Widget _actionButtons(BuildContext context, ClientModel client) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       children: [
         if (permissions?.canEdit ?? false) ...[
@@ -821,7 +825,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                   ? ContactUpdate(uid: client.uid!)
                   : CompanyUpdate(uid: client.uid!);
 
-              if (kIsMobile) {
+              if (kIsMobile || width < 1000) {
                 Sheet.showSheet(context, widget: form);
               } else {
                 GeneralDialog.showRTLSheet(context, form);

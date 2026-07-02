@@ -78,13 +78,14 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<LeadStatusModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<LeadStatusModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<LeadStatusBloc, LeadStatusState>(
@@ -322,6 +323,7 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
   }
 
   Widget _buildActionRow(context, List<LeadStatusModel> leadStatusList) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -330,7 +332,7 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
             (permissions?.canCreate ?? false)
                 ? ElevatedButton.icon(
                     onPressed: () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: const LeadStatusCreate(),
@@ -527,7 +529,7 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
               icon: const Icon(Iconsax.arrange_circle),
               onPressed: leadStatusList.isNotEmpty
                   ? () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: LeadStatusReorder(
@@ -570,6 +572,7 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
     PaginatedDataController<LeadStatusModel> controllerWatch,
     PaginatedDataController<LeadStatusModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(leadStatus.uid);
     return DataRow(
       selected: isSelected,
@@ -614,7 +617,7 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
                   ? IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: LeadStatusEdit(uid: leadStatus.uid ?? ''),

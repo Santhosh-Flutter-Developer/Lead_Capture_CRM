@@ -136,7 +136,7 @@ class _DealsListingViewState extends State<DealsListingView> {
     final controllerWatch = context.watch<PaginatedDataController<DealModel>>();
     final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: widget.showAppBar && kIsMobile
+      appBar: widget.showAppBar && (kIsMobile || width < 1000)
           ? AppBar(title: Text(_pageTitle))
           : null,
       body: BlocListener<DealBloc, DealState>(

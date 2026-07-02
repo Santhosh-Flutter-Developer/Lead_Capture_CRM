@@ -76,13 +76,14 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<LeadPriorityModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<LeadPriorityModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<LeadPriorityBloc, LeadPriorityState>(
@@ -118,7 +119,9 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.shadow.withValues(alpha: 0.1),
                             spreadRadius: 2,
                             blurRadius: 5,
                             offset: const Offset(0, 3),
@@ -138,7 +141,6 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                                 scrollbarOrientation:
                                     ScrollbarOrientation.bottom,
                                 child: SingleChildScrollView(
-
                                   controller: _hScrollController,
                                   scrollDirection: Axis.horizontal,
                                   child: ConstrainedBox(
@@ -152,14 +154,18 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                                       sortAscending:
                                           controllerWatch.sortAscending,
                                       headingRowColor: WidgetStateProperty.all(
-                                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest,
                                       ),
                                       headingTextStyle: Theme.of(context)
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
                                             fontWeight: FontWeight.bold,
-                                            color: Theme.of(context).colorScheme.onSurface,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                           ),
                                       columns: [
                                         DataColumn(
@@ -289,6 +295,7 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
   }
 
   Widget _buildActionRow(context, List<LeadPriorityModel> leadPriorityList) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -297,7 +304,7 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
             (permissions?.canCreate ?? false)
                 ? ElevatedButton.icon(
                     onPressed: () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: const LeadPriorityCreate(),
@@ -313,8 +320,8 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                     label: Text(
                       "Add $_pageTitle",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
@@ -327,12 +334,16 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                     label: Text(
                       "Add $_pageTitle",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      foregroundColor: Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant,
                     ),
                   ),
             const SizedBox(width: 10),
@@ -457,7 +468,9 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
                       ),
                     )
                   : ElevatedButton.icon(
@@ -494,6 +507,7 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
     PaginatedDataController<LeadPriorityModel> controllerWatch,
     PaginatedDataController<LeadPriorityModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(leadPriority.uid);
     return DataRow(
       selected: isSelected,
@@ -530,7 +544,7 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                   ? IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: LeadPriorityEdit(
@@ -548,7 +562,10 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                       splashRadius: 20,
                     )
                   : IconButton(
-                      icon: Icon(Iconsax.edit, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      icon: Icon(
+                        Iconsax.edit,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                       onPressed: null,
                     ),
               (permissions?.canDelete ?? false)
@@ -647,7 +664,10 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
                       },
                     )
                   : IconButton(
-                      icon: Icon(Iconsax.trash, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      icon: Icon(
+                        Iconsax.trash,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                       onPressed: null,
                     ),
             ],

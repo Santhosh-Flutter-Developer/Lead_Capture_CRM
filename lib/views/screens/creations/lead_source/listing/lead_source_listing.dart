@@ -80,13 +80,16 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<LeadSourceModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<LeadSourceModel>>();
 
     return Scaffold(
-      appBar: kIsMobile ? AppBar(leading: Back(), title: Text("Source")) : null,
+      appBar: kIsMobile || width < 1000
+          ? AppBar(leading: Back(), title: Text("Source"))
+          : null,
       body: BlocListener<LeadSourceBloc, LeadSourceState>(
         listenWhen: (previous, current) => current is LeadSourceLoaded,
         listener: (context, state) {
@@ -304,6 +307,7 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
   }
 
   Widget _buildActionRow(context) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -312,7 +316,7 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
             (permissions?.canCreate ?? false)
                 ? ElevatedButton.icon(
                     onPressed: () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: const LeadSourceCreate(),
@@ -515,6 +519,7 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
     PaginatedDataController<LeadSourceModel> controllerWatch,
     PaginatedDataController<LeadSourceModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(leadSource.uid);
     return DataRow(
       selected: isSelected,
@@ -556,7 +561,7 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
                   ? IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: LeadSourceEdit(uid: leadSource.uid ?? ''),

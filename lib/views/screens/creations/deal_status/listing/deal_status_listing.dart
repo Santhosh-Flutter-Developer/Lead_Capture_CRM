@@ -78,13 +78,14 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<DealStatusModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<DealStatusModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<DealStatusBloc, DealStatusState>(
@@ -322,6 +323,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
   }
 
   Widget _buildActionRow(context, List<DealStatusModel> dealStatusList) {
+    final width = MediaQuery.of(context).size.width;
     if (permissions == null) {
       return Row(
         children: [
@@ -347,7 +349,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
             (permissions?.canCreate ?? false)
                 ? ElevatedButton.icon(
                     onPressed: () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: const DealStatusCreate(),
@@ -544,7 +546,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
               icon: const Icon(Iconsax.arrange_circle),
               onPressed: dealStatusList.isNotEmpty
                   ? () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: DealStatusReorder(
@@ -587,6 +589,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
     PaginatedDataController<DealStatusModel> controllerWatch,
     PaginatedDataController<DealStatusModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(dealStatus.uid);
     return DataRow(
       selected: isSelected,
@@ -631,7 +634,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
                   ? IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: DealStatusEdit(uid: dealStatus.uid ?? ''),

@@ -152,7 +152,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     final controllerWatch = context.watch<PaginatedDataController<LeadModel>>();
     final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: widget.showAppBar && kIsMobile
+      appBar: widget.showAppBar && (kIsMobile || width < 1000)
           ? AppBar(title: Text(_pageTitle))
           : null,
       body: BlocListener<LeadBloc, LeadState>(

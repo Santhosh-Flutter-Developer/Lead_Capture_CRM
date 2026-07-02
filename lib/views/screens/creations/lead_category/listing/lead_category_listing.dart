@@ -81,13 +81,14 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<LeadCategoryModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<LeadCategoryModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text("Category"))
           : null,
       body: BlocListener<LeadCategoryBloc, LeadCategoryState>(
@@ -277,6 +278,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
   }
 
   Widget _buildActionRow(context) {
+    final width = MediaQuery.of(context).size.width;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -285,7 +287,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
             (permissions?.canCreate ?? false)
                 ? ElevatedButton.icon(
                     onPressed: () {
-                      if (kIsMobile) {
+                      if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
                           context,
                           widget: const LeadCategoryCreate(),
@@ -478,6 +480,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
     PaginatedDataController<LeadCategoryModel> controllerWatch,
     PaginatedDataController<LeadCategoryModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(leadCategory.uid);
     return DataRow(
       selected: isSelected,
@@ -509,7 +512,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                   ? IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
-                        if (kIsMobile) {
+                        if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
                             widget: LeadCategoryEdit(

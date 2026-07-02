@@ -95,11 +95,12 @@ class _TaskListingViewState extends State<TaskListingView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     final controllerRead = context.read<PaginatedDataController<TaskModel>>();
     final controllerWatch = context.watch<PaginatedDataController<TaskModel>>();
 
     return Scaffold(
-      appBar: kIsMobile
+      appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
           : null,
       body: BlocListener<TaskBloc, TaskState>(
@@ -326,6 +327,7 @@ class _TaskListingViewState extends State<TaskListingView> {
   }
 
   Widget _buildActionRow(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return LayoutBuilder(
       builder: (context, constraints) {
         // final bool isMobile = constraints.maxWidth < 600;
@@ -336,7 +338,7 @@ class _TaskListingViewState extends State<TaskListingView> {
             if (permissions?.canCreate ?? false) ...[
               ElevatedButton.icon(
                 onPressed: () {
-                  if (kIsMobile) {
+                  if (kIsMobile || width < 1000) {
                     Sheet.showSheet(context, widget: const TaskCreate());
                   } else {
                     GeneralDialog.showRTLSheet(context, const TaskCreate());
@@ -520,7 +522,7 @@ class _TaskListingViewState extends State<TaskListingView> {
           ),
         );
 
-        if (kIsMobile) {
+        if (kIsMobile || width < 1000) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -562,9 +564,10 @@ class _TaskListingViewState extends State<TaskListingView> {
     PaginatedDataController<TaskModel> controllerWatch,
     PaginatedDataController<TaskModel> controllerRead,
   ) {
+    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(task.uid);
     void openTask(BuildContext context, String uid) {
-      if (kIsMobile) {
+      if (kIsMobile || width < 1000) {
         Sheet.showSheet(context, widget: TaskView(uid: uid));
       } else {
         GeneralDialog.showRTLSheet(context, TaskView(uid: uid));
@@ -695,7 +698,7 @@ class _TaskListingViewState extends State<TaskListingView> {
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   onPressed: () {
-                    if (kIsMobile) {
+                    if (kIsMobile || width < 1000) {
                       Sheet.showSheet(
                         context,
                         widget: TaskEdit(uid: task.uid ?? ''),
