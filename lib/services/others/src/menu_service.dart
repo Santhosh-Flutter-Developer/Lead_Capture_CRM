@@ -274,22 +274,15 @@ class MenuService {
             title: 'Login Logs',
             icon: Iconsax.login,
             route: '/login-logs',
-            isAdminOnly: true,
+            requiredPermissions: ['Login Logs'],
           ),
           MenuItem(
             id: 'activity_logs',
             title: 'Activity Logs',
             icon: Iconsax.activity,
             route: '/activity-logs',
-            isAdminOnly: true,
+            requiredPermissions: ['Activity Logs'],
           ),
-          // MenuItem(
-          //   id: 'backup',
-          //   title: 'Backup',
-          //   icon: Iconsax.cloud,
-          //   route: '/backup',
-          //   isAdminOnly: true,
-          // ),
         ],
       ),
 
@@ -321,7 +314,7 @@ class MenuService {
     ];
   }
 
-  /// Filter menu items based on user role and permissions
+  /// Filter menu items based on user role and permissions (handles nested children recursively)
   static Future<List<MenuItem>> filterMenuItems({
     required bool isAdmin,
     required bool payrollEnabled,
@@ -330,6 +323,40 @@ class MenuService {
     final allItems = getAllMenuItems();
     final filteredItems = <MenuItem>[];
 
+    Future<List<MenuItem>> filterChildren(List<MenuItem> children) async {
+      final filtered = <MenuItem>[];
+      for (final child in children) {
+        final childAccessible = await child.isAccessible(
+          isAdmin: isAdmin,
+          payrollEnabled: payrollEnabled,
+          userPermissions: userPermissions,
+        );
+
+        if (child.children != null) {
+          final grandChildren = await filterChildren(child.children!);
+          if (grandChildren.isNotEmpty) {
+            filtered.add(
+              MenuItem(
+                id: child.id,
+                title: child.title,
+                icon: child.icon,
+                route: child.route,
+                children: grandChildren,
+                isAdminOnly: child.isAdminOnly,
+                requiresPayroll: child.requiresPayroll,
+                requiredPermissions: child.requiredPermissions,
+                isDivider: child.isDivider,
+                isStatic: child.isStatic,
+              ),
+            );
+          }
+        } else if (childAccessible) {
+          filtered.add(child);
+        }
+      }
+      return filtered;
+    }
+
     for (final item in allItems) {
       final accessible = await item.isAccessible(
         isAdmin: isAdmin,
@@ -337,24 +364,8 @@ class MenuService {
         userPermissions: userPermissions,
       );
 
-      if (!accessible) continue;
-
       if (item.children != null) {
-        // Filter children
-        final filteredChildren = <MenuItem>[];
-        for (final child in item.children!) {
-          final childAccessible = await child.isAccessible(
-            isAdmin: isAdmin,
-            payrollEnabled: payrollEnabled,
-            userPermissions: userPermissions,
-          );
-          if (childAccessible) {
-            filteredChildren.add(child);
-          }
-        }
-
-        // Only add parent if it has accessible children
-        // Parent items without requiredPermissions should not be shown if all children are filtered
+        final filteredChildren = await filterChildren(item.children!);
         if (filteredChildren.isNotEmpty) {
           filteredItems.add(
             MenuItem(
@@ -371,9 +382,7 @@ class MenuService {
             ),
           );
         }
-        // Skip parent if no children are accessible
-        continue;
-      } else {
+      } else if (accessible) {
         filteredItems.add(item);
       }
     }
@@ -407,7 +416,6 @@ class MenuService {
       'Designation',
       'Department',
       'Sub Department',
-      'Employee Status',
       'Employees',
       'Chats',
       'Lead Category',
@@ -425,6 +433,8 @@ class MenuService {
       'Tickets',
       'Downloads',
       'Developer Area',
+      'Login Logs',
+      'Activity Logs',
     ];
   }
 }
