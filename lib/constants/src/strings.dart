@@ -122,30 +122,30 @@ class AppStrings {
     "Xhosa",
   ];
 
-  static List<String> accessPagesList = [
-    "Admin",
+  static List<String> accessPagesList = [  
     "Role",
     "Designation",
     "Department",
     "Sub Department",
     "Employees",
+    "Chats",
     "Lead Category",
     "Lead Source",
     "Lead Status",
     "Lead Priority",
     "Deal Status",
-    "Chats",
     "Leads",
     "Deals",
     "Company",
     "Contact",
-    "Companies",
     "Calendar",
     "Projects",
     "Tasks",
     "Tickets",
     "Downloads",
     "Developer Area",
+    "Login Logs",
+    "Activity Logs",
   ];
 
   static List<PermissionModel> permissionsTrueMap = List.generate(
