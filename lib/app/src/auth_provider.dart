@@ -1,13 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// auth_provider.dart
-// CHANGED:
-//   • Removed `import 'dart:io'`
-//   • Replaced `Platform.isWindows / Platform.isAndroid` with
-//     `kIsWindows / kIsMobile / kIsWeb` from platform.dart
-//   • On web: no runtime check, no update screen — goes straight to
-//     RouteScreen (desktop layout) or Login.
-//   • Web is treated like desktop for the home widget (sidebar layout).
-// ─────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +16,16 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> checkLoginStatus() async {
     try {
+      if (!kIsWeb && kIsWindows) {
+        final currentVersion =
+            '${AppPackageInfo.version}+${AppPackageInfo.buildNumber}';
+        final lastVersion = await Spdb.getLastRunAppVersion();
+        if (lastVersion != currentVersion) {
+          await Spdb.clearLoginSession();
+          await Spdb.setLastRunAppVersion(currentVersion);
+        }
+      }
+
       var isLogin = await Spdb.checkLogin();
 
       bool isUpdateNeed = VersionService.version?.isUpdateNeed ?? false;

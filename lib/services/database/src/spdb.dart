@@ -9,6 +9,31 @@ class Spdb {
   static Future<SharedPreferences> _connect() async {
     return await SharedPreferences.getInstance();
   }
+  
+  static Future<String?> getLastRunAppVersion() async {
+    final cn = await _connect();
+    return cn.getString('last_run_app_version');
+  }
+
+  static Future<void> setLastRunAppVersion(String version) async {
+    final cn = await _connect();
+    await cn.setString('last_run_app_version', version);
+  }
+
+  /// Clears only the login/session data, leaving unrelated local
+  /// preferences (panel/payroll settings, etc.) untouched.
+  static Future<void> clearLoginSession() async {
+    try {
+      final cn = await _connect();
+      await cn.remove('cid');
+      await cn.remove('employee');
+      await cn.remove('admin');
+      await cn.setBool('employee_login', false);
+      await cn.setBool('admin_login', false);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
+  }
 
   static Future<void> forceLogout() async {
     try {
