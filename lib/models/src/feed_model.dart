@@ -46,16 +46,22 @@ class FeedModel {
     required this.authorAvatar,
     required this.content,
     DateTime? createdAt,
-    required this.mediaImages,
-    required this.attachments,
-    required this.taggedUsers,
-    required this.reactions,
-    this.savedBy = const [],
+    required List<FileModel> mediaImages,
+    required List<FileModel> attachments,
+    required List<TaggedUserModel> taggedUsers,
+    required List<ReactionModel> reactions,
+    List<String> savedBy = const [],
     this.poll,
     this.commentsCount = 0,
-    this.comments,
+    List<CommentModel>? comments,
     this.updatedAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       mediaImages = List<FileModel>.from(mediaImages),
+       attachments = List<FileModel>.from(attachments),
+       taggedUsers = List<TaggedUserModel>.from(taggedUsers),
+       reactions = List<ReactionModel>.from(reactions),
+       savedBy = List<String>.from(savedBy),
+       comments = comments != null ? List<CommentModel>.from(comments) : null;
 
   FeedModel copyWith({
     String? uid,
@@ -295,9 +301,10 @@ class PollModel {
   PollModel({
     required this.pollId,
     required this.question,
-    required this.options,
-    this.votedUserIds = const [],
-  });
+    required List<PollOption> options,
+    List<String> votedUserIds = const [],
+  }) : options = List<PollOption>.from(options),
+       votedUserIds = List<String>.from(votedUserIds);
 
   factory PollModel.fromMap(Map<String, dynamic> map) {
     return PollModel(

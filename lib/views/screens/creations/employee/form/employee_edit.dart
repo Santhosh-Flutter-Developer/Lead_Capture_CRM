@@ -67,6 +67,8 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   DepartmentModel? _departmentModel;
   SubDepartmentModel? _subDepartmentModel;
   EmployeeModel? employee;
+  EmployeeModel? _originalEmployee;
+  AdminModel? _originalAdmin;
   bool _isActive = true;
 
   @override
@@ -88,6 +90,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
       _initialReportingTo.clear();
 
       if (widget.admin != null) {
+        _originalAdmin = widget.admin;
         _employeeIdController.text = "";
         _nameController.text = widget.admin!.name;
         _emailController.text = widget.admin!.email;
@@ -101,6 +104,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         _departmentList = await DepartmentService.getAllDepartments();
 
         employee = await EmployeeService.getEmployee(uid: widget.uid);
+        _originalEmployee = employee;
         _employeeIdController.text = employee!.employeeId;
         _nameController.text = employee!.name;
         _emailController.text = employee!.email;
@@ -150,9 +154,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         }
 
         for (var i in (employee?.reportingTo ?? [])) {
-          var employee = await EmployeeService.getEmployee(uid: i);
-          if (employee != null) {
-            _initialReportingTo.add(employee);
+          var emp = await EmployeeService.getEmployee(uid: i);
+          if (emp != null) {
+            _initialReportingTo.add(emp);
           } else {
             var admin = await AdminService.getAdmin(uid: i);
             if (admin != null) {
@@ -174,6 +178,110 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         stackTrace: st,
       );
     }
+  }
+
+  Future<void> _handleIsAdminChange(bool value) async {
+    if (value == isAdmin) return;
+
+    setState(() {
+      isAdmin = value;
+    });
+
+    if (value) {
+      // Switching to admin mode - load admin data if available or clear employee fields
+      if (_originalAdmin != null) {
+        _employeeIdController.text = "";
+        _nameController.text = _originalAdmin!.name;
+        _emailController.text = _originalAdmin!.email;
+        _passwordController.text = _originalAdmin!.password;
+        _mobileNumberController.text = _originalAdmin!.mobileNumber;
+        _selectedDateOfBirth = _originalAdmin!.createdAt;
+      } else {
+        // Keep name, email, password, mobile if coming from employee
+        _employeeIdController.text = "";
+      }
+    } else {
+      // Switching to employee mode - load employee data
+      if (_originalEmployee != null) {
+        // Ensure roles, designations, departments are loaded
+        if (_rolesList.isEmpty) {
+          _rolesList = await RoleService.getAllRoles();
+        }
+        if (_designationList.isEmpty) {
+          _designationList = await DesignationService.getAllDesignations();
+        }
+        if (_departmentList.isEmpty) {
+          _departmentList = await DepartmentService.getAllDepartments();
+        }
+
+        _employeeIdController.text = _originalEmployee!.employeeId;
+        _nameController.text = _originalEmployee!.name;
+        _emailController.text = _originalEmployee!.email;
+        _passwordController.text = _originalEmployee!.password;
+        _mobileNumberController.text = _originalEmployee!.mobileNumber;
+        _dateOfJoiningController.text =
+            _originalEmployee!.dateOfJoining.formatDate;
+        _selectedDateOfJoining = _originalEmployee!.dateOfJoining;
+        _dateOfBirthController.text =
+            _originalEmployee!.dateOfBirth?.formatDate ?? '';
+        _selectedDateOfBirth = _originalEmployee!.dateOfBirth;
+        _addressController.text = _originalEmployee!.address;
+        _aboutController.text = _originalEmployee!.about;
+        _skillsController.text = _originalEmployee!.skills;
+
+        _gender = _originalEmployee!.gender;
+        _loginAllowed = _originalEmployee!.loginAllowed ? 'Yes' : 'No';
+        _receiveEmailNotifications =
+            _originalEmployee!.receiveEmailNotifications ? 'Yes' : 'No';
+        _maritalStatus = _originalEmployee!.maritalStatus;
+        _isActive = _originalEmployee!.isActive;
+        _employeeType = _originalEmployee!.employeeType;
+        _outsideOffice = _originalEmployee!.outsideOffice ? 'Yes' : 'No';
+        _profileImageUrl = _originalEmployee!.profileImageUrl;
+
+        _roleModel = await RoleService.getRole(uid: _originalEmployee!.role);
+        _designationModel = await DesignationService.getDesignation(
+          uid: _originalEmployee!.designation,
+        );
+
+        _department.clear();
+        if (_originalEmployee!.department != null &&
+            _originalEmployee!.department!.isNotEmpty) {
+          _department.addAll(_originalEmployee!.department!);
+        }
+
+        // Load sub-departments
+        _subDepartmentList.clear();
+        for (var depId in _department) {
+          final subDeps = await SubDepartmentService.getSubDepartmentsByDepId(
+            depId: depId,
+          );
+          _subDepartmentList.addAll(subDeps);
+        }
+
+        if (_originalEmployee!.subDepartment != null &&
+            _originalEmployee!.subDepartment!.isNotEmpty) {
+          _subDepartmentModel = await SubDepartmentService.getSubDepartment(
+            uid: _originalEmployee!.subDepartment ?? '',
+          );
+        }
+
+        // Load reporting to
+        _initialReportingTo.clear();
+        for (var i in (_originalEmployee?.reportingTo ?? [])) {
+          var emp = await EmployeeService.getEmployee(uid: i);
+          if (emp != null) {
+            _initialReportingTo.add(emp);
+          } else {
+            var admin = await AdminService.getAdmin(uid: i);
+            if (admin != null) {
+              _initialReportingTo.add(admin);
+            }
+          }
+        }
+      }
+    }
+    setState(() {});
   }
 
   @override
@@ -828,9 +936,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               Checkbox(
                 value: isAdmin,
                 onChanged: (value) {
-                  setState(() {
-                    isAdmin = value ?? false;
-                  });
+                  if (value != null) {
+                    _handleIsAdminChange(value);
+                  }
                 },
               ),
               Text("Make as Admin"),

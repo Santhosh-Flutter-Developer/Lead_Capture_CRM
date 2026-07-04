@@ -961,25 +961,10 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               ),
             ),
           );
-        } else {
-          actionButtons.add(
-            ElevatedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.add, size: 18),
-              label: Text("Add $_pageTitle"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
-                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          );
         }
 
-        actionButtons.add(const SizedBox(width: 10));
-
         if (permissions?.canImport ?? false) {
+          actionButtons.add(const SizedBox(width: 10));
           actionButtons.add(
             ElevatedButton.icon(
               onPressed: () {
@@ -1020,84 +1005,77 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           ),
         );
 
-        actionButtons.add(const SizedBox(width: 10));
-
         // EXPORT BUTTON
-        actionButtons.add(
-          ElevatedButton.icon(
-            label: const Text("Export"),
-            icon: const Icon(Iconsax.export_3, size: 18),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
+          actionButtons.add(const SizedBox(width: 10));
+          actionButtons.add(
+            ElevatedButton.icon(
+              label: const Text("Export"),
+              icon: const Icon(Iconsax.export_3, size: 18),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              onPressed: () async {
+                try {
+                  List<List<String>> exportData = [];
+                  exportData.add([
+                    'Lead Name',
+                    'Email',
+                    'Source',
+                    'Category',
+                    'Priority',
+                    'Value',
+                    'Status',
+                    'Company',
+                    'Mobile',
+                    'Country',
+                    'State',
+                    'City',
+                    'Address',
+                    'Notes',
+                    'Created At',
+                  ]);
+
+                  for (var lead in _filteredLeads) {
+                    exportData.add([
+                      lead.leadName,
+                      lead.leadEmail,
+                      lead.leadSource.name,
+                      CacheService.leadCategoryByUid(lead.leadCategory)?.name ??
+                          lead.leadCategory,
+                      CacheService.leadPriorityByUid(lead.leadPriority)?.name ??
+                          lead.leadPriority,
+                      lead.leadValue.toString(),
+                      CacheService.leadStatusByUid(lead.leadStatus)?.name ??
+                          lead.leadStatus,
+                      lead.companyName ?? '',
+                      lead.companyMobile ?? '',
+                      lead.companyCountry?.name ?? '',
+                      lead.companyState?.name ?? '',
+                      lead.companyCity?.name ?? '',
+                      lead.companyAddress ?? '',
+                      lead.notes,
+                      lead.createdAt.formatDateTime,
+                    ]);
+                  }
+
+                  var fileBytes = await XlsxWriter().create(exportData);
+                  var filePath = await saveFileToDownloads(
+                    fileBytes,
+                    fileName:
+                        'Leads_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
+                  );
+                  openfile(filePath, context);
+                } catch (e) {
+                  FlushBar.show(context, e.toString(), isSuccess: false);
+                }
+              },
             ),
-            onPressed:
-                (permissions?.canExport ?? false) == false ||
-                    _filteredLeads.isEmpty
-                ? null
-                : () async {
-                    try {
-                      List<List<String>> exportData = [];
-                      exportData.add([
-                        'Lead Name',
-                        'Email',
-                        'Source',
-                        'Category',
-                        'Priority',
-                        'Value',
-                        'Status',
-                        'Company',
-                        'Mobile',
-                        'Country',
-                        'State',
-                        'City',
-                        'Address',
-                        'Notes',
-                        'Created At',
-                      ]);
-
-                      for (var lead in _filteredLeads) {
-                        exportData.add([
-                          lead.leadName,
-                          lead.leadEmail,
-                          lead.leadSource.name,
-                          CacheService.leadCategoryByUid(
-                                lead.leadCategory,
-                              )?.name ??
-                              lead.leadCategory,
-                          CacheService.leadPriorityByUid(
-                                lead.leadPriority,
-                              )?.name ??
-                              lead.leadPriority,
-                          lead.leadValue.toString(),
-                          CacheService.leadStatusByUid(lead.leadStatus)?.name ??
-                              lead.leadStatus,
-                          lead.companyName ?? '',
-                          lead.companyMobile ?? '',
-                          lead.companyCountry?.name ?? '',
-                          lead.companyState?.name ?? '',
-                          lead.companyCity?.name ?? '',
-                          lead.companyAddress ?? '',
-                          lead.notes,
-                          lead.createdAt.formatDateTime,
-                        ]);
-                      }
-
-                      var fileBytes = await XlsxWriter().create(exportData);
-                      var filePath = await saveFileToDownloads(
-                        fileBytes,
-                        fileName:
-                            'Leads_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
-                      );
-                      openfile(filePath, context);
-                    } catch (e) {
-                      FlushBar.show(context, e.toString(), isSuccess: false);
-                    }
-                  },
-          ),
-        );
+          );
+        }
 
         if ((permissions?.canDelete ?? false) && _selectedLeads.isNotEmpty) {
           actionButtons.add(const SizedBox(width: 10));
@@ -1382,14 +1360,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                     }
                   },
                 ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(
-                    Iconsax.edit,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: null,
-                ),
               ],
 
               IconButton(
@@ -1458,14 +1428,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                       FlushBar.show(context, e.toString(), isSuccess: false);
                     }
                   },
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(
-                    Iconsax.trash,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: null,
                 ),
               ],
             ],

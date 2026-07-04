@@ -49,14 +49,19 @@ class _RoleEditState extends State<RoleEdit> {
           element.canView = permission.canView;
           element.canExport = permission.canExport;
           element.canImport = permission.canImport;
-          if (permission.canCreate &&
-              permission.canDelete &&
-              permission.canEdit &&
-              permission.canView &&
-              permission.canExport &&
-              permission.canImport) {
-            element.selectAll = true;
+
+          final hasImportExport = AppStrings.pagesWithImportExport.contains(
+            element.page,
+          );
+          bool allSelected =
+              element.canEdit &&
+              element.canDelete &&
+              element.canCreate &&
+              element.canView;
+          if (hasImportExport) {
+            allSelected = allSelected && element.canExport && element.canImport;
           }
+          element.selectAll = allSelected;
         }
       }
     }
@@ -258,54 +263,81 @@ class _RoleEditState extends State<RoleEdit> {
                                     ],
                                     rows: List.generate(_rows.length, (index) {
                                       final row = _rows[index];
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            Text(
-                                              row.page,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall,
-                                            ),
+                                      final hasImportExport = AppStrings
+                                          .pagesWithImportExport
+                                          .contains(row.page);
+
+                                      List<DataCell> cells = [
+                                        DataCell(
+                                          Text(
+                                            row.page,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
                                           ),
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.selectAll,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.selectAll = val;
+                                        ),
+                                        DataCell(
+                                          Checkbox(
+                                            value: row.selectAll,
+                                            onChanged: (val) {
+                                              if (val == null) return;
+                                              setState(() {
+                                                row.selectAll = val;
+                                                row.canView = val;
+                                                if (val) {
                                                   row.canCreate = val;
                                                   row.canEdit = val;
-                                                  row.canView = val;
                                                   row.canDelete = val;
-                                                  row.canExport = val;
-                                                  row.canImport = val;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.canView,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.canView = val;
-                                                  if (row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate &&
-                                                      row.canView &&
-                                                      row.canExport &&
-                                                      row.canImport) {
-                                                    row.selectAll = true;
-                                                  } else {
-                                                    row.selectAll = false;
+                                                  if (hasImportExport) {
+                                                    row.canExport = val;
+                                                    row.canImport = val;
                                                   }
-                                                });
-                                              },
-                                            ),
+                                                } else {
+                                                  row.canCreate = false;
+                                                  row.canEdit = false;
+                                                  row.canDelete = false;
+                                                  row.canExport = false;
+                                                  row.canImport = false;
+                                                }
+                                              });
+                                            },
                                           ),
+                                        ),
+                                        DataCell(
+                                          Checkbox(
+                                            value: row.canView,
+                                            onChanged: (val) {
+                                              if (val == null) return;
+                                              setState(() {
+                                                row.canView = val;
+                                                if (!val) {
+                                                  row.canCreate = false;
+                                                  row.canEdit = false;
+                                                  row.canDelete = false;
+                                                  row.canExport = false;
+                                                  row.canImport = false;
+                                                  row.selectAll = false;
+                                                } else {
+                                                  bool allSelected =
+                                                      row.canEdit &&
+                                                      row.canDelete &&
+                                                      row.canCreate;
+                                                  if (hasImportExport) {
+                                                    allSelected =
+                                                        allSelected &&
+                                                        row.canExport &&
+                                                        row.canImport;
+                                                  }
+                                                  row.selectAll = allSelected;
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ];
+
+                                      if (row.canView) {
+                                        cells.addAll([
                                           DataCell(
                                             Checkbox(
                                               value: row.canCreate,
@@ -313,16 +345,17 @@ class _RoleEditState extends State<RoleEdit> {
                                                 if (val == null) return;
                                                 setState(() {
                                                   row.canCreate = val;
-                                                  if (row.canEdit &&
+                                                  bool allSelected =
+                                                      row.canEdit &&
                                                       row.canDelete &&
-                                                      row.canCreate &&
-                                                      row.canView &&
-                                                      row.canExport &&
-                                                      row.canImport) {
-                                                    row.selectAll = true;
-                                                  } else {
-                                                    row.selectAll = false;
+                                                      row.canCreate;
+                                                  if (hasImportExport) {
+                                                    allSelected =
+                                                        allSelected &&
+                                                        row.canExport &&
+                                                        row.canImport;
                                                   }
+                                                  row.selectAll = allSelected;
                                                 });
                                               },
                                             ),
@@ -334,16 +367,17 @@ class _RoleEditState extends State<RoleEdit> {
                                                 if (val == null) return;
                                                 setState(() {
                                                   row.canEdit = val;
-                                                  if (row.canEdit &&
+                                                  bool allSelected =
+                                                      row.canEdit &&
                                                       row.canDelete &&
-                                                      row.canCreate &&
-                                                      row.canView &&
-                                                      row.canExport &&
-                                                      row.canImport) {
-                                                    row.selectAll = true;
-                                                  } else {
-                                                    row.selectAll = false;
+                                                      row.canCreate;
+                                                  if (hasImportExport) {
+                                                    allSelected =
+                                                        allSelected &&
+                                                        row.canExport &&
+                                                        row.canImport;
                                                   }
+                                                  row.selectAll = allSelected;
                                                 });
                                               },
                                             ),
@@ -355,64 +389,79 @@ class _RoleEditState extends State<RoleEdit> {
                                                 if (val == null) return;
                                                 setState(() {
                                                   row.canDelete = val;
-                                                  if (row.canEdit &&
+                                                  bool allSelected =
+                                                      row.canEdit &&
                                                       row.canDelete &&
-                                                      row.canCreate &&
-                                                      row.canView &&
-                                                      row.canExport &&
-                                                      row.canImport) {
-                                                    row.selectAll = true;
-                                                  } else {
-                                                    row.selectAll = false;
+                                                      row.canCreate;
+                                                  if (hasImportExport) {
+                                                    allSelected =
+                                                        allSelected &&
+                                                        row.canExport &&
+                                                        row.canImport;
                                                   }
+                                                  row.selectAll = allSelected;
                                                 });
                                               },
                                             ),
                                           ),
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.canExport,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.canExport = val;
-                                                  if (row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate &&
-                                                      row.canView &&
-                                                      row.canExport &&
-                                                      row.canImport) {
-                                                    row.selectAll = true;
-                                                  } else {
-                                                    row.selectAll = false;
-                                                  }
-                                                });
-                                              },
+                                        ]);
+
+                                        if (hasImportExport) {
+                                          cells.addAll([
+                                            DataCell(
+                                              Checkbox(
+                                                value: row.canExport,
+                                                onChanged: (val) {
+                                                  if (val == null) return;
+                                                  setState(() {
+                                                    row.canExport = val;
+                                                    bool allSelected =
+                                                        row.canEdit &&
+                                                        row.canDelete &&
+                                                        row.canCreate &&
+                                                        row.canExport &&
+                                                        row.canImport;
+                                                    row.selectAll = allSelected;
+                                                  });
+                                                },
+                                              ),
                                             ),
-                                          ),
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.canImport,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.canImport = val;
-                                                  if (row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate &&
-                                                      row.canView &&
-                                                      row.canExport &&
-                                                      row.canImport) {
-                                                    row.selectAll = true;
-                                                  } else {
-                                                    row.selectAll = false;
-                                                  }
-                                                });
-                                              },
+                                            DataCell(
+                                              Checkbox(
+                                                value: row.canImport,
+                                                onChanged: (val) {
+                                                  if (val == null) return;
+                                                  setState(() {
+                                                    row.canImport = val;
+                                                    bool allSelected =
+                                                        row.canEdit &&
+                                                        row.canDelete &&
+                                                        row.canCreate &&
+                                                        row.canExport &&
+                                                        row.canImport;
+                                                    row.selectAll = allSelected;
+                                                  });
+                                                },
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      );
+                                          ]);
+                                        } else {
+                                          cells.addAll([
+                                            const DataCell(SizedBox()),
+                                            const DataCell(SizedBox()),
+                                          ]);
+                                        }
+                                      } else {
+                                        cells.addAll([
+                                          const DataCell(SizedBox()),
+                                          const DataCell(SizedBox()),
+                                          const DataCell(SizedBox()),
+                                          const DataCell(SizedBox()),
+                                          const DataCell(SizedBox()),
+                                        ]);
+                                      }
+
+                                      return DataRow(cells: cells);
                                     }),
                                   ),
                                 ),

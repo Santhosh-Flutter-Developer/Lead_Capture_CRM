@@ -365,157 +365,122 @@ class _AdminListingViewState extends State<AdminListingView> {
 
   Widget _buildActionRow(BuildContext context) {
     if (permissions == null) {
-      return Row(
-        children: [
-          ElevatedButton.icon(
-            onPressed: null,
-            icon: const Icon(Icons.add),
-            label: Text(
-              "Add $_pageTitle",
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      );
+      return const SizedBox.shrink();
     }
 
     return Row(
       children: [
-        ElevatedButton.icon(
-          onPressed: (permissions?.canCreate ?? false)
-              ? () {
-                  if (kIsMobile) {
-                    Sheet.showSheet(context, widget: const AdminCreate());
-                  } else {
-                    GeneralDialog.showRTLSheet(context, const AdminCreate());
-                  }
-                }
-              : null,
-          icon: Icon(
-            Icons.add,
-            color: (permissions?.canCreate ?? false) ? null : AppColors.grey600,
-            size: 18,
+        if (permissions?.canCreate ?? false) ...[
+          ElevatedButton.icon(
+            onPressed: () {
+              if (kIsMobile) {
+                Sheet.showSheet(context, widget: const AdminCreate());
+              } else {
+                GeneralDialog.showRTLSheet(context, const AdminCreate());
+              }
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(
+              "Add $_pageTitle",
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: AppColors.white,
+            ),
           ),
-          label: Text(
-            "Add $_pageTitle",
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: (permissions?.canCreate ?? false)
-                ? AppColors.success
-                : AppColors.grey300,
-            foregroundColor: (permissions?.canCreate ?? false)
-                ? AppColors.white
-                : AppColors.grey600,
-          ),
-        ),
-        const SizedBox(width: 10),
-        if (_selectedAdmins.isNotEmpty) ...[
-          (permissions?.canDelete ?? false)
-              ? ElevatedButton.icon(
-                  label: Text(
-                    "Delete",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-                  ),
-                  icon: Icon(Iconsax.trash),
-                  onPressed: () async {
-                    var result = await showDialog(
-                      context: context,
-                      builder: (context) => ConfirmDialog(
-                        title: 'Delete',
-                        content:
-                            'Are you sure want to delete this $_pageTitle?',
-                      ),
-                      barrierDismissible: false,
-                    );
-                    if (result != null && result) {
-                      try {
-                        futureLoading(context);
-                        for (var i in _selectedAdmins) {
-                          await AdminService.deleteAdmin(uid: i.uid ?? '');
-                        }
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        }
-                        FlushBar.show(
-                          context,
-                          '$_pageTitle deleted successfully',
-                        );
-                        _selectedAdmins.clear();
-                        setState(() {});
-                      } catch (e) {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        }
-                        FlushBar.show(context, e.toString(), isSuccess: false);
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.danger,
-                    foregroundColor: AppColors.white,
-                  ),
-                )
-              : ElevatedButton.icon(
-                  label: Text(
-                    "Delete",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-                  ),
-                  icon: Icon(Iconsax.trash),
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.grey400,
-                    foregroundColor: AppColors.white,
-                  ),
-                ),
           const SizedBox(width: 10),
         ],
-        ElevatedButton.icon(
-          label: Text(
-            "Export",
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.white),
+        if ((permissions?.canDelete ?? false) &&
+            _selectedAdmins.isNotEmpty) ...[
+          ElevatedButton.icon(
+            label: Text(
+              "Delete",
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.white),
+            ),
+            icon: const Icon(Iconsax.trash),
+            onPressed: () async {
+              var result = await showDialog(
+                context: context,
+                builder: (context) => ConfirmDialog(
+                  title: 'Delete',
+                  content: 'Are you sure want to delete this $_pageTitle?',
+                ),
+                barrierDismissible: false,
+              );
+              if (result != null && result) {
+                try {
+                  futureLoading(context);
+                  for (var i in _selectedAdmins) {
+                    await AdminService.deleteAdmin(uid: i.uid ?? '');
+                  }
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                  FlushBar.show(context, '$_pageTitle deleted successfully');
+                  _selectedAdmins.clear();
+                  setState(() {});
+                } catch (e) {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                  FlushBar.show(context, e.toString(), isSuccess: false);
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.white,
+            ),
           ),
-          icon: Icon(Iconsax.export_3),
-          onPressed: (permissions?.canExport ?? false) == false ? null : () async {
-            List<List<String>> exportData = [];
-            exportData.add([
-              'Name',
-              'Email',
-              'Mobile Number',
-              'Created At',
-              'Profile Picture',
-            ]);
-            for (var i in _adminList) {
-              List<String> row = [];
-              row.addAll([
-                i.name,
-                i.email,
-                i.mobileNumber,
-                i.createdAt.listingDateTime,
-                i.profileImageUrl ?? '',
+          const SizedBox(width: 10),
+        ],
+        if (permissions?.canExport ?? false) ...[
+          ElevatedButton.icon(
+            label: Text(
+              "Export",
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.white),
+            ),
+            icon: const Icon(Iconsax.export_3),
+            onPressed: () async {
+              List<List<String>> exportData = [];
+              exportData.add([
+                'Name',
+                'Email',
+                'Mobile Number',
+                'Created At',
+                'Profile Picture',
               ]);
-              exportData.add(row);
-            }
-            var fileBytes = await XlsxWriter().create(exportData);
-            var filePath = await saveFileToDownloads(
-              fileBytes,
-              fileName: 'Admin List.xlsx',
-            );
-            openfile(filePath, context);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.grey600,
-            foregroundColor: AppColors.white,
+              for (var i in _adminList) {
+                List<String> row = [];
+                row.addAll([
+                  i.name,
+                  i.email,
+                  i.mobileNumber,
+                  i.createdAt.listingDateTime,
+                  i.profileImageUrl ?? '',
+                ]);
+                exportData.add(row);
+              }
+              var fileBytes = await XlsxWriter().create(exportData);
+              var filePath = await saveFileToDownloads(
+                fileBytes,
+                fileName: 'Admin List.xlsx',
+              );
+              openfile(filePath, context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.grey600,
+              foregroundColor: AppColors.white,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -655,72 +620,62 @@ class _AdminListingViewState extends State<AdminListingView> {
         DataCell(
           Row(
             children: [
-              (permissions?.canEdit ?? false)
-                  ? IconButton(
-                      icon: const Icon(Iconsax.edit),
-                      onPressed: () {
-                        if (kIsMobile) {
-                          Sheet.showSheet(
-                            context,
-                            widget: AdminUpdate(id: admin.uid!, admin: admin),
-                          );
-                        } else {
-                          GeneralDialog.showRTLSheet(
-                            context,
-                            AdminUpdate(id: admin.uid!, admin: admin),
-                          );
-                        }
-                      },
-                      color: AppColors.info,
-                      splashRadius: 20,
-                    )
-                  : IconButton(
-                      icon: Icon(Iconsax.edit, color: AppColors.grey400),
-                      onPressed: null,
-                    ),
-              (permissions?.canDelete ?? false)
-                  ? IconButton(
-                      icon: const Icon(Iconsax.trash),
-                      onPressed: () async {
-                        var result = await showDialog(
-                          context: context,
-                          builder: (context) {
-                            return const ConfirmDialog(
-                              title: 'Delete $_pageTitle',
-                              content:
-                                  'Are you sure want to delete this $_pageTitle',
-                            );
-                          },
+              if (permissions?.canEdit ?? false)
+                IconButton(
+                  icon: const Icon(Iconsax.edit),
+                  onPressed: () {
+                    if (kIsMobile) {
+                      Sheet.showSheet(
+                        context,
+                        widget: AdminUpdate(id: admin.uid!, admin: admin),
+                      );
+                    } else {
+                      GeneralDialog.showRTLSheet(
+                        context,
+                        AdminUpdate(id: admin.uid!, admin: admin),
+                      );
+                    }
+                  },
+                  color: AppColors.info,
+                  splashRadius: 20,
+                ),
+              if (permissions?.canDelete ?? false)
+                IconButton(
+                  icon: const Icon(Iconsax.trash),
+                  onPressed: () async {
+                    var result = await showDialog(
+                      context: context,
+                      builder: (context) {
+                        return const ConfirmDialog(
+                          title: 'Delete $_pageTitle',
+                          content:
+                              'Are you sure want to delete this $_pageTitle',
                         );
-                        if (result != null && result) {
-                          try {
-                            await AdminService.deleteAdmin(
-                              uid: admin.uid ?? '',
-                            );
-                            FlushBar.show(
-                              context,
-                              '$_pageTitle deleted successfully',
-                            );
-                          } catch (e, st) {
-                            await ErrorService.recordError(e, st);
-                            debugPrint("${e.toString()}, ${st.toString()}");
-                            FlushBar.show(
-                              context,
-                              e.toString(),
-                              isSuccess: false,
-                              error: e,
-                              stackTrace: st,
-                            );
-                          }
-                        }
                       },
-                      color: AppColors.danger,
-                      splashRadius: 20,
-                    )
-                  : IconButton(
-                      icon: Icon(Iconsax.trash, color: AppColors.grey400),
-                      onPressed: null,
-                    ),
+                    );
+                    if (result != null && result) {
+                      try {
+                        await AdminService.deleteAdmin(uid: admin.uid ?? '');
+                        FlushBar.show(
+                          context,
+                          '$_pageTitle deleted successfully',
+                        );
+                      } catch (e, st) {
+                        await ErrorService.recordError(e, st);
+                        debugPrint("${e.toString()}, ${st.toString()}");
+                        FlushBar.show(
+                          context,
+                          e.toString(),
+                          isSuccess: false,
+                          error: e,
+                          stackTrace: st,
+                        );
+                      }
+                    }
+                  },
+                  color: AppColors.danger,
+                  splashRadius: 20,
+                ),
             ],
           ),
         ),

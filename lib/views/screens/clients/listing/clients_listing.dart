@@ -367,106 +367,82 @@ class _ClientListingViewState extends State<ClientListingView> {
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 ),
               ),
-            ] else ...[
+              const SizedBox(width: 10),
+            ],
+            if ((permissions?.canExport ?? false) &&
+                controllerWatch.paginatedItems.isNotEmpty) ...[
               ElevatedButton.icon(
-                onPressed: null,
-                icon: Icon(
-                  Icons.add,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                label: Text(
-                  "Add $pageTitle",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                label: Text("Export"),
+                icon: const Icon(Iconsax.export_3),
+                onPressed: () async {
+                  try {
+                    List<List<String>> exportData = [];
+
+                    // Add header row
+                    if (widget.section == ClientSection.contacts) {
+                      exportData.add([
+                        'Name',
+                        'Email',
+                        'Mobile',
+                        'Status',
+                        'Created By',
+                      ]);
+                    } else {
+                      exportData.add([
+                        'Company',
+                        'Phone',
+                        'GST/VAT',
+                        'Status',
+                        'Created By',
+                      ]);
+                    }
+
+                    final controller =
+                        Provider.of<PaginatedDataController<ClientModel>>(
+                          context,
+                          listen: false,
+                        );
+                    for (var client in controller.paginatedItems) {
+                      if (widget.section == ClientSection.contacts) {
+                        exportData.add([
+                          client.clientName ?? '',
+                          client.email ?? '',
+                          client.mobileNumber ?? '',
+                          client.isActive ? 'Active' : 'Inactive',
+                          client.createdBy.name,
+                        ]);
+                      } else {
+                        exportData.add([
+                          client.companyName ?? '',
+                          client.officePhoneNo ?? '',
+                          client.gstVatNumber ?? '',
+                          client.isActive ? 'Active' : 'Inactive',
+                          client.createdBy.name,
+                        ]);
+                      }
+                    }
+
+                    // Generate Excel
+                    var fileBytes = await XlsxWriter().create(exportData);
+
+                    // Save to downloads
+                    var filePath = await saveFileToDownloads(
+                      fileBytes,
+                      fileName: '$pageTitle List.xlsx',
+                    );
+
+                    // Open file
+                    openfile(filePath, context);
+                  } catch (e) {
+                    FlushBar.show(context, e.toString(), isSuccess: false);
+                  }
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant,
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
                 ),
               ),
             ],
-            const SizedBox(width: 10),
-            ElevatedButton.icon(
-              label: Text("Export"),
-              icon: const Icon(Iconsax.export_3),
-              onPressed:
-                  (permissions?.canExport ?? false) == false ||
-                      controllerWatch.paginatedItems.isEmpty
-                  ? null
-                  : () async {
-                      try {
-                        List<List<String>> exportData = [];
-
-                        // Add header row
-                        if (widget.section == ClientSection.contacts) {
-                          exportData.add([
-                            'Name',
-                            'Email',
-                            'Mobile',
-                            'Status',
-                            'Created By',
-                          ]);
-                        } else {
-                          exportData.add([
-                            'Company',
-                            'Phone',
-                            'GST/VAT',
-                            'Status',
-                            'Created By',
-                          ]);
-                        }
-
-                        final controller =
-                            Provider.of<PaginatedDataController<ClientModel>>(
-                              context,
-                              listen: false,
-                            );
-                        for (var client in controller.paginatedItems) {
-                          if (widget.section == ClientSection.contacts) {
-                            exportData.add([
-                              client.clientName ?? '',
-                              client.email ?? '',
-                              client.mobileNumber ?? '',
-                              client.isActive ? 'Active' : 'Inactive',
-                              client.createdBy.name,
-                            ]);
-                          } else {
-                            exportData.add([
-                              client.companyName ?? '',
-                              client.officePhoneNo ?? '',
-                              client.gstVatNumber ?? '',
-                              client.isActive ? 'Active' : 'Inactive',
-                              client.createdBy.name,
-                            ]);
-                          }
-                        }
-
-                        // Generate Excel
-                        var fileBytes = await XlsxWriter().create(exportData);
-
-                        // Save to downloads
-                        var filePath = await saveFileToDownloads(
-                          fileBytes,
-                          fileName: '$pageTitle List.xlsx',
-                        );
-
-                        // Open file
-                        openfile(filePath, context);
-                      } catch (e) {
-                        FlushBar.show(context, e.toString(), isSuccess: false);
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Theme.of(context).colorScheme.onSecondary,
-              ),
-            ),
             const SizedBox(width: 10),
 
             // ] else ...[
@@ -833,14 +809,6 @@ class _ClientListingViewState extends State<ClientListingView> {
               }
             },
           ),
-        ] else ...[
-          IconButton(
-            icon: Icon(
-              Iconsax.edit,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: null,
-          ),
         ],
         if (permissions?.canDelete ?? false) ...[
           IconButton(
@@ -925,14 +893,6 @@ class _ClientListingViewState extends State<ClientListingView> {
                 );
               }
             },
-          ),
-        ] else ...[
-          IconButton(
-            icon: Icon(
-              Iconsax.trash,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: null,
           ),
         ],
       ],

@@ -148,6 +148,14 @@ class AppStrings {
     "Activity Logs",
   ];
 
+  static List<String> pagesWithImportExport = [
+    "Employees",
+    "Leads",
+    "Clients",
+    "Company",
+    "Admin",
+  ];
+
   static List<PermissionModel> permissionsTrueMap = List.generate(
     accessPagesList.length,
     (index) {

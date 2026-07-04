@@ -264,6 +264,10 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                   return Scrollbar(
                     controller: _scrollController,
                     thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
                     child: ListView(
                       controller: _scrollController,
                       children: _menus.asMap().entries.map((entry) {

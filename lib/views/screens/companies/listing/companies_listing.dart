@@ -317,29 +317,6 @@ class _CompanyListingViewState extends State<CompanyListingView> {
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 ),
               ),
-            ] else ...[
-              ElevatedButton.icon(
-                onPressed: null,
-                icon: Icon(
-                  Icons.add,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                label: Text(
-                  "Add Branch",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant,
-                ),
-              ),
             ],
             // const SizedBox(width: 10),
             // ElevatedButton.icon(
@@ -563,27 +540,6 @@ class _CompanyListingViewState extends State<CompanyListingView> {
                     foregroundColor: Theme.of(context).colorScheme.onError,
                   ),
                 ),
-            ] else ...[
-              if (_selectedCompanies.isNotEmpty) ...[
-                ElevatedButton.icon(
-                  label: Text(
-                    "Delete",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  icon: Icon(Iconsax.trash),
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainer,
-                    foregroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
             ],
           ],
         ),
@@ -744,14 +700,6 @@ class _CompanyListingViewState extends State<CompanyListingView> {
               }
             },
           ),
-        ] else ...[
-          IconButton(
-            icon: Icon(
-              Iconsax.edit,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: null,
-          ),
         ],
         if (permissions?.canDelete ?? false) ...[
           IconButton(
@@ -800,14 +748,6 @@ class _CompanyListingViewState extends State<CompanyListingView> {
                 );
               }
             },
-          ),
-        ] else ...[
-          IconButton(
-            icon: Icon(
-              Iconsax.trash,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: null,
           ),
         ],
       ],

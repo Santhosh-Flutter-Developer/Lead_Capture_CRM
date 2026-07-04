@@ -332,6 +332,7 @@ class FeedCardState extends State<FeedCard> {
                   ),
                 )
                 .toList(),
+            votedUserIds: List<String>.from(widget.feed.poll!.votedUserIds),
           );
 
     String? selectedOptionId;
