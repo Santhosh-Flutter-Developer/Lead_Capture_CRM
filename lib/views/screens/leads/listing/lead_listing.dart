@@ -2,17 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:leadcapture/utils/src/download_io.dart';
 import 'package:leadcapture/views/screens/leads/listing/lead_upload.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import '/services/services.dart';
 import '/models/models.dart';
 import '/views/views.dart';
-import 'package:flutter/foundation.dart';
 import '/utils/utils.dart';
-import '/utils/src/download_io.dart'
-    if (dart.library.html) '/utils/src/download_web.dart'
-    show saveFileToDownloads;
 import '/theme/theme.dart';
 
 const String _pageTitle = "Leads";
@@ -150,9 +147,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   Widget build(BuildContext context) {
     final controllerRead = context.read<PaginatedDataController<LeadModel>>();
     final controllerWatch = context.watch<PaginatedDataController<LeadModel>>();
-    final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: widget.showAppBar && (kIsMobile || width < 1000)
+      appBar: widget.showAppBar && kIsMobile
           ? AppBar(title: Text(_pageTitle))
           : null,
       body: BlocListener<LeadBloc, LeadState>(
@@ -180,10 +176,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(24.0),
                   children: [
-                    _buildFilterRow(
-                      onSearchChanged: controllerRead.setSearch,
-                      width: width,
-                    ),
+                    _buildFilterRow(onSearchChanged: controllerRead.setSearch),
                     const SizedBox(height: 10),
                     _buildActionRow(context),
                     const SizedBox(height: 20),
@@ -444,10 +437,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     );
   }
 
-  Widget _buildFilterRow({
-    required ValueChanged<String> onSearchChanged,
-    required double width,
-  }) {
+  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
     if (!Hive.isBoxOpen('leadStatus') ||
         !Hive.isBoxOpen('leadCategory') ||
         !Hive.isBoxOpen('employees')) {
@@ -592,7 +582,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           /// Search
-          kIsMobile || width < 1000
+          kIsMobile
               ? Column(
                   children: [
                     _buildSearchField(onSearchChanged),
@@ -623,7 +613,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
 
           /// Filters
-          kIsMobile || width < 1000
+          kIsMobile
               ? Wrap(spacing: 10, runSpacing: 10, children: filters)
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -945,7 +935,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   }
 
   Widget _buildActionRow(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     return LayoutBuilder(
       builder: (context, constraints) {
         final List<Widget> actionButtons = [];
@@ -955,7 +944,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           actionButtons.add(
             ElevatedButton.icon(
               onPressed: () async {
-                final result = kIsMobile || width < 1000
+                final result = kIsMobile
                     ? await Sheet.showSheet(context, widget: const LeadCreate())
                     : await GeneralDialog.showRTLSheet(
                         context,
@@ -973,29 +962,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               ),
             ),
           );
-        } else {
-          actionButtons.add(
-            ElevatedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.add, size: 18),
-              label: Text("Add $_pageTitle"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
-                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          );
         }
 
-        actionButtons.add(const SizedBox(width: 10));
-
         if (permissions?.canImport ?? false) {
+          actionButtons.add(const SizedBox(width: 10));
           actionButtons.add(
             ElevatedButton.icon(
               onPressed: () {
-                if (kIsMobile || width < 1000) {
+                if (kIsMobile) {
                   Sheet.showSheet(context, widget: const LeadUpload());
                 } else {
                   GeneralDialog.showRTLSheet(context, const LeadUpload());
@@ -1032,84 +1006,77 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           ),
         );
 
-        actionButtons.add(const SizedBox(width: 10));
-
         // EXPORT BUTTON
-        actionButtons.add(
-          ElevatedButton.icon(
-            label: const Text("Export"),
-            icon: const Icon(Iconsax.export_3, size: 18),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
+          actionButtons.add(const SizedBox(width: 10));
+          actionButtons.add(
+            ElevatedButton.icon(
+              label: const Text("Export"),
+              icon: const Icon(Iconsax.export_3, size: 18),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              onPressed: () async {
+                try {
+                  List<List<String>> exportData = [];
+                  exportData.add([
+                    'Lead Name',
+                    'Email',
+                    'Source',
+                    'Category',
+                    'Priority',
+                    'Value',
+                    'Status',
+                    'Company',
+                    'Mobile',
+                    'Country',
+                    'State',
+                    'City',
+                    'Address',
+                    'Notes',
+                    'Created At',
+                  ]);
+
+                  for (var lead in _filteredLeads) {
+                    exportData.add([
+                      lead.leadName,
+                      lead.leadEmail,
+                      lead.leadSource.name,
+                      CacheService.leadCategoryByUid(lead.leadCategory)?.name ??
+                          lead.leadCategory,
+                      CacheService.leadPriorityByUid(lead.leadPriority)?.name ??
+                          lead.leadPriority,
+                      lead.leadValue.toString(),
+                      CacheService.leadStatusByUid(lead.leadStatus)?.name ??
+                          lead.leadStatus,
+                      lead.companyName ?? '',
+                      lead.companyMobile ?? '',
+                      lead.companyCountry?.name ?? '',
+                      lead.companyState?.name ?? '',
+                      lead.companyCity?.name ?? '',
+                      lead.companyAddress ?? '',
+                      lead.notes,
+                      lead.createdAt.formatDateTime,
+                    ]);
+                  }
+
+                  var fileBytes = await XlsxWriter().create(exportData);
+                  var filePath = await saveFileToDownloads(
+                    fileBytes,
+                    fileName:
+                        'Leads_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
+                  );
+                  openfile(filePath, context);
+                } catch (e) {
+                  FlushBar.show(context, e.toString(), isSuccess: false);
+                }
+              },
             ),
-            onPressed:
-                (permissions?.canExport ?? false) == false ||
-                    _filteredLeads.isEmpty
-                ? null
-                : () async {
-                    try {
-                      List<List<String>> exportData = [];
-                      exportData.add([
-                        'Lead Name',
-                        'Email',
-                        'Source',
-                        'Category',
-                        'Priority',
-                        'Value',
-                        'Status',
-                        'Company',
-                        'Mobile',
-                        'Country',
-                        'State',
-                        'City',
-                        'Address',
-                        'Notes',
-                        'Created At',
-                      ]);
-
-                      for (var lead in _filteredLeads) {
-                        exportData.add([
-                          lead.leadName,
-                          lead.leadEmail,
-                          lead.leadSource.name,
-                          CacheService.leadCategoryByUid(
-                                lead.leadCategory,
-                              )?.name ??
-                              lead.leadCategory,
-                          CacheService.leadPriorityByUid(
-                                lead.leadPriority,
-                              )?.name ??
-                              lead.leadPriority,
-                          lead.leadValue.toString(),
-                          CacheService.leadStatusByUid(lead.leadStatus)?.name ??
-                              lead.leadStatus,
-                          lead.companyName ?? '',
-                          lead.companyMobile ?? '',
-                          lead.companyCountry?.name ?? '',
-                          lead.companyState?.name ?? '',
-                          lead.companyCity?.name ?? '',
-                          lead.companyAddress ?? '',
-                          lead.notes,
-                          lead.createdAt.formatDateTime,
-                        ]);
-                      }
-
-                      var fileBytes = await XlsxWriter().create(exportData);
-                      var filePath = await saveFileToDownloads(
-                        fileBytes,
-                        fileName:
-                            'Leads_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
-                      );
-                      if (!kIsWeb) openfile(filePath, context);
-                    } catch (e) {
-                      FlushBar.show(context, e.toString(), isSuccess: false);
-                    }
-                  },
-          ),
-        );
+          );
+        }
 
         if ((permissions?.canDelete ?? false) && _selectedLeads.isNotEmpty) {
           actionButtons.add(const SizedBox(width: 10));
@@ -1216,7 +1183,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         );
 
         // 3. Layout the components
-        if (kIsMobile || width < 1000) {
+        if (kIsMobile) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1260,11 +1227,10 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   ) {
     bool isSelected = controllerWatch.selectedIds.contains(lead.uid);
     var leadCategory = CacheService.leadCategoryByUid(lead.leadCategory);
-    final width = MediaQuery.of(context).size.width;
 
     /// Open Lead View
     void openLead(BuildContext context, LeadModel lead) async {
-      final result = kIsMobile || width < 1000
+      final result = kIsMobile
           ? await Sheet.showSheet(context, widget: LeadsViewPage(lead: lead))
           : await GeneralDialog.showRTLSheet(
               context,
@@ -1382,7 +1348,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   color: Theme.of(context).colorScheme.primary,
                   splashRadius: 20,
                   onPressed: () {
-                    if (kIsMobile || width < 1000) {
+                    if (kIsMobile) {
                       Sheet.showSheet(
                         context,
                         widget: LeadEdit(uid: lead.uid ?? ''),
@@ -1394,14 +1360,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                       );
                     }
                   },
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(
-                    Iconsax.edit,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: null,
                 ),
               ],
 
@@ -1471,14 +1429,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                       FlushBar.show(context, e.toString(), isSuccess: false);
                     }
                   },
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(
-                    Iconsax.trash,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: null,
                 ),
               ],
             ],

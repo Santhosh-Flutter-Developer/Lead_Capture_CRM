@@ -1,8 +1,7 @@
-import 'dart:typed_data';
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:shimmer/shimmer.dart';
@@ -59,8 +58,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   String? _employeeType;
   String _outsideOffice = 'No';
 
-  XFile? _selectedProfileImage;
-  Uint8List? _selectedProfileImageBytes;
+  File? _selectedProfileImage;
   String? _profileImageUrl;
   bool _oldProfileImageRemoved = false;
 
@@ -69,6 +67,8 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   DepartmentModel? _departmentModel;
   SubDepartmentModel? _subDepartmentModel;
   EmployeeModel? employee;
+  EmployeeModel? _originalEmployee;
+  AdminModel? _originalAdmin;
   bool _isActive = true;
 
   @override
@@ -90,6 +90,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
       _initialReportingTo.clear();
 
       if (widget.admin != null) {
+        _originalAdmin = widget.admin;
         _employeeIdController.text = "";
         _nameController.text = widget.admin!.name;
         _emailController.text = widget.admin!.email;
@@ -103,6 +104,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         _departmentList = await DepartmentService.getAllDepartments();
 
         employee = await EmployeeService.getEmployee(uid: widget.uid);
+        _originalEmployee = employee;
         _employeeIdController.text = employee!.employeeId;
         _nameController.text = employee!.name;
         _emailController.text = employee!.email;
@@ -152,9 +154,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         }
 
         for (var i in (employee?.reportingTo ?? [])) {
-          var employee = await EmployeeService.getEmployee(uid: i);
-          if (employee != null) {
-            _initialReportingTo.add(employee);
+          var emp = await EmployeeService.getEmployee(uid: i);
+          if (emp != null) {
+            _initialReportingTo.add(emp);
           } else {
             var admin = await AdminService.getAdmin(uid: i);
             if (admin != null) {
@@ -176,6 +178,110 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         stackTrace: st,
       );
     }
+  }
+
+  Future<void> _handleIsAdminChange(bool value) async {
+    if (value == isAdmin) return;
+
+    setState(() {
+      isAdmin = value;
+    });
+
+    if (value) {
+      // Switching to admin mode - load admin data if available or clear employee fields
+      if (_originalAdmin != null) {
+        _employeeIdController.text = "";
+        _nameController.text = _originalAdmin!.name;
+        _emailController.text = _originalAdmin!.email;
+        _passwordController.text = _originalAdmin!.password;
+        _mobileNumberController.text = _originalAdmin!.mobileNumber;
+        _selectedDateOfBirth = _originalAdmin!.createdAt;
+      } else {
+        // Keep name, email, password, mobile if coming from employee
+        _employeeIdController.text = "";
+      }
+    } else {
+      // Switching to employee mode - load employee data
+      if (_originalEmployee != null) {
+        // Ensure roles, designations, departments are loaded
+        if (_rolesList.isEmpty) {
+          _rolesList = await RoleService.getAllRoles();
+        }
+        if (_designationList.isEmpty) {
+          _designationList = await DesignationService.getAllDesignations();
+        }
+        if (_departmentList.isEmpty) {
+          _departmentList = await DepartmentService.getAllDepartments();
+        }
+
+        _employeeIdController.text = _originalEmployee!.employeeId;
+        _nameController.text = _originalEmployee!.name;
+        _emailController.text = _originalEmployee!.email;
+        _passwordController.text = _originalEmployee!.password;
+        _mobileNumberController.text = _originalEmployee!.mobileNumber;
+        _dateOfJoiningController.text =
+            _originalEmployee!.dateOfJoining.formatDate;
+        _selectedDateOfJoining = _originalEmployee!.dateOfJoining;
+        _dateOfBirthController.text =
+            _originalEmployee!.dateOfBirth?.formatDate ?? '';
+        _selectedDateOfBirth = _originalEmployee!.dateOfBirth;
+        _addressController.text = _originalEmployee!.address;
+        _aboutController.text = _originalEmployee!.about;
+        _skillsController.text = _originalEmployee!.skills;
+
+        _gender = _originalEmployee!.gender;
+        _loginAllowed = _originalEmployee!.loginAllowed ? 'Yes' : 'No';
+        _receiveEmailNotifications =
+            _originalEmployee!.receiveEmailNotifications ? 'Yes' : 'No';
+        _maritalStatus = _originalEmployee!.maritalStatus;
+        _isActive = _originalEmployee!.isActive;
+        _employeeType = _originalEmployee!.employeeType;
+        _outsideOffice = _originalEmployee!.outsideOffice ? 'Yes' : 'No';
+        _profileImageUrl = _originalEmployee!.profileImageUrl;
+
+        _roleModel = await RoleService.getRole(uid: _originalEmployee!.role);
+        _designationModel = await DesignationService.getDesignation(
+          uid: _originalEmployee!.designation,
+        );
+
+        _department.clear();
+        if (_originalEmployee!.department != null &&
+            _originalEmployee!.department!.isNotEmpty) {
+          _department.addAll(_originalEmployee!.department!);
+        }
+
+        // Load sub-departments
+        _subDepartmentList.clear();
+        for (var depId in _department) {
+          final subDeps = await SubDepartmentService.getSubDepartmentsByDepId(
+            depId: depId,
+          );
+          _subDepartmentList.addAll(subDeps);
+        }
+
+        if (_originalEmployee!.subDepartment != null &&
+            _originalEmployee!.subDepartment!.isNotEmpty) {
+          _subDepartmentModel = await SubDepartmentService.getSubDepartment(
+            uid: _originalEmployee!.subDepartment ?? '',
+          );
+        }
+
+        // Load reporting to
+        _initialReportingTo.clear();
+        for (var i in (_originalEmployee?.reportingTo ?? [])) {
+          var emp = await EmployeeService.getEmployee(uid: i);
+          if (emp != null) {
+            _initialReportingTo.add(emp);
+          } else {
+            var admin = await AdminService.getAdmin(uid: i);
+            if (admin != null) {
+              _initialReportingTo.add(admin);
+            }
+          }
+        }
+      }
+    }
+    setState(() {});
   }
 
   @override
@@ -313,51 +419,92 @@ class _EmployeeEditState extends State<EmployeeEdit> {
     }
   }
 
-  /// Gallery-only image picker that works on web, mobile and Windows.
-  /// Uses XFile + bytes throughout (no dart:io File) so it never breaks on
-  /// web, where XFile paths are blob: URLs rather than real file paths.
   Future<void> pickImage() async {
+    // On Windows: use file picker only
+    if (kIsWindows) {
+      await _pickImageFromFile();
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
     try {
-      XFile? imageFile;
+      final xFile = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 512,
+      );
+      if (xFile == null) return;
+      final rotated = await FlutterExifRotation.rotateImage(path: xFile.path);
 
-      if (kIsWindows) {
-        // Windows: image_picker has no gallery implementation, use file_picker.
-        final result = await FilePicker.platform.pickFiles(
-          type: FileType.image,
-          allowMultiple: false,
-          dialogTitle: 'Select a profile photo',
-        );
-        if (result == null || result.files.isEmpty) return;
-        final pickedPath = result.files.single.path;
-        if (pickedPath == null) return;
-        imageFile = XFile(pickedPath);
-      } else if (kIsWeb) {
-        // Web: image_picker's gallery source works fine on web.
-        imageFile = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-          imageQuality: 85,
-        );
-        if (imageFile == null) return;
-      } else {
-        // Mobile/native desktop: gallery only, with EXIF rotation.
-        final picked = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-          imageQuality: 85,
-          maxWidth: 512,
-        );
-        if (picked == null) return;
-        final rotated = await FlutterExifRotation.rotateImage(
-          path: picked.path,
-        );
-        imageFile = XFile(rotated.path);
+      if (mounted) {
+        setState(() {
+          _selectedProfileImage = rotated;
+          _markProfileImageReplaced();
+        });
       }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (mounted) {
+        FlushBar.show(context, 'Failed to pick image: $e', isSuccess: false);
+      }
+    }
+  }
 
-      final bytes = await imageFile.readAsBytes();
+  /// Windows-only: Pick an image file.
+  Future<void> _pickImageFromFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        dialogTitle: 'Select a profile photo',
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final pickedPath = result.files.single.path;
+      if (pickedPath == null) return;
+
+      final imageFile = File(pickedPath);
 
       if (mounted) {
         setState(() {
           _selectedProfileImage = imageFile;
-          _selectedProfileImageBytes = bytes;
           _markProfileImageReplaced();
         });
       }
@@ -395,8 +542,8 @@ class _EmployeeEditState extends State<EmployeeEdit> {
                           width: 130,
                           fit: BoxFit.cover,
                         )
-                      : Image.memory(
-                          _selectedProfileImageBytes!,
+                      : Image.file(
+                          _selectedProfileImage!,
                           height: 130,
                           width: 130,
                           fit: BoxFit.cover,
@@ -408,7 +555,6 @@ class _EmployeeEditState extends State<EmployeeEdit> {
                   child: GestureDetector(
                     onTap: () {
                       _selectedProfileImage = null;
-                      _selectedProfileImageBytes = null;
                       if (_profileImageUrl != null) {
                         _profileImageUrl = null;
                         _oldProfileImageRemoved = true;
@@ -790,9 +936,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               Checkbox(
                 value: isAdmin,
                 onChanged: (value) {
-                  setState(() {
-                    isAdmin = value ?? false;
-                  });
+                  if (value != null) {
+                    _handleIsAdminChange(value);
+                  }
                 },
               ),
               Text("Make as Admin"),
@@ -993,9 +1139,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
           String? profileImageUrl;
 
           if (_selectedProfileImage != null) {
-            profileImageUrl = await xFileToUploadUrl(
-              _selectedProfileImage!,
-              StorageFolder.adminProfile,
+            profileImageUrl = await StorageService.uploadFile(
+              file: _selectedProfileImage!,
+              folder: StorageFolder.adminProfile,
             );
           }
 
@@ -1051,9 +1197,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
           // - Use null if the image was explicitly removed
           String? profileImageUrl;
           if (_selectedProfileImage != null) {
-            profileImageUrl = await xFileToUploadUrl(
-              _selectedProfileImage!,
-              StorageFolder.userPhotos,
+            profileImageUrl = await StorageService.uploadFile(
+              file: _selectedProfileImage!,
+              folder: StorageFolder.userPhotos,
             );
           } else if (!_oldProfileImageRemoved) {
             profileImageUrl = _profileImageUrl;

@@ -2,14 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:leadcapture/utils/src/download_io.dart';
 import 'package:provider/provider.dart';
 import '/constants/constants.dart';
 import '/services/services.dart';
-import 'package:flutter/foundation.dart';
 import '/utils/utils.dart';
-import '/utils/src/download_io.dart'
-    if (dart.library.html) '/utils/src/download_web.dart'
-    show saveFileToDownloads;
 import '/views/views.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
@@ -117,7 +114,6 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     final controllerRead = Provider.of<PaginatedDataController<ClientModel>>(
       context,
       listen: false,
@@ -128,7 +124,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     );
 
     return Scaffold(
-      appBar: kIsMobile || width < 1000
+      appBar: kIsMobile
           ? AppBar(leading: Back(), title: Text(pageTitle))
           : null,
       body: BlocListener<ClientCompanyBloc, ClientCompanyState>(
@@ -329,7 +325,6 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
   }
 
   Widget _buildActionRow(context) {
-    final width = MediaQuery.of(context).size.width;
     final controllerWatch = Provider.of<PaginatedDataController<ClientModel>>(
       context,
       listen: true,
@@ -346,7 +341,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                       ? const ContactCreate()
                       : const CompanyCreate();
 
-                  if (kIsMobile || width < 1000) {
+                  if (kIsMobile) {
                     Sheet.showSheet(context, widget: form);
                   } else {
                     GeneralDialog.showRTLSheet(context, form);
@@ -364,104 +359,82 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 ),
               ),
-            ] else ...[
+              const SizedBox(width: 10),
+            ],
+            if ((permissions?.canExport ?? false) &&
+                controllerWatch.paginatedItems.isNotEmpty) ...[
               ElevatedButton.icon(
-                onPressed: null,
-                icon: Icon(
-                  Icons.add,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                label: Text(
-                  "Add $pageTitle",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                label: Text("Export"),
+                icon: const Icon(Iconsax.export_3),
+                onPressed: () async {
+                  try {
+                    List<List<String>> exportData = [];
+
+                    // Add header row
+                    if (widget.section == ClientSection.contacts) {
+                      exportData.add([
+                        'Name',
+                        'Email',
+                        'Mobile',
+                        'Status',
+                        'Created By',
+                      ]);
+                    } else {
+                      exportData.add([
+                        'Company',
+                        'Phone',
+                        'GST/VAT',
+                        'Status',
+                        'Created By',
+                      ]);
+                    }
+
+                    final controller =
+                        Provider.of<PaginatedDataController<ClientModel>>(
+                          context,
+                          listen: false,
+                        );
+                    for (var client in controller.paginatedItems) {
+                      if (widget.section == ClientSection.contacts) {
+                        exportData.add([
+                          client.clientName ?? '',
+                          client.email ?? '',
+                          client.mobileNumber ?? '',
+                          client.isActive ? 'Active' : 'Inactive',
+                          client.createdBy.name,
+                        ]);
+                      } else {
+                        exportData.add([
+                          client.companyName ?? '',
+                          client.officePhoneNo ?? '',
+                          client.gstVatNumber ?? '',
+                          client.isActive ? 'Active' : 'Inactive',
+                          client.createdBy.name,
+                        ]);
+                      }
+                    }
+
+                    // Generate Excel
+                    var fileBytes = await XlsxWriter().create(exportData);
+
+                    // Save to downloads
+                    var filePath = await saveFileToDownloads(
+                      fileBytes,
+                      fileName: '$pageTitle List.xlsx',
+                    );
+
+                    // Open file
+                    openfile(filePath, context);
+                  } catch (e) {
+                    FlushBar.show(context, e.toString(), isSuccess: false);
+                  }
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant,
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
                 ),
               ),
             ],
-            const SizedBox(width: 10),
-            ElevatedButton.icon(
-              label: Text("Export"),
-              icon: const Icon(Iconsax.export_3),
-              onPressed: (permissions?.canExport ?? false) == false || controllerWatch.paginatedItems.isEmpty
-                  ? null
-                  : () async {
-                      try {
-                        List<List<String>> exportData = [];
-
-                        // Add header row
-                        if (widget.section == ClientSection.contacts) {
-                          exportData.add([
-                            'Name',
-                            'Email',
-                            'Mobile',
-                            'Status',
-                            'Created By',
-                          ]);
-                        } else {
-                          exportData.add([
-                            'Company',
-                            'Phone',
-                            'GST/VAT',
-                            'Status',
-                            'Created By',
-                          ]);
-                        }
-
-                        final controller =
-                            Provider.of<PaginatedDataController<ClientModel>>(
-                              context,
-                              listen: false,
-                            );
-                        for (var client in controller.paginatedItems) {
-                          if (widget.section == ClientSection.contacts) {
-                            exportData.add([
-                              client.clientName ?? '',
-                              client.email ?? '',
-                              client.mobileNumber ?? '',
-                              client.isActive ? 'Active' : 'Inactive',
-                              client.createdBy.name,
-                            ]);
-                          } else {
-                            exportData.add([
-                              client.companyName ?? '',
-                              client.officePhoneNo ?? '',
-                              client.gstVatNumber ?? '',
-                              client.isActive ? 'Active' : 'Inactive',
-                              client.createdBy.name,
-                            ]);
-                          }
-                        }
-
-                        // Generate Excel
-                        var fileBytes = await XlsxWriter().create(exportData);
-
-                        // Save to downloads
-                        var filePath = await saveFileToDownloads(
-                          fileBytes,
-                          fileName: '$pageTitle List.xlsx',
-                        );
-
-                        // Open file (native only — web already triggered download above)
-                        if (!kIsWeb) openfile(filePath, context);
-                      } catch (e) {
-                        FlushBar.show(context, e.toString(), isSuccess: false);
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Theme.of(context).colorScheme.onSecondary,
-              ),
-            ),
             const SizedBox(width: 10),
 
             // ] else ...[
@@ -764,11 +737,10 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     String? imageUrl,
     bool isCompany,
   ) {
-    final width = MediaQuery.of(context).size.width;
     return InkWell(
       onTap: () {
         final profile = ClientProfile(client: company, isCompany: isCompany);
-        kIsMobile || width < 1000
+        kIsMobile
             ? Sheet.showSheet(context, widget: profile)
             : GeneralDialog.showRTLSheet(context, profile);
       },
@@ -812,7 +784,6 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
   }
 
   Widget _actionButtons(BuildContext context, ClientModel client) {
-    final width = MediaQuery.of(context).size.width;
     return Row(
       children: [
         if (permissions?.canEdit ?? false) ...[
@@ -825,20 +796,12 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                   ? ContactUpdate(uid: client.uid!)
                   : CompanyUpdate(uid: client.uid!);
 
-              if (kIsMobile || width < 1000) {
+              if (kIsMobile) {
                 Sheet.showSheet(context, widget: form);
               } else {
                 GeneralDialog.showRTLSheet(context, form);
               }
             },
-          ),
-        ] else ...[
-          IconButton(
-            icon: Icon(
-              Iconsax.edit,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: null,
           ),
         ],
         if (permissions?.canDelete ?? false) ...[

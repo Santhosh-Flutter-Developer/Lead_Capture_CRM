@@ -65,7 +65,7 @@ class _FeedListingState extends State<FeedListing> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: kIsMobile || screenWidth < 1000
+      appBar: kIsMobile
           ? AppBar(
               leading: Back(color: Theme.of(context).colorScheme.onSurface),
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -103,7 +103,7 @@ class _FeedListingState extends State<FeedListing> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 4,
         onPressed: () async {
-          if (kIsMobile || screenWidth < 1000) {
+          if (kIsMobile) {
             final result = await Sheet.showSheet(
               context,
               widget: const FeedCreate(),
@@ -300,7 +300,6 @@ class FeedCardState extends State<FeedCard> {
   }
 
   Future<void> _openPostPreview({int initialImageIndex = 0}) async {
-    final width = MediaQuery.of(context).size.width;
     final imageCount = widget.feed.mediaImages.length;
     final startIndex = imageCount == 0
         ? 0
@@ -333,6 +332,7 @@ class FeedCardState extends State<FeedCard> {
                   ),
                 )
                 .toList(),
+            votedUserIds: List<String>.from(widget.feed.poll!.votedUserIds),
           );
 
     String? selectedOptionId;
@@ -795,7 +795,7 @@ class FeedCardState extends State<FeedCard> {
                                             OutlinedButton(
                                               onPressed: () {
                                                 Navigator.pop(dialogContext);
-                                                _openPostEdit(width: width);
+                                                _openPostEdit();
                                               },
                                               child: const Text('Manage Poll'),
                                             ),
@@ -1360,8 +1360,8 @@ class FeedCardState extends State<FeedCard> {
     return result ?? false;
   }
 
-  Future<void> _openPostEdit({required double width}) async {
-    if (kIsMobile || width < 1000) {
+  Future<void> _openPostEdit() async {
+    if (kIsMobile) {
       final result = await Sheet.showSheet(
         context,
         widget: FeedEdit(uid: widget.feed.uid ?? ''),
@@ -1465,7 +1465,6 @@ class FeedCardState extends State<FeedCard> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -1533,7 +1532,7 @@ class FeedCardState extends State<FeedCard> {
                     ),
                     onSelected: (value) async {
                       if (value == 'edit') {
-                        await _openPostEdit(width: width);
+                        await _openPostEdit();
                         return;
                       }
 
@@ -1763,10 +1762,8 @@ class FeedCardState extends State<FeedCard> {
 
     if (updatedAt == null || updatedAt.isAtSameMomentAs(feed.createdAt)) {
       return 'Posted $createdLabel ago';
-      return 'Posted $createdLabel ago';
     }
 
-    return 'Posted $createdLabel ago · Edited ${_formatShortTime(updatedAt)} ago';
     return 'Posted $createdLabel ago · Edited ${_formatShortTime(updatedAt)} ago';
   }
 
