@@ -1039,7 +1039,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
           ),
           _dataPoint(
             Iconsax.location,
-            "Office Location",
+            "Office Address",
             "${_deal.companyCity?.name ?? 'Unknown'}, ${_deal.companyCountry?.name ?? 'Unknown'}",
           ),
         ]),

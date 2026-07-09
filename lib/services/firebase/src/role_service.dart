@@ -227,4 +227,66 @@ class RoleService {
       throw e.toString();
     }
   }
+
+  static Future<List<String>> getUsersWithPermission({
+    required String page,
+    required bool Function(PermissionModel) permissionCheck,
+  }) async {
+    try {
+      var cid = await Spdb.getCid();
+      Set<String> userIds = {};
+
+      // Get all roles
+      var rolesSnapshot = await firebase.users
+          .doc(cid)
+          .collection(Collections.roles.name)
+          .get();
+
+      // Filter roles that have the required permission
+      List<String> eligibleRoleIds = [];
+      for (var roleDoc in rolesSnapshot.docs) {
+        var role = RoleModel.fromMap(roleDoc.id, roleDoc.data());
+        var permission = role.permissions.firstWhere(
+          (p) => p.page.toLowerCase() == page.toLowerCase(),
+          orElse: () => PermissionModel(page: page),
+        );
+        if (permissionCheck(permission)) {
+          eligibleRoleIds.add(roleDoc.id);
+        }
+      }
+
+      // Get all employees with eligible roles
+      if (eligibleRoleIds.isNotEmpty) {
+        var employeesSnapshot = await firebase.users
+            .doc(cid)
+            .collection(Collections.employees.name)
+            .where('isActive', isEqualTo: true)
+            .get();
+
+        for (var empDoc in employeesSnapshot.docs) {
+          var empData = empDoc.data();
+          var empRole = empData['role'] as String?;
+          if (empRole != null && eligibleRoleIds.contains(empRole)) {
+            userIds.add(empDoc.id);
+          }
+        }
+      }
+
+      // Also include all admins (they typically have all permissions)
+      var adminsSnapshot = await firebase.users
+          .doc(cid)
+          .collection(Collections.admins.name)
+          .get();
+
+      for (var adminDoc in adminsSnapshot.docs) {
+        userIds.add(adminDoc.id);
+      }
+
+      return userIds.toList();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("Error getting users with permission: $e\n$st");
+      return [];
+    }
+  }
 }

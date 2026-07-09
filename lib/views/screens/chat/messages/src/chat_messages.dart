@@ -104,6 +104,7 @@ class _ChatMessagesState extends State<ChatMessages> {
     return ChatData(
       uid: widget.chat.uid ?? '',
       currentUser: widget.currentUser,
+      isGroupChat: widget.chat.isGroupChat,
       child: Scaffold(
         appBar: kIsMobile || width < 1000
             ? ChatTopBar(

@@ -1,6 +1,3 @@
-import 'package:leadcapture/models/src/attendance_model.dart';
-import 'package:leadcapture/models/src/salary_ledger_model.dart';
-
 import '/models/models.dart';
 
 class DashboardModel {
@@ -23,8 +20,8 @@ class DashboardModel {
   final List<DealModel> allDeals;
   final List<TaskModel> allTasks;
   final List<CustomerTicketModel> allTickets;
-  final AttendanceStats attendanceStats;
-  final SalaryModel salary;
+  // final AttendanceStats attendanceStats;
+  // final SalaryModel salary;
 
   DashboardModel({
     required this.totalLeads,
@@ -46,8 +43,8 @@ class DashboardModel {
     required this.allDeals,
     required this.allTasks,
     this.allTickets = const [],
-    required this.attendanceStats,
-    required this.salary,
+    // required this.attendanceStats,
+    // required this.salary,
   });
 
   factory DashboardModel.fromMap(Map<String, dynamic> map) {
@@ -84,7 +81,7 @@ class DashboardModel {
           : int.tryParse(map['pendingTickets']?.toString() ?? '0') ?? 0,
       assignedTickets: map['assignedTickets'] is int
           ? map['assignedTickets'] as int
-          : int.tryParse(map['assignedTickets']?.toString() ?? '0') ?? 0,    
+          : int.tryParse(map['assignedTickets']?.toString() ?? '0') ?? 0,
       recentActivities:
           map['recentActivities'] != null && map['recentActivities'] is List
           ? List<ActivityItem>.from(
@@ -150,47 +147,47 @@ class DashboardModel {
                 ),
               ),
             )
-          : [],    
-      attendanceStats: map['attendanceStats'] != null
-          ? AttendanceStats.fromMap(
-              map['attendanceStats'] as Map<String, dynamic>,
-            )
-          : AttendanceStats(
-              presentDays: 0,
-              absentDays: 0,
-              leaveDays: 0,
-              holidayDays: 0,
-              wfhDays: 0,
-              halfDayDays: 0,
-              lateDays: 0,
-              earlyExitDays: 0,
-              totalWorkingHours: '0',
-              totalLessHours: '0',
-              totalOTHours: '0',
-              attendanceData: [],
-            ),
-      salary: map['salary'] != null
-          ? SalaryModel.fromMap(map['salary'] as Map<String, dynamic>)
-          : SalaryModel(
-              salaryNumber: '',
-              employeeId: '',
-              permissionId: '',
-              workingDays: '0',
-              leaveDays: '0',
-              otHours: '0',
-              earnAmount: '0',
-              otAmount: '0',
-              incentive: '0',
-              grossPay: '0',
-              otherDeduction: '0',
-              pfAmount: '0',
-              esiAmount: '0',
-              advanceDeduction: '0',
-              totalDeduction: '0',
-              netPay: '0',
-              salaryFromDate: DateTime.now().toIso8601String(),
-              salaryToDate: DateTime.now().toIso8601String(),
-            ),
+          : [],
+      // attendanceStats: map['attendanceStats'] != null
+      //     ? AttendanceStats.fromMap(
+      //         map['attendanceStats'] as Map<String, dynamic>,
+      //       )
+      //     : AttendanceStats(
+      //         presentDays: 0,
+      //         absentDays: 0,
+      //         leaveDays: 0,
+      //         holidayDays: 0,
+      //         wfhDays: 0,
+      //         halfDayDays: 0,
+      //         lateDays: 0,
+      //         earlyExitDays: 0,
+      //         totalWorkingHours: '0',
+      //         totalLessHours: '0',
+      //         totalOTHours: '0',
+      //         attendanceData: [],
+      //       ),
+      // salary: map['salary'] != null
+      //     ? SalaryModel.fromMap(map['salary'] as Map<String, dynamic>)
+      //     : SalaryModel(
+      //         salaryNumber: '',
+      //         employeeId: '',
+      //         permissionId: '',
+      //         workingDays: '0',
+      //         leaveDays: '0',
+      //         otHours: '0',
+      //         earnAmount: '0',
+      //         otAmount: '0',
+      //         incentive: '0',
+      //         grossPay: '0',
+      //         otherDeduction: '0',
+      //         pfAmount: '0',
+      //         esiAmount: '0',
+      //         advanceDeduction: '0',
+      //         totalDeduction: '0',
+      //         netPay: '0',
+      //         salaryFromDate: DateTime.now().toIso8601String(),
+      //         salaryToDate: DateTime.now().toIso8601String(),
+      //       ),
     );
   }
 
@@ -215,31 +212,31 @@ class DashboardModel {
       "allDeals": allDeals.map((e) => e.toMap()).toList(),
       "allTasks": allTasks.map((e) => e.toMap()).toList(),
       "allTickets": allTickets.map((e) => e.toMap()).toList(),
-      "attendanceStats": attendanceStats.toMap(),
-      "salary": salary.toMap(),
+      // "attendanceStats": attendanceStats.toMap(),
+      // "salary": salary.toMap(),
     };
   }
 
-  PunchModel? get todayAttendance {
-    if (attendanceStats.attendanceData.isEmpty) return null;
+  // PunchModel? get todayAttendance {
+  //   if (attendanceStats.attendanceData.isEmpty) return null;
 
-    final today = DateTime.now();
+  //   final today = DateTime.now();
 
-    for (var attendance in attendanceStats.attendanceData) {
-      for (var punch in attendance.punchList) {
-        final punchDate = DateTime.tryParse(punch.punchDate);
+  //   for (var attendance in attendanceStats.attendanceData) {
+  //     for (var punch in attendance.punchList) {
+  //       final punchDate = DateTime.tryParse(punch.punchDate);
 
-        if (punchDate != null &&
-            punchDate.year == today.year &&
-            punchDate.month == today.month &&
-            punchDate.day == today.day) {
-          return punch;
-        }
-      }
-    }
+  //       if (punchDate != null &&
+  //           punchDate.year == today.year &&
+  //           punchDate.month == today.month &&
+  //           punchDate.day == today.day) {
+  //         return punch;
+  //       }
+  //     }
+  //   }
 
-    return null;
-  }
+  //   return null;
+  // }
 
   // static int _toInt(dynamic value) {
   //   return int.tryParse(value?.toString() ?? '0') ?? 0;

@@ -3,10 +3,12 @@ part of 'chat_messages.dart';
 class ChatData extends InheritedWidget {
   final String uid;
   final String currentUser;
+  final bool isGroupChat;
 
   const ChatData({
     required this.uid,
     required this.currentUser,
+    required this.isGroupChat,
     required super.child,
     super.key,
   });

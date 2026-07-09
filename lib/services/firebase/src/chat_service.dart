@@ -426,8 +426,8 @@ class ChatService {
 
       NotificationModel notification = NotificationModel(
         collectionId: await Spdb.getCid() ?? '',
-        title: name,
-        body: message,
+        title: chat.isGroupChat ? (chat.title ?? 'Group Chat') : name,
+        body: chat.isGroupChat ? '$name: $message' : message,
         toUids: receivers,
         toFcms: toFcms,
         senderId: await Spdb.getUid(),
@@ -437,7 +437,7 @@ class ChatService {
                 "type": "chat",
                 "chatId": chat.uid,
                 "chat": json.encode(chat.toMap()),
-                "chatTitle": chat.isGroupChat ? chat.title : name,
+                "chatTitle": chat.isGroupChat ? (chat.title ?? 'Group Chat') : name,
                 "senderImageUrl": user.profilePic,
               }
             : {},
@@ -849,3 +849,4 @@ class ChatService {
     }
   }
 }
+      

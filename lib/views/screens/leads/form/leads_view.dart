@@ -854,7 +854,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
           ),
           _dataPoint(
             Iconsax.location,
-            "Office Location",
+            "Office Address",
             "${_lead.companyCity?.name ?? 'Unknown'}, ${_lead.companyCountry?.name ?? 'Unknown'}",
           ),
         ]),

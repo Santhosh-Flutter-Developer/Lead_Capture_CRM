@@ -43,6 +43,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
   final List<String> _department = [];
   final List<SubDepartmentModel> _subDepartmentList = [];
   final List<String> _reportingTo = [];
+  List<dynamic> _reportingToObjects = [];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late Future _future;
@@ -61,6 +62,17 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
   SubDepartmentModel? _subDepartmentModel;
   EmployeeModel? employee;
   bool _isActive = true;
+
+  // State preservation for employee fields when toggling Make as Admin
+  String? _preservedEmployeeId;
+  String? _preservedDesignation;
+  List<String> _preservedDepartment = [];
+  String? _preservedSubDepartment;
+  String? _preservedGender;
+  String? _preservedDateOfJoining;
+  String? _preservedRole;
+  List<String> _preservedReportingTo = [];
+  List<dynamic> _preservedReportingToObjects = [];
 
   @override
   void initState() {
@@ -544,20 +556,21 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
       spacing: horizontalSpacing,
       runSpacing: verticalSpacing,
       children: [
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Employee Id',
-            controller: _employeeIdController,
-            hintText: 'Enter Employee Id',
-            isRequired: isAdmin ? false : true,
-            valid: (input) => Validation.commonValidation(
-              input: input,
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormFields(
               label: 'Employee Id',
-              isReq: isAdmin ? false : true,
+              controller: _employeeIdController,
+              hintText: 'Enter Employee Id',
+              isRequired: true,
+              valid: (input) => Validation.commonValidation(
+                input: input,
+                label: 'Employee Id',
+                isReq: true,
+              ),
             ),
           ),
-        ),
         SizedBox(
           width: itemWidth,
           child: FormFields(
@@ -620,48 +633,106 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
                 Validation.validMobileNumber(input: input, isReq: false),
           ),
         ),
-        SizedBox(
-          width: itemWidth,
-          child: FormDropdownSearch(
-            items: const ['Male', 'Female', 'Others'],
-            label: 'Gender',
-            isRequired: isAdmin ? false : true,
-            onChanged: (value) {
-              if (value != null) {
-                _gender = value.toString();
-              }
-            },
-            validator: isAdmin
-                ? null
-                : (value) {
-                    if (value == null) {
-                      return "* Required";
-                    }
-                    return null;
-                  },
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormDropdownSearch(
+              initialItem: _gender,
+              items: const ['Male', 'Female', 'Others'],
+              label: 'Gender',
+              isRequired: true,
+              onChanged: (value) {
+                if (value != null) {
+                  _gender = value.toString();
+                }
+              },
+              validator: (value) {
+                if (value == null) {
+                  return "* Required";
+                }
+                return null;
+              },
+            ),
           ),
-        ),
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Birth Date',
-            controller: _dateOfBirthController,
-            hintText: 'DD/MM/YYYY',
-            readOnly: true,
-            onTap: () async {
-              var result = await datePicker(context, lastDate: DateTime.now());
-              if (result != null) {
-                _dateOfBirthController.text = result.formatDate;
-                _selectedDateOfBirth = result;
-              }
-            },
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormFields(
+              label: 'Birth Date',
+              controller: _dateOfBirthController,
+              hintText: 'DD/MM/YYYY',
+              readOnly: true,
+              onTap: () async {
+                var result = await datePicker(context, lastDate: DateTime.now());
+                if (result != null) {
+                  _dateOfBirthController.text = result.formatDate;
+                  _selectedDateOfBirth = result;
+                }
+              },
+            ),
           ),
-        ),
       ],
     );
   }
 
   bool isAdmin = false;
+
+  void _handleIsAdminChange(bool value) {
+    if (value == isAdmin) return;
+
+    if (value) {
+      // Switching to admin mode - preserve employee field values
+      _preservedEmployeeId = _employeeIdController.text;
+      _preservedDesignation = _designationModel?.uid;
+      _preservedDepartment = List.from(_department);
+      _preservedSubDepartment = _subDepartmentModel?.uid;
+      _preservedGender = _gender;
+      _preservedDateOfJoining = _dateOfJoiningController.text;
+      _preservedRole = _roleModel?.uid;
+      _preservedReportingTo = List.from(_reportingTo);
+      _preservedReportingToObjects = List.from(_reportingToObjects);
+    } else {
+      // Switching to employee mode - restore preserved values
+      _employeeIdController.text = _preservedEmployeeId ?? '';
+      _dateOfJoiningController.text = _preservedDateOfJoining ?? '';
+      _gender = _preservedGender;
+      _department.clear();
+      _department.addAll(_preservedDepartment);
+      _reportingTo.clear();
+      _reportingTo.addAll(_preservedReportingTo);
+      _reportingToObjects.clear();
+      _reportingToObjects.addAll(_preservedReportingToObjects);
+
+      // Restore dropdown models asynchronously
+      if (_preservedDesignation != null) {
+        _designationModel = _designationList.firstWhere(
+          (d) => d.uid == _preservedDesignation,
+          orElse: () => _designationList.first,
+        );
+      }
+      if (_preservedSubDepartment != null) {
+        try {
+          _subDepartmentModel = _subDepartmentList.firstWhere(
+            (sd) => sd.uid == _preservedSubDepartment,
+          );
+        } catch (e) {
+          _subDepartmentModel = _subDepartmentList.isNotEmpty
+              ? _subDepartmentList.first
+              : null;
+        }
+      }
+      if (_preservedRole != null) {
+        _roleModel = _rolesList.firstWhere(
+          (r) => r.uid == _preservedRole,
+          orElse: () => _rolesList.first,
+        );
+      }
+    }
+
+    setState(() {
+      isAdmin = value;
+    });
+  }
 
   Widget _buildWorkFormFields(BoxConstraints constraints, int gridCounts) {
     final double currentWidth = constraints.maxWidth;
@@ -687,6 +758,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
             child: CustomFutureSearchableDropdown<DesignationModel>(
               label: 'Designation',
               isRequired: true,
+              initialValue: _designationModel,
               validator: (value) {
                 if (_designationModel == null) {
                   return 'Designation is required';
@@ -713,6 +785,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
             child: CustomFutureSearchableDropdown<DepartmentModel>(
               label: 'Department',
               isRequired: true,
+              initialValues: _departmentList.where((d) => _department.contains(d.uid)).toList(),
               validator: (value) {
                 if (_department.isEmpty) {
                   return 'Department is required';
@@ -740,6 +813,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
             width: itemWidth,
             child: CustomFutureSearchableDropdown<SubDepartmentModel>(
               label: 'Sub Department',
+              initialValue: _subDepartmentModel,
               asyncItems: () async {
                 List<SubDepartmentModel> subDepartmentList = [];
                 for (var depId in _department) {
@@ -762,34 +836,36 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
               },
             ),
           ),
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Joining Date',
-            controller: _dateOfJoiningController,
-            hintText: 'DD/MM/YYYY',
-            readOnly: true,
-            isRequired: isAdmin ? false : true,
-            valid: (input) => Validation.commonValidation(
-              input: input,
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormFields(
               label: 'Joining Date',
-              isReq: isAdmin ? false : true,
+              controller: _dateOfJoiningController,
+              hintText: 'DD/MM/YYYY',
+              readOnly: true,
+              isRequired: true,
+              valid: (input) => Validation.commonValidation(
+                input: input,
+                label: 'Joining Date',
+                isReq: true,
+              ),
+              onTap: () async {
+                var result = await datePicker(context);
+                if (result != null) {
+                  _dateOfJoiningController.text = result.formatDate;
+                  _selectedDateOfJoining = result;
+                }
+              },
             ),
-            onTap: () async {
-              var result = await datePicker(context);
-              if (result != null) {
-                _dateOfJoiningController.text = result.formatDate;
-                _selectedDateOfJoining = result;
-              }
-            },
           ),
-        ),
         if (!isAdmin)
           SizedBox(
             width: itemWidth,
             child: CustomFutureSearchableDropdown<RoleModel>(
               label: 'Role',
               isRequired: true,
+              initialValue: _roleModel,
               validator: (value) {
                 if (_roleModel == null) {
                   return 'Role is required';
@@ -814,7 +890,9 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
             width: itemWidth,
             child: UsersListDropdown(
               label: 'Reporting To',
+              initialValues: _reportingToObjects,
               onChangedList: (list) {
+                _reportingToObjects = list;
                 _reportingTo.clear();
                 _reportingTo.addAll(list.map((e) => e.uid!));
               },
@@ -831,9 +909,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
               Checkbox(
                 value: isAdmin,
                 onChanged: (value) {
-                  setState(() {
-                    isAdmin = value ?? false;
-                  });
+                  _handleIsAdminChange(value ?? false);
                 },
               ),
               Text("Make as Admin"),

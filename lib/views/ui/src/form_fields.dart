@@ -310,6 +310,15 @@ class _FormDropdownSearchState extends State<FormDropdownSearch> {
   }
 
   @override
+  void didUpdateWidget(covariant FormDropdownSearch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialItem != oldWidget.initialItem) {
+      selectedValue = widget.initialItem;
+      setState(() {});
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FormField<dynamic>(
       validator: widget.validator,

@@ -1,11 +1,9 @@
 import 'dart:io';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/constants/src/enum.dart';
-import 'package:leadcapture/models/src/attendance_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
 import '/utils/utils.dart';
@@ -109,11 +107,11 @@ class _DashboardState extends State<Dashboard> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       const SizedBox(height: 20),
-                                      _buildPayroll(
-                                        context,
-                                        widget.isAdmin,
-                                        data,
-                                      ),
+                                      // _buildPayroll(
+                                      //   context,
+                                      //   widget.isAdmin,
+                                      //   data,
+                                      // ),
                                     ],
                                   );
                                 },
@@ -169,11 +167,11 @@ class _DashboardState extends State<Dashboard> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           const SizedBox(height: 20),
-                                          _buildPayroll(
-                                            context,
-                                            widget.isAdmin,
-                                            data,
-                                          ),
+                                          // _buildPayroll(
+                                          //   context,
+                                          //   widget.isAdmin,
+                                          //   data,
+                                          // ),
                                         ],
                                       );
                                     },
@@ -253,437 +251,436 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildPayroll(
-    BuildContext context,
-    bool isAdmin,
-    DashboardModel data,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Payroll Overview",
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+  // Widget _buildPayroll(
+  //   BuildContext context,
+  //   bool isAdmin,
+  //   DashboardModel data,
+  // ) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         "Payroll Overview",
+  //         style: Theme.of(context).textTheme.titleMedium,
+  //       ),
 
-        const SizedBox(height: 15),
+  //       const SizedBox(height: 15),
 
-        /// Today Attendance
-        _todayAttendanceCard(data.todayAttendance),
+  //       /// Today Attendance
+  //       // _todayAttendanceCard(data.todayAttendance),
+  //       const SizedBox(height: 20),
 
-        const SizedBox(height: 20),
+  //       /// Attendance Chart
+  //       _attendanceChart(data),
 
-        /// Attendance Chart
-        _attendanceChart(data),
+  //       const SizedBox(height: 20),
 
-        const SizedBox(height: 20),
+  //       /// Role based widgets
+  //       isAdmin ? _adminPayrollWidgets(data) : _employeePayrollWidgets(data),
+  //     ],
+  //   );
+  // }
 
-        /// Role based widgets
-        isAdmin ? _adminPayrollWidgets(data) : _employeePayrollWidgets(data),
-      ],
-    );
-  }
+  // Widget _todayAttendanceCard(PunchModel? today) {
+  //   String checkIn = "--";
+  //   String checkOut = "--";
+  //   if (today != null && today.punchTime.isNotEmpty) {
+  //     List<DateTime> punches = today.punchTime
+  //         .map((e) => DateTime.tryParse(e))
+  //         .whereType<DateTime>()
+  //         .toList();
 
-  Widget _todayAttendanceCard(PunchModel? today) {
-    String checkIn = "--";
-    String checkOut = "--";
-    if (today != null && today.punchTime.isNotEmpty) {
-      List<DateTime> punches = today.punchTime
-          .map((e) => DateTime.tryParse(e))
-          .whereType<DateTime>()
-          .toList();
+  //     punches.sort();
 
-      punches.sort();
+  //     if (punches.isNotEmpty) {
+  //       checkIn = TimeOfDay.fromDateTime(punches.first).format(context);
+  //     }
 
-      if (punches.isNotEmpty) {
-        checkIn = TimeOfDay.fromDateTime(punches.first).format(context);
-      }
+  //     if (punches.length > 1) {
+  //       checkOut = TimeOfDay.fromDateTime(punches.last).format(context);
+  //     }
+  //   }
 
-      if (punches.length > 1) {
-        checkOut = TimeOfDay.fromDateTime(punches.last).format(context);
-      }
-    }
+  //   final status = today?.status ?? "";
 
-    final status = today?.status ?? "";
+  //   Color statusColor;
+  //   switch (status.toLowerCase()) {
+  //     case "present":
+  //       statusColor = Colors.green;
+  //       break;
+  //     case "absent":
+  //       statusColor = Colors.red;
+  //       break;
+  //     case "leave":
+  //       statusColor = Colors.orange;
+  //       break;
+  //     default:
+  //       statusColor = Colors.white;
+  //   }
 
-    Color statusColor;
-    switch (status.toLowerCase()) {
-      case "present":
-        statusColor = Colors.green;
-        break;
-      case "absent":
-        statusColor = Colors.red;
-        break;
-      case "leave":
-        statusColor = Colors.orange;
-        break;
-      default:
-        statusColor = Colors.white;
-    }
+  //   return Container(
+  //     padding: const EdgeInsets.all(18),
+  //     decoration: BoxDecoration(
+  //       color: Theme.of(context).colorScheme.surface,
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withValues(alpha: 0.05),
+  //           blurRadius: 20,
+  //           offset: const Offset(0, 6),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         /// HEADER
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           children: [
+  //             const Text(
+  //               "Today's Attendance",
+  //               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+  //             ),
+  //             Container(
+  //               padding: const EdgeInsets.symmetric(
+  //                 horizontal: 10,
+  //                 vertical: 4,
+  //               ),
+  //               decoration: BoxDecoration(
+  //                 color: statusColor.withValues(alpha: 0.15),
+  //                 borderRadius: BorderRadius.circular(20),
+  //               ),
+  //               child: Text(
+  //                 status,
+  //                 style: TextStyle(
+  //                   color: statusColor,
+  //                   fontWeight: FontWeight.w600,
+  //                 ),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// HEADER
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Today's Attendance",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+  //         const SizedBox(height: 16),
 
-          const SizedBox(height: 16),
+  //         /// CHECK IN / OUT
+  //         Row(
+  //           children: [
+  //             Expanded(
+  //               child: _attendanceItem(
+  //                 Icons.login,
+  //                 "Check In",
+  //                 checkIn,
+  //                 Colors.green,
+  //               ),
+  //             ),
+  //             Expanded(
+  //               child: _attendanceItem(
+  //                 Icons.logout,
+  //                 "Check Out",
+  //                 checkOut,
+  //                 Colors.red,
+  //               ),
+  //             ),
+  //             Expanded(
+  //               child: _attendanceItem(
+  //                 Icons.access_time,
+  //                 "Worktime",
+  //                 today?.totalHours ?? "--",
+  //                 Colors.blue,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-          /// CHECK IN / OUT
-          Row(
-            children: [
-              Expanded(
-                child: _attendanceItem(
-                  Icons.login,
-                  "Check In",
-                  checkIn,
-                  Colors.green,
-                ),
-              ),
-              Expanded(
-                child: _attendanceItem(
-                  Icons.logout,
-                  "Check Out",
-                  checkOut,
-                  Colors.red,
-                ),
-              ),
-              Expanded(
-                child: _attendanceItem(
-                  Icons.access_time,
-                  "Worktime",
-                  today?.totalHours ?? "--",
-                  Colors.blue,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _attendanceItem(
+  //   IconData icon,
+  //   String label,
+  //   String value,
+  //   Color color,
+  // ) {
+  //   return Column(
+  //     children: [
+  //       Container(
+  //         padding: const EdgeInsets.all(10),
+  //         decoration: BoxDecoration(
+  //           shape: BoxShape.circle,
+  //           color: color.withValues(alpha: 0.15),
+  //         ),
+  //         child: Icon(icon, color: color, size: 20),
+  //       ),
+  //       const SizedBox(height: 6),
+  //       Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+  //       Text(
+  //         label,
+  //         style: TextStyle(
+  //           fontSize: 12,
+  //           color: Theme.of(context).colorScheme.onSurfaceVariant,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
-  Widget _attendanceItem(
-    IconData icon,
-    String label,
-    String value,
-    Color color,
-  ) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: 0.15),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(height: 6),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _attendanceChart(DashboardModel data) {
+  //   return Card(
+  //     child: SizedBox(
+  //       height: 220,
+  //       child: Padding(
+  //         padding: const EdgeInsets.all(16),
+  //         child: BarChart(
+  //           BarChartData(
+  //             barGroups: [
+  //               BarChartGroupData(
+  //                 x: 1,
+  //                 barRods: [
+  //                   BarChartRodData(
+  //                     toY: data.attendanceStats.presentDays.toDouble(),
+  //                     color: Colors.green,
+  //                     width: 18,
+  //                     borderRadius: BorderRadius.circular(6),
+  //                   ),
+  //                 ],
+  //               ),
+  //               BarChartGroupData(
+  //                 x: 2,
+  //                 barRods: [
+  //                   BarChartRodData(
+  //                     toY: data.attendanceStats.absentDays.toDouble(),
+  //                     color: Colors.green,
+  //                     width: 18,
+  //                     borderRadius: BorderRadius.circular(6),
+  //                   ),
+  //                 ],
+  //               ),
+  //               BarChartGroupData(
+  //                 x: 3,
+  //                 barRods: [
+  //                   BarChartRodData(
+  //                     toY: data.attendanceStats.leaveDays.toDouble(),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ],
+  //             titlesData: FlTitlesData(
+  //               bottomTitles: AxisTitles(
+  //                 sideTitles: SideTitles(
+  //                   showTitles: true,
+  //                   getTitlesWidget: (value, meta) {
+  //                     switch (value.toInt()) {
+  //                       case 1:
+  //                         return const Text("Present");
+  //                       case 2:
+  //                         return const Text("Absent");
+  //                       case 3:
+  //                         return const Text("Leave");
+  //                     }
+  //                     return const Text("");
+  //                   },
+  //                 ),
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
-  Widget _attendanceChart(DashboardModel data) {
-    return Card(
-      child: SizedBox(
-        height: 220,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: BarChart(
-            BarChartData(
-              barGroups: [
-                BarChartGroupData(
-                  x: 1,
-                  barRods: [
-                    BarChartRodData(
-                      toY: data.attendanceStats.presentDays.toDouble(),
-                      color: Colors.green,
-                      width: 18,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ],
-                ),
-                BarChartGroupData(
-                  x: 2,
-                  barRods: [
-                    BarChartRodData(
-                      toY: data.attendanceStats.absentDays.toDouble(),
-                      color: Colors.green,
-                      width: 18,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ],
-                ),
-                BarChartGroupData(
-                  x: 3,
-                  barRods: [
-                    BarChartRodData(
-                      toY: data.attendanceStats.leaveDays.toDouble(),
-                    ),
-                  ],
-                ),
-              ],
-              titlesData: FlTitlesData(
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      switch (value.toInt()) {
-                        case 1:
-                          return const Text("Present");
-                        case 2:
-                          return const Text("Absent");
-                        case 3:
-                          return const Text("Leave");
-                      }
-                      return const Text("");
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _employeePayrollWidgets(DashboardModel data) {
+  //   return Column(
+  //     children: [
+  //       _worktimeProgress(data),
 
-  Widget _employeePayrollWidgets(DashboardModel data) {
-    return Column(
-      children: [
-        _worktimeProgress(data),
+  //       const SizedBox(height: 20),
 
-        const SizedBox(height: 20),
+  //       _salarySummary(data),
+  //     ],
+  //   );
+  // }
 
-        _salarySummary(data),
-      ],
-    );
-  }
+  // Widget _worktimeProgress(DashboardModel data) {
+  //   final worked = _timeToHours(data.attendanceStats.totalWorkingHours);
+  //   final required = data.attendanceStats.presentDays * 8;
+  //   double percent = required == 0 ? 0 : (worked / required).clamp(0, 1);
 
-  Widget _worktimeProgress(DashboardModel data) {
-    final worked = _timeToHours(data.attendanceStats.totalWorkingHours);
-    final required = data.attendanceStats.presentDays * 8;
-    double percent = required == 0 ? 0 : (worked / required).clamp(0, 1);
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Theme.of(context).colorScheme.surface,
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withValues(alpha: 0.05),
+  //           blurRadius: 20,
+  //           offset: const Offset(0, 6),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         const Text(
+  //           "Monthly Work Progress",
+  //           style: TextStyle(fontWeight: FontWeight.bold),
+  //         ),
+  //         const SizedBox(height: 12),
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Monthly Work Progress",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
+  //         LinearProgressIndicator(
+  //           value: percent,
+  //           minHeight: 8,
+  //           borderRadius: BorderRadius.circular(10),
+  //         ),
 
-          LinearProgressIndicator(
-            value: percent,
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(10),
-          ),
+  //         const SizedBox(height: 10),
 
-          const SizedBox(height: 10),
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           children: [
+  //             Text("$worked / $required hrs"),
+  //             Text("${(percent * 100).toInt()}%"),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("$worked / $required hrs"),
-              Text("${(percent * 100).toInt()}%"),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // double _timeToHours(String time) {
+  //   if (time.isEmpty) return 0;
 
-  double _timeToHours(String time) {
-    if (time.isEmpty) return 0;
+  //   final parts = time.split(':');
+  //   if (parts.length != 2) return 0;
 
-    final parts = time.split(':');
-    if (parts.length != 2) return 0;
+  //   final h = int.tryParse(parts[0]) ?? 0;
+  //   final m = int.tryParse(parts[1]) ?? 0;
 
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = int.tryParse(parts[1]) ?? 0;
+  //   return h + (m / 60);
+  // }
 
-    return h + (m / 60);
-  }
+  // Widget _salarySummary(DashboardModel data) {
+  //   final salary = data.salary;
 
-  Widget _salarySummary(DashboardModel data) {
-    final salary = data.salary;
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Theme.of(context).colorScheme.surface,
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withValues(alpha: 0.05),
+  //           blurRadius: 20,
+  //           offset: const Offset(0, 6),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         const Text(
+  //           "Salary Summary",
+  //           style: TextStyle(fontWeight: FontWeight.bold),
+  //         ),
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Salary Summary",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+  //         const SizedBox(height: 16),
 
-          const SizedBox(height: 16),
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           children: [
+  //             _salaryItem("Basic", "₹${salary.earnAmount}", Colors.blue),
+  //             _salaryItem("Overtime", salary.otHours, Colors.green),
+  //             _salaryItem("Deduction", "₹${salary.totalDeduction}", Colors.red),
+  //           ],
+  //         ),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _salaryItem("Basic", "₹${salary.earnAmount}", Colors.blue),
-              _salaryItem("Overtime", salary.otHours, Colors.green),
-              _salaryItem("Deduction", "₹${salary.totalDeduction}", Colors.red),
-            ],
-          ),
+  //         const Divider(height: 30),
 
-          const Divider(height: 30),
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           children: [
+  //             const Text(
+  //               "Net Salary",
+  //               style: TextStyle(fontWeight: FontWeight.bold),
+  //             ),
+  //             Text(
+  //               "₹${salary.netPay}",
+  //               style: const TextStyle(
+  //                 fontWeight: FontWeight.bold,
+  //                 fontSize: 18,
+  //                 color: Colors.green,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Net Salary",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                "₹${salary.netPay}",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.green,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _salaryItem(String title, String value, Color color) {
+  //   return Column(
+  //     children: [
+  //       Text(
+  //         value,
+  //         style: TextStyle(fontWeight: FontWeight.bold, color: color),
+  //       ),
+  //       Text(
+  //         title,
+  //         style: TextStyle(
+  //           fontSize: 12,
+  //           color: Theme.of(context).colorScheme.onSurfaceVariant,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
-  Widget _salaryItem(String title, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(fontWeight: FontWeight.bold, color: color),
-        ),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _adminPayrollWidgets(DashboardModel data) {
+  //   return Column(
+  //     children: [
+  //       _employeeAttendanceStats(data),
 
-  Widget _adminPayrollWidgets(DashboardModel data) {
-    return Column(
-      children: [
-        _employeeAttendanceStats(data),
+  //       const SizedBox(height: 20),
 
-        const SizedBox(height: 20),
+  //       // _pendingApprovals(data),
 
-        // _pendingApprovals(data),
+  //       // const SizedBox(height: 20),
 
-        // const SizedBox(height: 20),
+  //       // _overtimeSummary(data),
+  //     ],
+  //   );
+  // }
 
-        // _overtimeSummary(data),
-      ],
-    );
-  }
+  // Widget _employeeAttendanceStats(DashboardModel data) {
+  //   final stats = data.attendanceStats;
 
-  Widget _employeeAttendanceStats(DashboardModel data) {
-    final stats = data.attendanceStats;
+  //   return Card(
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(16),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           const Text(
+  //             "Attendance Stats",
+  //             style: TextStyle(fontWeight: FontWeight.bold),
+  //           ),
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Attendance Stats",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+  //           const SizedBox(height: 10),
 
-            const SizedBox(height: 10),
-
-            Text("Present Days : ${stats.presentDays}"),
-            Text("Absent Days : ${stats.absentDays}"),
-            Text("Leave Days : ${stats.leaveDays}"),
-            Text("Late Days : ${stats.lateDays}"),
-          ],
-        ),
-      ),
-    );
-  }
+  //           Text("Present Days : ${stats.presentDays}"),
+  //           Text("Absent Days : ${stats.absentDays}"),
+  //           Text("Leave Days : ${stats.leaveDays}"),
+  //           Text("Late Days : ${stats.lateDays}"),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // Widget _pendingApprovals(DashboardModel data) {
   //   return Card(

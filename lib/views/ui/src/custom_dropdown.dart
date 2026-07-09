@@ -79,6 +79,11 @@ class _CustomSearchableDropdownState<T>
       _filtered = List<T>.from(widget.items);
       _overlayEntry?.markNeedsBuild();
     }
+    if (widget.initialValue != oldWidget.initialValue) {
+      _selected = widget.initialValue;
+      _overlayEntry?.markNeedsBuild();
+      setState(() {});
+    }
     if (widget.multiSelect && widget.initialValues != oldWidget.initialValues) {
       _selectedList
         ..clear()
@@ -738,6 +743,23 @@ class _CustomFutureSearchableDropdownState<T>
         ? <T>{}
         : widget.initialValues!.cast<T>().toSet();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomFutureSearchableDropdown<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue) {
+      _selected = widget.initialValue;
+      _overlayEntry?.markNeedsBuild();
+      setState(() {});
+    }
+    if (widget.initialValues != oldWidget.initialValues) {
+      _selectedList = widget.initialValues == null
+          ? <T>{}
+          : widget.initialValues!.cast<T>().toSet();
+      _overlayEntry?.markNeedsBuild();
+      setState(() {});
+    }
   }
 
   @override

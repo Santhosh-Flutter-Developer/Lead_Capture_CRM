@@ -1,8 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:leadcapture/models/src/attendance_model.dart';
-import 'package:leadcapture/services/firebase/src/attendance_service.dart';
-import 'package:leadcapture/services/firebase/src/salary_service.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -55,46 +52,71 @@ class DashboardService {
 
       final dateRange = _resolveDateRange(filter, range);
 
-      final totalLeads = await _fetchTotalLeads(cid, dateRange);
-      final convertedLeads = await _fetchConvertedLeads(cid, dateRange);
-      final ongoingDeals = await _fetchOngoingDeals(cid, dateRange);
-      final pendingTasks = await _fetchPendingTasks(cid, dateRange);
-      final activeEmployees = await _fetchActiveEmployees(cid, dateRange);
-      final assignedTasks = await _fetchAssignedTasks(cid, userId, dateRange);
-      final pendingFollowUps = await _fetchPendingFollowUps(cid, dateRange);
-      final leadsAssigned = await _fetchLeadsAssigned(cid, userId, dateRange);
-      final totalTickets = await _fetchTotalTickets(cid, dateRange);
-      final pendingTickets = await _fetchPendingTickets(cid, dateRange);
-      final assignedTickets = await _fetchAssignedTickets(
-        cid,
-        userId,
-        dateRange,
-      );
+      // Parallelize independent count queries for better performance
+      final results = await Future.wait([
+        _fetchTotalLeads(cid, dateRange),
+        _fetchConvertedLeads(cid, dateRange),
+        _fetchOngoingDeals(cid, dateRange),
+        _fetchPendingTasks(cid, dateRange),
+        _fetchActiveEmployees(cid, dateRange),
+        _fetchAssignedTasks(cid, userId, dateRange),
+        _fetchPendingFollowUps(cid, dateRange),
+        _fetchLeadsAssigned(cid, userId, dateRange),
+        _fetchTotalTickets(cid, dateRange),
+        _fetchPendingTickets(cid, dateRange),
+        _fetchAssignedTickets(cid, userId, dateRange),
+        _fetchNotifications(cid, userId),
+        _fetchUpcomingTasks(cid),
+        RecentActivityService().getRecentActivities(),
+      ]);
 
-      final recentActivities = await RecentActivityService()
-          .getRecentActivities();
+      final totalLeads = results[0] as int;
+      final convertedLeads = results[1] as int;
+      final ongoingDeals = results[2] as int;
+      final pendingTasks = results[3] as int;
+      final activeEmployees = results[4] as int;
+      final assignedTasks = results[5] as int;
+      final pendingFollowUps = results[6] as int;
+      final leadsAssigned = results[7] as int;
+      final totalTickets = results[8] as int;
+      final pendingTickets = results[9] as int;
+      final assignedTickets = results[10] as int;
+      final notifications = results[11] as List<NotificationModel>;
+      final upcomingTasks = results[12] as List<UpcomingDeadlineItemModel>;
+      final recentActivities = results[13] as List<ActivityItem>;
 
-      final notifications = await _fetchNotifications(cid, userId);
-      final upcomingTasks = await _fetchUpcomingTasks(cid);
+      // Only fetch chart data if admin (optimization)
+      final allLeads = isAdmin
+          ? await _fetchLeadsForCharts(cid)
+          : <LeadModel>[];
+      final allDeals = isAdmin
+          ? await _fetchDealsForCharts(cid)
+          : <DealModel>[];
+      final allTasks = isAdmin
+          ? await _fetchTasksForCharts(cid)
+          : <TaskModel>[];
+      final allTickets = isAdmin
+          ? await _fetchTicketsForCharts(cid)
+          : <CustomerTicketModel>[];
+      // List<HolidayModel> holidays = [];
 
-      final allLeads = await LeadService.getAllLeads();
-      final allDeals = await DealService.getAllDeals();
-      final allTasks = await TaskService.getAllTasks();
-      final allTickets = await TicketService.getAllTickets();
-      List<HolidayModel> holidays = [];
+      // Parallelize attendance and salary fetch
+      // final payrollResults = await Future.wait([
+      //   AttendanceService.getAttendanceStats(
+      //     userUid: userId,
+      //     fromDate: dateRange.start,
+      //     toDate: dateRange.end,
+      //     holidays: holidays,
+      //   ),
+      //   SalaryLedgerService.getSalarySummary(
+      //     userUid: userId,
+      //     fromDate: dateRange.start,
+      //     toDate: dateRange.end,
+      //   ),
+      // ]);
 
-      final attendanceStats = await AttendanceService.getAttendanceStats(
-        userUid: userId,
-        fromDate: dateRange.start,
-        toDate: dateRange.end,
-        holidays: holidays,
-      );
-
-      final salary = await SalaryLedgerService.getSalarySummary(
-        userUid: userId,
-        fromDate: dateRange.start,
-        toDate: dateRange.end,
-      );
+      // final attendanceStats = payrollResults[0] as AttendanceStatsModel;
+      // final salary = payrollResults[1] as SalarySummaryModel;
       return DashboardModel(
         totalLeads: totalLeads,
         convertedLeads: convertedLeads,
@@ -114,8 +136,8 @@ class DashboardService {
         allDeals: allDeals,
         allTasks: allTasks,
         allTickets: allTickets,
-        attendanceStats: attendanceStats,
-        salary: salary,
+        // attendanceStats: attendanceStats,
+        // salary: salary,
       );
     } catch (e, st) {
       debugPrint("Error fetching dashboard: $e\n$st");
@@ -372,22 +394,82 @@ class DashboardService {
           .doc(cid)
           .collection(Collections.notifications.name)
           .where("toUids", arrayContains: userId)
+          .orderBy("createdAt", descending: true)
+          .limit(5)
           .get();
 
-      final notifications = snap.docs
+      return snap.docs
           .map((d) => NotificationModel.fromMap(d.id, d.data()))
           .toList();
-
-      notifications.sort((a, b) {
-        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
-        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
-        return bTime.compareTo(aTime);
-      });
-
-      return notifications.take(5).toList();
     } catch (e, st) {
       debugPrint("Error fetching notifications: $e\n$st");
       throw 'Error fetching notifications: $e';
+    }
+  }
+
+  Future<List<LeadModel>> _fetchLeadsForCharts(String cid) async {
+    try {
+      final snap = await _firestore
+          .collection(Collections.users.name)
+          .doc(cid)
+          .collection(Collections.leads.name)
+          .orderBy('createdAt', descending: true)
+          .limit(500)
+          .get();
+      return snap.docs.map((d) => LeadModel.fromMap(d.id, d.data())).toList();
+    } catch (e, st) {
+      debugPrint("Error fetching leads for charts: $e\n$st");
+      return [];
+    }
+  }
+
+  Future<List<DealModel>> _fetchDealsForCharts(String cid) async {
+    try {
+      final snap = await _firestore
+          .collection(Collections.users.name)
+          .doc(cid)
+          .collection(Collections.deals.name)
+          .orderBy('createdAt', descending: true)
+          .limit(500)
+          .get();
+      return snap.docs.map((d) => DealModel.fromMap(d.id, d.data())).toList();
+    } catch (e, st) {
+      debugPrint("Error fetching deals for charts: $e\n$st");
+      return [];
+    }
+  }
+
+  Future<List<TaskModel>> _fetchTasksForCharts(String cid) async {
+    try {
+      final snap = await _firestore
+          .collection(Collections.users.name)
+          .doc(cid)
+          .collection(Collections.tasks.name)
+          .orderBy('createdAt', descending: true)
+          .limit(500)
+          .get();
+      return snap.docs.map((d) => TaskModel.fromMap(d.id, d.data())).toList();
+    } catch (e, st) {
+      debugPrint("Error fetching tasks for charts: $e\n$st");
+      return [];
+    }
+  }
+
+  Future<List<CustomerTicketModel>> _fetchTicketsForCharts(String cid) async {
+    try {
+      final snap = await _firestore
+          .collection(Collections.users.name)
+          .doc(cid)
+          .collection(Collections.customerTickets.name)
+          .orderBy('createdAt', descending: true)
+          .limit(500)
+          .get();
+      return snap.docs
+          .map((d) => CustomerTicketModel.fromMap(d.id, d.data()))
+          .toList();
+    } catch (e, st) {
+      debugPrint("Error fetching tickets for charts: $e\n$st");
+      return [];
     }
   }
 
@@ -399,70 +481,86 @@ class DashboardService {
       final start = now.millisecondsSinceEpoch;
       final end = now.add(const Duration(days: 1)).millisecondsSinceEpoch;
 
-      final tasksSnap = await FirebaseFirestore.instance
-          .collection(Collections.users.name)
-          .doc(cid)
-          .collection(Collections.tasks.name)
-          .where("deadline", isGreaterThan: start)
-          .where("deadline", isLessThanOrEqualTo: end)
-          .get();
+      // Parallelize the three queries and add limits
+      final results = await Future.wait([
+        FirebaseFirestore.instance
+            .collection(Collections.users.name)
+            .doc(cid)
+            .collection(Collections.tasks.name)
+            .where("deadline", isGreaterThan: start)
+            .where("deadline", isLessThanOrEqualTo: end)
+            .where("completed", isEqualTo: false)
+            .orderBy("deadline")
+            .limit(10)
+            .get(),
+        FirebaseFirestore.instance
+            .collection(Collections.users.name)
+            .doc(cid)
+            .collection(Collections.events.name)
+            .where("eventDateTime", isGreaterThan: start)
+            .where("eventDateTime", isLessThanOrEqualTo: end)
+            .where("completed", isEqualTo: false)
+            .orderBy("eventDateTime")
+            .limit(10)
+            .get(),
+        FirebaseFirestore.instance
+            .collection(Collections.users.name)
+            .doc(cid)
+            .collection(Collections.customerTickets.name)
+            .where("deadline", isGreaterThan: start)
+            .where("deadline", isLessThanOrEqualTo: end)
+            .where("status", isNotEqualTo: TicketStatus.closed.name)
+            .orderBy("deadline")
+            .limit(10)
+            .get(),
+      ]);
 
-      final eventsSnap = await FirebaseFirestore.instance
-          .collection(Collections.users.name)
-          .doc(cid)
-          .collection(Collections.events.name)
-          .where("eventDateTime", isGreaterThan: start)
-          .where("eventDateTime", isLessThanOrEqualTo: end)
-          .get();
-
-      final ticketsSnap = await FirebaseFirestore.instance
-          .collection(Collections.users.name)
-          .doc(cid)
-          .collection(Collections.customerTickets.name)
-          .where("deadline", isGreaterThan: start)
-          .where("deadline", isLessThanOrEqualTo: end)
-          .get();    
+      final tasksSnap = results[0] as QuerySnapshot;
+      final eventsSnap = results[1] as QuerySnapshot;
+      final ticketsSnap = results[2] as QuerySnapshot;
 
       final upcoming = <UpcomingDeadlineItemModel>[];
 
       for (final d in tasksSnap.docs) {
-        final task = TaskModel.fromMap(d.id, d.data());
-        if (task.deadline == null || task.completed) continue;
-
+        final data = d.data() as Map<String, dynamic>;
         upcoming.add(
           UpcomingDeadlineItemModel(
             id: d.id,
-            title: task.taskName,
-            scheduledAt: task.deadline!,
+            title: data['taskName'] ?? 'Task',
+            scheduledAt: DateTime.fromMillisecondsSinceEpoch(data['deadline']),
             source: 'task',
           ),
         );
       }
 
       for (final d in eventsSnap.docs) {
-        final event = EventModel.fromMap(d.id, d.data());
-        if (event.completed) continue;
+        final data = d.data() as Map<String, dynamic>;
         upcoming.add(
           UpcomingDeadlineItemModel(
             id: d.id,
-            title: event.eventName,
-            scheduledAt: event.eventDateTime,
+            title: data['eventName'] ?? 'Event',
+            scheduledAt: DateTime.fromMillisecondsSinceEpoch(
+              data['eventDateTime'],
+            ),
             source: 'event',
           ),
         );
       }
 
       for (final d in ticketsSnap.docs) {
-        final ticket = CustomerTicketModel.fromMap(d.id, d.data());
-        if (ticket.deadline == null || ticket.status == TicketStatus.closed) continue;
-        upcoming.add(
-          UpcomingDeadlineItemModel(
-            id: d.id,
-            title: ticket.ticketTitle,
-            scheduledAt: ticket.deadline!,
-            source: 'ticket',
-          ),
-        );
+        final data = d.data() as Map<String, dynamic>;
+        if (data['deadline'] != null) {
+          upcoming.add(
+            UpcomingDeadlineItemModel(
+              id: d.id,
+              title: data['ticketTitle'] ?? 'Ticket',
+              scheduledAt: DateTime.fromMillisecondsSinceEpoch(
+                data['deadline'],
+              ),
+              source: 'ticket',
+            ),
+          );
+        }
       }
 
       upcoming.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));

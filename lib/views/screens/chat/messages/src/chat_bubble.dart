@@ -376,6 +376,8 @@ class _ChatBubbleCore extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chatData = ChatData.of(context);
+    final isGroupChat = chatData.isGroupChat;
     return Transform.translate(
       offset: slideOffset,
       child: Stack(
@@ -419,7 +421,7 @@ class _ChatBubbleCore extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (!isSender && isLast) ...[
+              if ((!isSender && isLast) || (isGroupChat && !isSender)) ...[
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 2),
                   child: Text(

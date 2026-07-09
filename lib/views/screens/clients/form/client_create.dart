@@ -161,8 +161,8 @@ class _ContactCreateState extends State<ContactCreate> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            isRequired: true,
-            valid: (input) => Validation.validEmail(input: input, isReq: true),
+            // isRequired: true,
+            valid: (input) => Validation.validEmail(input: input, isReq: false),
           ),
         ),
         SizedBox(
@@ -194,8 +194,18 @@ class _ContactCreateState extends State<ContactCreate> {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: kIsWeb
-                ? Image.memory(_profileImageBytes ?? Uint8List(0), height: 130, width: 130, fit: BoxFit.cover)
-                : Image.file(File(_profileImage!.path!), height: 130, width: 130, fit: BoxFit.cover),
+                ? Image.memory(
+                    _profileImageBytes ?? Uint8List(0),
+                    height: 130,
+                    width: 130,
+                    fit: BoxFit.cover,
+                  )
+                : Image.file(
+                    File(_profileImage!.path),
+                    height: 130,
+                    width: 130,
+                    fit: BoxFit.cover,
+                  ),
           ),
           Positioned(
             top: 4,
@@ -205,7 +215,10 @@ class _ContactCreateState extends State<ContactCreate> {
                 final result = await PickImage.selectImage(context);
                 if (result != null) {
                   setState(() => _profileImage = result);
-                  if (kIsWeb) result.readAsBytes().then((b) => setState(() => _profileImageBytes = b));
+                  if (kIsWeb)
+                    result.readAsBytes().then(
+                      (b) => setState(() => _profileImageBytes = b),
+                    );
                 }
               },
               child: Container(
@@ -231,7 +244,10 @@ class _ContactCreateState extends State<ContactCreate> {
         final result = await PickImage.selectImage(context);
         if (result != null) {
           setState(() => _profileImage = result);
-          if (kIsWeb) result.readAsBytes().then((b) => setState(() => _profileImageBytes = b));
+          if (kIsWeb)
+            result.readAsBytes().then(
+              (b) => setState(() => _profileImageBytes = b),
+            );
         }
       },
       child: DottedBorder(
@@ -247,13 +263,16 @@ class _ContactCreateState extends State<ContactCreate> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Iconsax.gallery, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Icon(
+                  Iconsax.gallery,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   "Upload Photo",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -508,8 +527,18 @@ class _CompanyCreateState extends State<CompanyCreate> {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: kIsWeb
-                ? Image.memory(_logoBytes ?? Uint8List(0), height: 130, width: 130, fit: BoxFit.cover)
-                : Image.file(File(_logo!.path!), height: 130, width: 130, fit: BoxFit.cover),
+                ? Image.memory(
+                    _logoBytes ?? Uint8List(0),
+                    height: 130,
+                    width: 130,
+                    fit: BoxFit.cover,
+                  )
+                : Image.file(
+                    File(_logo!.path),
+                    height: 130,
+                    width: 130,
+                    fit: BoxFit.cover,
+                  ),
           ),
           Positioned(
             top: 4,
@@ -519,7 +548,10 @@ class _CompanyCreateState extends State<CompanyCreate> {
                 final result = await PickImage.selectImage(context);
                 if (result != null) {
                   setState(() => _logo = result);
-                  if (kIsWeb) result.readAsBytes().then((b) => setState(() => _logoBytes = b));
+                  if (kIsWeb)
+                    result.readAsBytes().then(
+                      (b) => setState(() => _logoBytes = b),
+                    );
                 }
               },
               child: Container(
@@ -545,7 +577,8 @@ class _CompanyCreateState extends State<CompanyCreate> {
         final result = await PickImage.selectImage(context);
         if (result != null) {
           setState(() => _logo = result);
-          if (kIsWeb) result.readAsBytes().then((b) => setState(() => _logoBytes = b));
+          if (kIsWeb)
+            result.readAsBytes().then((b) => setState(() => _logoBytes = b));
         }
       },
       child: DottedBorder(
@@ -561,13 +594,16 @@ class _CompanyCreateState extends State<CompanyCreate> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Iconsax.gallery, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Icon(
+                  Iconsax.gallery,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   "Upload Logo",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +72,16 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   AdminModel? _originalAdmin;
   bool _isActive = true;
 
+  // State preservation for current form values when toggling Make as Admin
+  String? _preservedEmployeeId;
+  String? _preservedDesignation;
+  List<String> _preservedDepartment = [];
+  String? _preservedSubDepartment;
+  String? _preservedGender;
+  String? _preservedDateOfJoining;
+  String? _preservedRole;
+  List<String> _preservedReportingTo = [];
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +109,48 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         _mobileNumberController.text = widget.admin!.mobileNumber;
         _selectedDateOfBirth = widget.admin!.createdAt;
         isAdmin = true;
+
+        // Try to fetch employee data from trash if it exists
+        try {
+          final cid = await Spdb.getCid();
+          final snap = await FirebaseFirestore.instance
+              .collection(Collections.users.name)
+              .doc(cid)
+              .collection(Collections.trash.name)
+              .where('documentId', isEqualTo: widget.uid)
+              .where('collection', isEqualTo: 'employees')
+              .limit(1)
+              .get();
+
+          if (snap.docs.isNotEmpty) {
+            final trashData = snap.docs.first.data();
+            final employeeData = trashData['data'] as Map<String, dynamic>?;
+            if (employeeData != null) {
+              employee = EmployeeModel.fromMap(widget.uid, employeeData);
+              _originalEmployee = employee;
+
+              _preservedEmployeeId = employee!.employeeId;
+              _preservedDesignation = employee!.designation;
+              _preservedDepartment = List.from(employee!.department ?? []);
+              _preservedSubDepartment = employee!.subDepartment;
+              _preservedGender = employee!.gender;
+              _preservedDateOfJoining = employee!.dateOfJoining.formatDate;
+              _preservedRole = employee!.role;
+              _preservedReportingTo = List.from(employee!.reportingTo ?? []);
+
+              _skillsController.text = employee!.skills;
+              _addressController.text = employee!.address;
+              _aboutController.text = employee!.about;
+              _loginAllowed = employee!.loginAllowed ? 'Yes' : 'No';
+              _receiveEmailNotifications = employee!.receiveEmailNotifications ? 'Yes' : 'No';
+              _maritalStatus = employee!.maritalStatus;
+              _employeeType = employee!.employeeType;
+              _outsideOffice = employee!.outsideOffice ? 'Yes' : 'No';
+            }
+          }
+        } catch (e) {
+          debugPrint("Failed to fetch employee from trash: $e");
+        }
       } else {
         _rolesList = await RoleService.getAllRoles();
         _designationList = await DesignationService.getAllDesignations();
@@ -183,74 +236,70 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   Future<void> _handleIsAdminChange(bool value) async {
     if (value == isAdmin) return;
 
-    setState(() {
-      isAdmin = value;
-    });
-
     if (value) {
-      // Switching to admin mode - load admin data if available or clear employee fields
-      if (_originalAdmin != null) {
-        _employeeIdController.text = "";
-        _nameController.text = _originalAdmin!.name;
-        _emailController.text = _originalAdmin!.email;
-        _passwordController.text = _originalAdmin!.password;
-        _mobileNumberController.text = _originalAdmin!.mobileNumber;
-        _selectedDateOfBirth = _originalAdmin!.createdAt;
-      } else {
-        // Keep name, email, password, mobile if coming from employee
-        _employeeIdController.text = "";
-      }
+      // Switching to admin mode - preserve current employee field values
+      _preservedEmployeeId = _employeeIdController.text;
+      _preservedDesignation = _designationModel?.uid;
+      _preservedDepartment = List.from(_department);
+      _preservedSubDepartment = _subDepartmentModel?.uid;
+      _preservedGender = _gender;
+      _preservedDateOfJoining = _dateOfJoiningController.text;
+      _preservedRole = _roleModel?.uid;
+      _preservedReportingTo = List.from(_reportingTo);
+
+      // Clear employee-specific fields for admin view
+      _employeeIdController.text = "";
+      _dateOfJoiningController.text = "";
+      _gender = null;
+      _department.clear();
+      _reportingTo.clear();
+      _designationModel = null;
+      _subDepartmentModel = null;
+      _roleModel = null;
     } else {
-      // Switching to employee mode - load employee data
-      if (_originalEmployee != null) {
-        // Ensure roles, designations, departments are loaded
-        if (_rolesList.isEmpty) {
-          _rolesList = await RoleService.getAllRoles();
-        }
-        if (_designationList.isEmpty) {
-          _designationList = await DesignationService.getAllDesignations();
-        }
-        if (_departmentList.isEmpty) {
-          _departmentList = await DepartmentService.getAllDepartments();
-        }
+      // Switching to employee mode - restore preserved values
+      _employeeIdController.text = _preservedEmployeeId ?? _originalEmployee?.employeeId ?? '';
+      _dateOfJoiningController.text = _preservedDateOfJoining ?? _originalEmployee?.dateOfJoining.formatDate ?? '';
+      _gender = _preservedGender ?? _originalEmployee?.gender;
+      
+      _department.clear();
+      if (_preservedDepartment.isNotEmpty) {
+        _department.addAll(_preservedDepartment);
+      } else if (_originalEmployee?.department != null && _originalEmployee!.department!.isNotEmpty) {
+        _department.addAll(_originalEmployee!.department!);
+      }
+      
+      _reportingTo.clear();
+      if (_preservedReportingTo.isNotEmpty) {
+        _reportingTo.addAll(_preservedReportingTo);
+      } else if (_originalEmployee?.reportingTo != null) {
+        _reportingTo.addAll(_originalEmployee!.reportingTo!);
+      }
 
-        _employeeIdController.text = _originalEmployee!.employeeId;
-        _nameController.text = _originalEmployee!.name;
-        _emailController.text = _originalEmployee!.email;
-        _passwordController.text = _originalEmployee!.password;
-        _mobileNumberController.text = _originalEmployee!.mobileNumber;
-        _dateOfJoiningController.text =
-            _originalEmployee!.dateOfJoining.formatDate;
-        _selectedDateOfJoining = _originalEmployee!.dateOfJoining;
-        _dateOfBirthController.text =
-            _originalEmployee!.dateOfBirth?.formatDate ?? '';
-        _selectedDateOfBirth = _originalEmployee!.dateOfBirth;
-        _addressController.text = _originalEmployee!.address;
-        _aboutController.text = _originalEmployee!.about;
-        _skillsController.text = _originalEmployee!.skills;
+      // Ensure dropdown lists are loaded
+      if (_rolesList.isEmpty) {
+        _rolesList = await RoleService.getAllRoles();
+      }
+      if (_designationList.isEmpty) {
+        _designationList = await DesignationService.getAllDesignations();
+      }
+      if (_departmentList.isEmpty) {
+        _departmentList = await DepartmentService.getAllDepartments();
+      }
 
-        _gender = _originalEmployee!.gender;
-        _loginAllowed = _originalEmployee!.loginAllowed ? 'Yes' : 'No';
-        _receiveEmailNotifications =
-            _originalEmployee!.receiveEmailNotifications ? 'Yes' : 'No';
-        _maritalStatus = _originalEmployee!.maritalStatus;
-        _isActive = _originalEmployee!.isActive;
-        _employeeType = _originalEmployee!.employeeType;
-        _outsideOffice = _originalEmployee!.outsideOffice ? 'Yes' : 'No';
-        _profileImageUrl = _originalEmployee!.profileImageUrl;
-
-        _roleModel = await RoleService.getRole(uid: _originalEmployee!.role);
+      // Restore dropdown models
+      if (_preservedDesignation != null) {
+        _designationModel = _designationList.firstWhere(
+          (d) => d.uid == _preservedDesignation,
+          orElse: () => _designationList.first,
+        );
+      } else if (_originalEmployee?.designation != null) {
         _designationModel = await DesignationService.getDesignation(
           uid: _originalEmployee!.designation,
         );
+      }
 
-        _department.clear();
-        if (_originalEmployee!.department != null &&
-            _originalEmployee!.department!.isNotEmpty) {
-          _department.addAll(_originalEmployee!.department!);
-        }
-
-        // Load sub-departments
+      if (_preservedSubDepartment != null) {
         _subDepartmentList.clear();
         for (var depId in _department) {
           final subDeps = await SubDepartmentService.getSubDepartmentsByDepId(
@@ -258,22 +307,44 @@ class _EmployeeEditState extends State<EmployeeEdit> {
           );
           _subDepartmentList.addAll(subDeps);
         }
-
-        if (_originalEmployee!.subDepartment != null &&
-            _originalEmployee!.subDepartment!.isNotEmpty) {
-          _subDepartmentModel = await SubDepartmentService.getSubDepartment(
-            uid: _originalEmployee!.subDepartment ?? '',
+        try {
+          _subDepartmentModel = _subDepartmentList.firstWhere(
+            (sd) => sd.uid == _preservedSubDepartment,
           );
+        } catch (e) {
+          _subDepartmentModel = _subDepartmentList.isNotEmpty ? _subDepartmentList.first : null;
         }
+      } else if (_originalEmployee?.subDepartment != null) {
+        _subDepartmentList.clear();
+        for (var depId in _department) {
+          final subDeps = await SubDepartmentService.getSubDepartmentsByDepId(
+            depId: depId,
+          );
+          _subDepartmentList.addAll(subDeps);
+        }
+        _subDepartmentModel = await SubDepartmentService.getSubDepartment(
+          uid: _originalEmployee!.subDepartment ?? '',
+        );
+      }
 
-        // Load reporting to
+      if (_preservedRole != null) {
+        _roleModel = _rolesList.firstWhere(
+          (r) => r.uid == _preservedRole,
+          orElse: () => _rolesList.first,
+        );
+      } else if (_originalEmployee?.role != null) {
+        _roleModel = await RoleService.getRole(uid: _originalEmployee!.role);
+      }
+
+      // Restore reporting to list
+      if (_preservedReportingTo.isNotEmpty) {
         _initialReportingTo.clear();
-        for (var i in (_originalEmployee?.reportingTo ?? [])) {
-          var emp = await EmployeeService.getEmployee(uid: i);
+        for (var uid in _preservedReportingTo) {
+          var emp = await EmployeeService.getEmployee(uid: uid);
           if (emp != null) {
             _initialReportingTo.add(emp);
           } else {
-            var admin = await AdminService.getAdmin(uid: i);
+            var admin = await AdminService.getAdmin(uid: uid);
             if (admin != null) {
               _initialReportingTo.add(admin);
             }
@@ -281,7 +352,10 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         }
       }
     }
-    setState(() {});
+
+    setState(() {
+      isAdmin = value;
+    });
   }
 
   @override
@@ -649,20 +723,21 @@ class _EmployeeEditState extends State<EmployeeEdit> {
       spacing: horizontalSpacing,
       runSpacing: verticalSpacing,
       children: [
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Employee Id',
-            controller: _employeeIdController,
-            hintText: 'Enter Employee Id',
-            isRequired: isAdmin ? false : true,
-            valid: (input) => Validation.commonValidation(
-              input: input,
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormFields(
               label: 'Employee Id',
-              isReq: isAdmin ? false : true,
+              controller: _employeeIdController,
+              hintText: 'Enter Employee Id',
+              isRequired: true,
+              valid: (input) => Validation.commonValidation(
+                input: input,
+                label: 'Employee Id',
+                isReq: true,
+              ),
             ),
           ),
-        ),
         SizedBox(
           width: itemWidth,
           child: FormFields(
@@ -828,68 +903,69 @@ class _EmployeeEditState extends State<EmployeeEdit> {
                 Validation.validMobileNumber(input: input, isReq: false),
           ),
         ),
-        SizedBox(
-          width: itemWidth,
-          child: FormDropdownSearch(
-            initialItem: _gender != null && _gender!.isNotEmpty
-                ? _gender
-                : null,
-            items: const ['Male', 'Female', 'Others'],
-            label: 'Gender',
-            isRequired: isAdmin ? false : true,
-            onChanged: (value) {
-              if (value != null) {
-                _gender = value.toString();
-              }
-            },
-            validator: isAdmin
-                ? null
-                : (value) {
-                    if (value == null) {
-                      return "* Required";
-                    }
-                    return null;
-                  },
-          ),
-        ),
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Joining Date',
-            controller: _dateOfJoiningController,
-            hintText: 'DD/MM/YYYY',
-            readOnly: true,
-            isRequired: isAdmin ? false : true,
-            valid: (input) => Validation.commonValidation(
-              input: input,
-              label: 'Joining Date',
-              isReq: isAdmin ? false : true,
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormDropdownSearch(
+              initialItem: _gender != null && _gender!.isNotEmpty
+                  ? _gender
+                  : null,
+              items: const ['Male', 'Female', 'Others'],
+              label: 'Gender',
+              isRequired: true,
+              onChanged: (value) {
+                if (value != null) {
+                  _gender = value.toString();
+                }
+              },
+              validator: (value) {
+                if (value == null) {
+                  return "* Required";
+                }
+                return null;
+              },
             ),
-            onTap: () async {
-              var result = await datePicker(context);
-              if (result != null) {
-                _dateOfJoiningController.text = result.formatDate;
-                _selectedDateOfJoining = result;
-              }
-            },
           ),
-        ),
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Birth Date',
-            controller: _dateOfBirthController,
-            hintText: 'DD/MM/YYYY',
-            readOnly: true,
-            onTap: () async {
-              var result = await datePicker(context, lastDate: DateTime.now());
-              if (result != null) {
-                _dateOfBirthController.text = result.formatDate;
-                _selectedDateOfBirth = result;
-              }
-            },
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormFields(
+              label: 'Joining Date',
+              controller: _dateOfJoiningController,
+              hintText: 'DD/MM/YYYY',
+              readOnly: true,
+              isRequired: true,
+              valid: (input) => Validation.commonValidation(
+                input: input,
+                label: 'Joining Date',
+                isReq: true,
+              ),
+              onTap: () async {
+                var result = await datePicker(context);
+                if (result != null) {
+                  _dateOfJoiningController.text = result.formatDate;
+                  _selectedDateOfJoining = result;
+                }
+              },
+            ),
           ),
-        ),
+        if (!isAdmin)
+          SizedBox(
+            width: itemWidth,
+            child: FormFields(
+              label: 'Birth Date',
+              controller: _dateOfBirthController,
+              hintText: 'DD/MM/YYYY',
+              readOnly: true,
+              onTap: () async {
+                var result = await datePicker(context, lastDate: DateTime.now());
+                if (result != null) {
+                  _dateOfBirthController.text = result.formatDate;
+                  _selectedDateOfBirth = result;
+                }
+              },
+            ),
+          ),
         if (!isAdmin)
           SizedBox(
             width: itemWidth,
@@ -922,6 +998,8 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               onChangedList: (list) {
                 _reportingTo.clear();
                 _reportingTo.addAll(list.map((e) => e.uid!));
+                _initialReportingTo.clear();
+                _initialReportingTo.addAll(list);
               },
               includeCurrentUser: false,
             ),
@@ -1237,10 +1315,37 @@ class _EmployeeEditState extends State<EmployeeEdit> {
             createdBy: await Spdb.getUser(),
           );
 
-          await EmployeeService.editEmployee(
-            uid: widget.uid,
-            employee: employeeModel,
-          );
+          // Delete the admin document since they're now an employee
+          try {
+            await AdminService.deleteAdmin(uid: widget.uid);
+          } catch (e) {
+            debugPrint("Failed to delete admin document: $e");
+          }
+
+          final cid = await Spdb.getCid();
+          await FirebaseFirestore.instance
+              .collection(Collections.users.name)
+              .doc(cid)
+              .collection(Collections.employees.name)
+              .doc(widget.uid)
+              .set(employeeModel.toMap());
+
+          // Delete the trash entry for this employee
+          try {
+            final snap = await FirebaseFirestore.instance
+                .collection(Collections.users.name)
+                .doc(cid)
+                .collection(Collections.trash.name)
+                .where('documentId', isEqualTo: widget.uid)
+                .where('collection', isEqualTo: 'employees')
+                .get();
+            for (var doc in snap.docs) {
+              await doc.reference.delete();
+            }
+          } catch (e) {
+            debugPrint("Failed to delete trash entry: $e");
+          }
+
           if (Navigator.canPop(context)) {
             Navigator.pop(context);
           }

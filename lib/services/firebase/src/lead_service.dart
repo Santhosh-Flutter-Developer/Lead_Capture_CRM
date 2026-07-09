@@ -15,7 +15,7 @@ class LeadService {
     return 'lead_${leadUid}_activity_$activityUid';
   }
 
-  static Future<void> createLead({required LeadModel lead}) async {
+  static Future<String> createLead({required LeadModel lead}) async {
     try {
       var cid = await Spdb.getCid();
       var uid = await Spdb.getUid();
@@ -50,10 +50,18 @@ class LeadService {
 
       // Collect workflow users for notifications
       List<String> users = lead.workflow.toSet().toList();
-      List<String> toUids = List<String>.from(users);
+      
+      // Also notify users with lead create/view permissions
+      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+        page: 'Leads',
+        permissionCheck: (perm) => perm.canCreate || perm.canView,
+      );
+      users.addAll(usersWithPermission);
+      
+      List<String> toUids = users.toSet().toList();
       List<String> fcmIds = [];
 
-      for (var i in users) {
+      for (var i in toUids) {
         fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
       }
 
@@ -72,6 +80,8 @@ class LeadService {
       );
 
       await PostNotificationService.sendNotification(model: notif);
+
+      return leadDoc.id;
     } catch (e, st) {
       debugPrint("Error creating lead: $e\n$st");
       await ErrorService.recordError(e, st);
@@ -99,12 +109,19 @@ class LeadService {
       users.add(lead.createdBy.uid);
       if (lead.clientId != null) users.add(lead.clientId!);
 
+      // Also notify users with lead edit/view permissions
+      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+        page: 'Leads',
+        permissionCheck: (perm) => perm.canEdit || perm.canView,
+      );
+      users.addAll(usersWithPermission);
+
       users = users.toSet().toList();
 
       List<String> toUids = List<String>.from(users);
       List<String> fcmIds = [];
 
-      for (var i in users) {
+      for (var i in toUids) {
         fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
       }
 
@@ -247,6 +264,34 @@ class LeadService {
         '${Collections.users.name}/$cid/${Collections.activityLogs.name}',
         activityLogModel.toMap(),
       );
+
+      // Notify users with lead delete/view permissions
+      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+        page: 'Leads',
+        permissionCheck: (perm) => perm.canDelete || perm.canView,
+      );
+
+      if (usersWithPermission.isNotEmpty) {
+        List<String> fcmIds = [];
+        for (var i in usersWithPermission) {
+          fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
+        }
+
+        var user = await Spdb.getUser();
+        var notif = NotificationModel(
+          collectionId: await Spdb.getCid() ?? '',
+          title: 'Lead : ${data['leadName'] ?? 'N/A'}',
+          body: 'Lead has been deleted by ${user.name}',
+          createdAt: DateTime.now(),
+          toFcms: fcmIds,
+          toUids: usersWithPermission,
+          senderId: await Spdb.getUid(),
+          type: NotificationType.lead,
+          payload: {'leadId': uid},
+        );
+
+        await PostNotificationService.sendNotification(model: notif);
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("Error deleting lead: $e\n$st");
@@ -281,7 +326,7 @@ class LeadService {
           .doc(cid)
           .collection(Collections.leads.name)
           .doc(lead.uid)
-          .update({'leadsConversion': true});
+          .update({'leadsConverted': true});
       await addLeadHistory(
         leadUid: lead.uid!,
         action: 'Lead Converted to Deal',

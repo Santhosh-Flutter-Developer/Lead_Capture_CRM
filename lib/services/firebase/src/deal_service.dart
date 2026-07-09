@@ -41,6 +41,13 @@ class DealService {
 
       // Collect workflow users for notifications
       List<String> users = deal.workFlow.toSet().toList();
+      
+      // Also notify users with deal create/view permissions
+      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+        page: 'Deals',
+        permissionCheck: (perm) => perm.canCreate || perm.canView,
+      );
+      users.addAll(usersWithPermission);
 
       List<String> fcmIds = [];
       List<String> toUids = [];
@@ -107,12 +114,31 @@ class DealService {
 
       await addDealHistory(dealUid: uid, action: 'Deal Updated');
 
+      // Also notify users with deal edit/view permissions
+      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+        page: 'Deals',
+        permissionCheck: (perm) => perm.canEdit || perm.canView,
+      );
+      users.addAll(usersWithPermission);
+      users = users.toSet().toList();
+
+      // Recalculate FCM IDs with updated user list
+      fcmIds = [];
+      toUids = [];
+      for (var i in users) {
+        var userFcmIds = await AuthService.getUserFcmIds(uid: i);
+        if (userFcmIds.isNotEmpty) {
+          fcmIds.addAll(userFcmIds);
+          toUids.add(i);
+        }
+      }
+
       var notif = NotificationModel(
         collectionId: await Spdb.getCid() ?? '',
         title: 'Deal : ${deal.dealName}',
         body: 'Deal has been updated by ${user.name}',
         toFcms: fcmIds,
-        toUids: users,
+        toUids: toUids,
         senderId: await Spdb.getUid(),
         type: NotificationType.deal,
         payload: {'dealId': uid},
@@ -228,6 +254,34 @@ class DealService {
         '${Collections.users.name}/$cid/${Collections.activityLogs.name}',
         activityLogModel.toMap(),
       );
+
+      // Notify users with deal delete/view permissions
+      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+        page: 'Deals',
+        permissionCheck: (perm) => perm.canDelete || perm.canView,
+      );
+
+      if (usersWithPermission.isNotEmpty) {
+        List<String> fcmIds = [];
+        for (var i in usersWithPermission) {
+          fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
+        }
+
+        var user = await Spdb.getUser();
+        var notif = NotificationModel(
+          collectionId: await Spdb.getCid() ?? '',
+          title: 'Deal : ${data['dealName'] ?? 'N/A'}',
+          body: 'Deal has been deleted by ${user.name}',
+          createdAt: DateTime.now(),
+          toFcms: fcmIds,
+          toUids: usersWithPermission,
+          senderId: await Spdb.getUid(),
+          type: NotificationType.deal,
+          payload: {'dealId': uid},
+        );
+
+        await PostNotificationService.sendNotification(model: notif);
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint('Error deleting deal: $e\n$st');
