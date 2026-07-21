@@ -225,94 +225,96 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         ? _collapsedWidth
         : _expandedWidth;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: sidebarWidth,
-      decoration: BoxDecoration(
-        color: DesktopColors.sidebarBackground,
-        border: Border(
-          right: BorderSide(
-            color: DesktopColors.lightTextSecondary.withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          _buildLogo(),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8.0,
-                vertical: 12.0,
-              ),
-              child: FutureBuilder(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SizedBox.shrink();
-                  } else if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        "Error loading menus",
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: Colors.red),
-                      ),
-                    );
-                  }
-                  return Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    interactive: true,
-                    trackVisibility: true,
-                    radius: const Radius.circular(8),
-                    thickness: 8,
-                    child: ListView(
-                      controller: _scrollController,
-                      children: _menus.asMap().entries.map((entry) {
-                        int index = entry.key;
-                        var menu = entry.value;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: menu.containsKey('children')
-                              ? buildExpandableMenu(
-                                  icon: menu['icon'] as IconData,
-                                  title: menu['title'] as String,
-                                  expanded: expandedIndex == index,
-                                  onToggle: () {
-                                    // setState(() {
-                                    setState(() {
-                                      expandedIndex = expandedIndex == index
-                                          ? -1
-                                          : index;
-                                    });
-
-                                    // if (widget.isCollapsed) {
-                                    //   widget.onCollapseChanged(false);
-                                    // }
-                                    // });
-                                  },
-                                  children: menu['children'] as List<dynamic>,
-                                )
-                              : buildMenuItem(
-                                  menu['icon'] as IconData,
-                                  menu['title'] as String,
-                                  menu['trailing'],
-                                  onTap: menu.containsKey('onTap')
-                                      ? menu['onTap'] as bool
-                                      : true,
-                                ),
-                        );
-                      }).toList(),
-                    ),
-                  );
-                },
-              ),
+    return Material(
+      color: DesktopColors.sidebarBackground,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: sidebarWidth,
+        decoration: BoxDecoration(
+          border: Border(
+            right: BorderSide(
+              color: DesktopColors.lightTextSecondary.withValues(alpha: 0.1),
+              width: 1,
             ),
           ),
-          _buildCollapseButton(),
-        ],
+        ),
+        child: Column(
+          children: [
+            _buildLogo(),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8.0,
+                  vertical: 12.0,
+                ),
+                child: FutureBuilder(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const SizedBox.shrink();
+                    } else if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          "Error loading menus",
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Colors.red),
+                        ),
+                      );
+                    }
+                    return Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: ListView(
+                        controller: _scrollController,
+                        children: _menus.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          var menu = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: menu.containsKey('children')
+                                ? buildExpandableMenu(
+                                    icon: menu['icon'] as IconData,
+                                    title: menu['title'] as String,
+                                    expanded: expandedIndex == index,
+                                    onToggle: () {
+                                      // setState(() {
+                                      setState(() {
+                                        expandedIndex = expandedIndex == index
+                                            ? -1
+                                            : index;
+                                      });
+  
+                                      // if (widget.isCollapsed) {
+                                      //   widget.onCollapseChanged(false);
+                                      // }
+                                      // });
+                                    },
+                                    children: menu['children'] as List<dynamic>,
+                                  )
+                                : buildMenuItem(
+                                    menu['icon'] as IconData,
+                                    menu['title'] as String,
+                                    menu['trailing'],
+                                    onTap: menu.containsKey('onTap')
+                                        ? menu['onTap'] as bool
+                                        : true,
+                                  ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            _buildCollapseButton(),
+          ],
+        ),
       ),
     );
   }

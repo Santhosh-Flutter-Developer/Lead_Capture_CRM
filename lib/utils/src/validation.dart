@@ -188,8 +188,9 @@ class Validation {
     }
 
     if (input != null && input.isNotEmpty) {
-      if (!RegExp(r'^[a-zA-Z0-9\s-]+$').hasMatch(input)) {
-        return 'Invalid postal code format';
+      // Indian postal code validation: 6 digits, first digit cannot be 0
+      if (!RegExp(r'^[1-9][0-9]{5}$').hasMatch(input)) {
+        return 'Invalid Indian postal code (must be 6 digits)';
       }
     }
 

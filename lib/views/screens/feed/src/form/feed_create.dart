@@ -124,6 +124,7 @@ class _FeedCreateState extends State<FeedCreate> {
     try {
       if (_contentController.text.isEmpty &&
           _selectedMedia.isEmpty &&
+          _selectedFiles.isEmpty &&
           !_isPollActive) {
         return;
       }

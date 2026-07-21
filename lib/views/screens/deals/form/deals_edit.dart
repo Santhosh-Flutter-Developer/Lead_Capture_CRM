@@ -33,7 +33,7 @@ class _DealEditState extends State<DealEdit> {
   final TextEditingController _companyAddressController =
       TextEditingController();
   final TextEditingController _companyZipController = TextEditingController();
-    final TextEditingController _clientName = TextEditingController();
+  final TextEditingController _clientName = TextEditingController();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _mobile = TextEditingController();
   final TextEditingController _salutation = TextEditingController();
@@ -47,6 +47,10 @@ class _DealEditState extends State<DealEdit> {
 
   List<DealStatusModel> _dealStatus = [];
   DealStatusModel? _dealStatusModel;
+  List<ClientModel> _clients = [];
+  List<ClientModel> _contacts = [];
+  ClientModel? _selectedclient;
+  ClientModel? _selectedContact;
 
   RegionModel? _regionModel;
   StateModel? _stateModel;
@@ -60,8 +64,32 @@ class _DealEditState extends State<DealEdit> {
     super.initState();
   }
 
-  Future<void> _init() async {
+  Future<void> _init({
+    bool refreshStatus = false,
+    bool refreshCompany = false,
+    bool refreshContact = false,
+  }) async {
     try {
+      if (refreshStatus) {
+        _dealStatus.clear();
+        _dealStatus.addAll(await DealStatusService.getAllDealStatus());
+        return;
+      }
+      if (refreshCompany) {
+        _clients = (await ClientService.getAllClients())
+            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
+            .toList();
+        return;
+      }
+      if (refreshContact) {
+        _contacts = (await ClientService.getAllClients())
+            .where(
+              (c) =>
+                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
+            )
+            .toList();
+        return;
+      }
       _dealModel = await DealService.getDeal(uid: widget.uid);
 
       _dealNameController.text = _dealModel.dealName;
@@ -95,6 +123,32 @@ class _DealEditState extends State<DealEdit> {
       _uploadedAttachments = _dealModel.attachments;
 
       _dealStatus = await DealStatusService.getAllDealStatus();
+      _clients = (await ClientService.getAllClients())
+          .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
+          .toList();
+      _contacts = (await ClientService.getAllClients())
+          .where(
+            (c) => c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
+          )
+          .toList();
+      if (_dealModel.clientId?.isNotEmpty == true) {
+        final resolvedClient = await ClientService.getClient(
+          uid: _dealModel.clientId!,
+        );
+        if (resolvedClient.isCompany) {
+          _selectedclient = resolvedClient;
+        } else {
+          _selectedContact = resolvedClient;
+        }
+      }
+      _selectedclient ??= _clients.cast<ClientModel?>().firstWhere(
+        (c) => c?.companyName == _dealModel.companyName,
+        orElse: () => null,
+      );
+      _selectedContact ??= _contacts.cast<ClientModel?>().firstWhere(
+        (c) => c?.clientName == _dealModel.clientName,
+        orElse: () => null,
+      );
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       FlushBar.show(context, e.toString(), isSuccess: false);
@@ -166,7 +220,7 @@ class _DealEditState extends State<DealEdit> {
                               ),
                               expandable: true,
                             ),
-                             const SizedBox(height: 16),
+                            const SizedBox(height: 16),
                             _buildSectionCard(
                               "Contact Details",
                               LayoutBuilder(
@@ -236,19 +290,59 @@ class _DealEditState extends State<DealEdit> {
           ),
         ),
         SizedBox(
-          width: itemWidth,
-          child: FormDropdownSearch(
-            label: 'Deal Status',
-            initialItem: _dealStatusModel?.name,
-            items: _dealStatus.map((e) => e.name).toList(),
-            onChanged: (value) {
-              _dealStatusModel = _dealStatus.firstWhere(
-                (element) => element.name == value,
-              );
-            },
-            validator: (value) => value == null ? "* Required" : null,
-          ),
-        ),
+                width: itemWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FormDropdownSearch(
+                        key: ValueKey('deal_status_${_dealStatus.length}'),
+                        label: 'Deal Status',
+                        initialItem: _dealStatusModel?.name,
+                        items: _dealStatus.map((e) => e.name).toList(),
+                        onChanged: (value) {
+                          _dealStatusModel = _dealStatus.firstWhere(
+                            (element) => element.name == value,
+                          );
+                        },
+                        validator: (value) =>
+                            value == null ? "* Required" : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    InkWell(
+                      onTap: () async {
+                        dynamic val;
+                        if (kIsMobile) {
+                          val = await Sheet.showSheet(
+                            context,
+                            widget: const DealStatusCreate(),
+                          );
+                        } else {
+                          val = await GeneralDialog.showRTLSheet(
+                            context,
+                            const DealStatusCreate(),
+                          );
+                        }
+                        if (val is Map && val["status"] == true) {
+                          await _init(refreshStatus: true);
+                          setState(() {});
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Icon(Icons.add),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         SizedBox(
           width: itemWidth,
           child: FormFields(
@@ -296,6 +390,76 @@ class _DealEditState extends State<DealEdit> {
       runSpacing: 10,
       children: [
         SizedBox(
+                width: itemWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FormDropdownSearch(
+                        key: ValueKey('contact_${_contacts.length}'),
+                        label: 'Name',
+                        isRequired: true,
+                        initialItem: _clientName.text,
+                        items: _contacts.map((e) => e.clientName).toList(),
+                        onChanged: (value) {
+                          _selectedContact = _contacts
+                              .cast<ClientModel?>()
+                              .firstWhere(
+                                (cat) => cat?.clientName == value,
+                                orElse: () => null,
+                              );
+                          _clientName.text = _selectedContact?.clientName ?? '';
+                          _email.text = _selectedContact?.email ?? "";
+                          _mobile.text = _selectedContact?.mobileNumber ?? "";
+                          _salutation.text = _selectedContact?.salutation ?? '';
+                          _gender.text = _selectedContact?.gender ?? '';
+                        },
+                        validator: (value) =>
+                            value == null ? "* Required" : null,
+                      ),
+                    ),
+                    SizedBox(width: 8.0),
+                    InkWell(
+                      onTap: () async {
+                        final form = ContactCreate();
+                        dynamic val;
+                        if (kIsMobile) {
+                          val = await Sheet.showSheet(context, widget: form);
+                        } else {
+                          val = await GeneralDialog.showRTLSheet(context, form);
+                        }
+                        if (val is Map && val["status"] == true) {
+                          await _init(refreshContact: true);
+                          if (val["contact"] != null) {
+                            _selectedContact = val["contact"];
+                            _clientName.text =
+                                _selectedContact?.clientName ?? '';
+                            _email.text = _selectedContact?.email ?? "";
+                            _mobile.text = _selectedContact?.mobileNumber ?? "";
+                            _salutation.text =
+                                _selectedContact?.salutation ?? '';
+                            _gender.text = _selectedContact?.gender ?? '';
+                          }
+                          setState(() {});
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: Icon(
+                            Icons.add,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        SizedBox(
           width: itemWidth,
           child: FormDropdownSearch(
             key: ValueKey(_salutation.text),
@@ -303,14 +467,6 @@ class _DealEditState extends State<DealEdit> {
             initialItem: _salutation.text,
             items: const ["Mr.", "Mrs.", "Ms.", "Dr."],
             onChanged: (v) => _salutation.text = v,
-          ),
-        ),
-        SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: "Name",
-            controller: _clientName,
-            isRequired: true,
           ),
         ),
         SizedBox(
@@ -356,13 +512,81 @@ class _DealEditState extends State<DealEdit> {
       runSpacing: 8,
       children: [
         SizedBox(
-          width: itemWidth,
-          child: FormFields(
-            label: 'Company Name',
-            controller: _companyNameController,
-            hintText: 'Enter Company Name',
-          ),
-        ),
+                width: itemWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FormDropdownSearch(
+                        key: ValueKey('company_${_clients.length}'),
+                        label: 'Company Name',
+                        initialItem: _selectedclient?.companyName,
+                        items: _clients.map((e) => e.companyName).toList(),
+                        onChanged: (value) {
+                          _selectedclient = _clients
+                              .cast<ClientModel?>()
+                              .firstWhere(
+                                (cat) => cat?.companyName == value,
+                                orElse: () => null,
+                              );
+                          _companyWebsiteController.text =
+                              _selectedclient?.officialWebsite ?? '';
+                          _companyMobileController.text =
+                              _selectedclient?.officePhoneNo ?? "";
+                          _regionModel = _selectedclient?.country;
+                          _stateModel = _selectedclient?.state;
+                          _cityModel = _selectedclient?.city;
+                          _companyZipController.text =
+                              _selectedclient?.postalCode ?? "";
+                          _companyAddressController.text =
+                              _selectedclient?.companyAddress ?? "";
+                        },
+                        validator: (value) =>
+                            value == null ? "* Required" : null,
+                      ),
+                    ),
+                    SizedBox(width: 8.0),
+                    InkWell(
+                      onTap: () async {
+                        final form = CompanyCreate();
+                        dynamic val;
+                        if (kIsMobile) {
+                          val = await Sheet.showSheet(context, widget: form);
+                        } else {
+                          val = await GeneralDialog.showRTLSheet(context, form);
+                        }
+                        if (val is Map && val["status"] == true) {
+                          await _init(refreshCompany: true);
+                          if (val["company"] != null) {
+                            _selectedclient = val["company"];
+                            _companyWebsiteController.text =
+                                _selectedclient?.officialWebsite ?? '';
+                            _companyMobileController.text =
+                                _selectedclient?.officePhoneNo ?? "";
+                            _regionModel = _selectedclient?.country;
+                            _stateModel = _selectedclient?.state;
+                            _cityModel = _selectedclient?.city;
+                            _companyZipController.text =
+                                _selectedclient?.postalCode ?? "";
+                            _companyAddressController.text =
+                                _selectedclient?.companyAddress ?? "";
+                          }
+                          setState(() {});
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Icon(Icons.add),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         SizedBox(
           width: itemWidth,
           child: FormFields(
@@ -442,6 +666,13 @@ class _DealEditState extends State<DealEdit> {
             controller: _companyZipController,
             hintText: 'Enter Postal Code',
             keyboardType: TextInputType.number,
+            valid: (input) {
+              if (input == null || input.isEmpty) return null;
+              if (!RegExp(r'^\d{6}$').hasMatch(input)) {
+                return 'Must be 6 digits';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(

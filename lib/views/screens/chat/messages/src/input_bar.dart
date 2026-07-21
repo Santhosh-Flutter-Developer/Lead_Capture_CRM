@@ -83,6 +83,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   void initState() {
     super.initState();
+    focusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.enter) {
+          if (!HardwareKeyboard.instance.isShiftPressed) {
+            _sendMessage();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+    );
     _loadUsers();
     _controller.addListener(_onTextChanged);
 
@@ -257,6 +269,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void dispose() {
     _messageProvider?.removeListener(_onMessageProviderChange);
     _controller.dispose();
+    focusNode.dispose();
     super.dispose();
   }
 
@@ -307,20 +320,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _timer = null;
   }
 
-  FocusNode focusNode = FocusNode();
+  late final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardListener(
-      focusNode: focusNode,
-      onKeyEvent: (event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.enter) {
-          _sendMessage();
-        }
-      },
-      child: Column(
-        children: [
+    return Column(
+      children: [
           if (_isReply) _replyMessage(_chat, context, _messageProvider),
           if (_isEdit) _editMessage(_chat, context, _messageProvider),
           if (_isRecording) _recording(),
@@ -387,6 +392,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       ),
                       child: TextField(
                         controller: _controller,
+                        focusNode: focusNode,
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
                         textInputAction: TextInputAction.newline,
@@ -472,8 +478,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             ],
           ),
         ],
-      ),
-    );
+      );
   }
 
   List<MentionModel> _recalculateMentions(String text) {

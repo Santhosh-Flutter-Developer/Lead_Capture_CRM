@@ -1,4 +1,5 @@
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
@@ -393,15 +394,23 @@ class FeedCardState extends State<FeedCard> {
                               onTap: () => _openUserProfileFromComment(
                                 widget.feed.authorId,
                               ),
-                              child: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).scaffoldBackgroundColor,
-                                backgroundImage: NetworkImage(
-                                  postAuthorAvatar.isNotEmpty
-                                      ? postAuthorAvatar
-                                      : AppStrings.emptyProfilePhotoUrl,
+                              child: CachedNetworkImage(
+                                imageUrl: postAuthorAvatar.isNotEmpty
+                                    ? postAuthorAvatar
+                                    : AppStrings.emptyProfilePhotoUrl,
+                                imageBuilder: (context, imageProvider) => CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor,
+                                  backgroundImage: imageProvider,
+                                ),
+                                errorWidget: (context, url, error) => CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor,
+                                  child: const Icon(Iconsax.danger, size: 16),
                                 ),
                               ),
                             ),
@@ -976,17 +985,19 @@ class FeedCardState extends State<FeedCard> {
                                                             _openUserProfileFromComment(
                                                               comment.authorId,
                                                             ),
-                                                        child: CircleAvatar(
-                                                          radius: 12,
-                                                          backgroundColor:
-                                                              FeedAppColors
-                                                                  .background,
-                                                          backgroundImage: NetworkImage(
-                                                            authorAvatar
-                                                                    .isNotEmpty
-                                                                ? authorAvatar
-                                                                : AppStrings
-                                                                      .emptyProfilePhotoUrl,
+                                                        child: CachedNetworkImage(
+                                                          imageUrl: authorAvatar.isNotEmpty
+                                                              ? authorAvatar
+                                                              : AppStrings.emptyProfilePhotoUrl,
+                                                          imageBuilder: (context, imageProvider) => CircleAvatar(
+                                                            radius: 12,
+                                                            backgroundColor: FeedAppColors.background,
+                                                            backgroundImage: imageProvider,
+                                                          ),
+                                                          errorWidget: (context, url, error) => const CircleAvatar(
+                                                            radius: 12,
+                                                            backgroundColor: FeedAppColors.background,
+                                                            child: Icon(Iconsax.danger, size: 12),
                                                           ),
                                                         ),
                                                       ),
@@ -1484,13 +1495,19 @@ class FeedCardState extends State<FeedCard> {
                   borderRadius: BorderRadius.circular(14),
                   onTap: () =>
                       _openUserProfileFromComment(widget.feed.authorId),
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    backgroundImage: NetworkImage(
-                      _postAuthorAvatar.isNotEmpty
-                          ? _postAuthorAvatar
-                          : AppStrings.emptyProfilePhotoUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: _postAuthorAvatar.isNotEmpty
+                        ? _postAuthorAvatar
+                        : AppStrings.emptyProfilePhotoUrl,
+                    imageBuilder: (context, imageProvider) => CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                      backgroundImage: imageProvider,
+                    ),
+                    errorWidget: (context, url, error) => CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                      child: const Icon(Iconsax.danger, size: 14),
                     ),
                   ),
                 ),
@@ -1562,7 +1579,9 @@ class FeedCardState extends State<FeedCard> {
                   _openPostPreview(initialImageIndex: _currentImageIndex),
               child: Stack(
                 children: [
-                  if (widget.feed.mediaImages.isNotEmpty)
+                  if (widget.feed.poll != null)
+                    _buildPollPreview()
+                  else if (widget.feed.mediaImages.isNotEmpty)
                     CarouselSlider(
                       options: CarouselOptions(
                         height: double.infinity,
@@ -1581,6 +1600,8 @@ class FeedCardState extends State<FeedCard> {
                           )
                           .toList(),
                     )
+                  else if (widget.feed.attachments.isNotEmpty)
+                    _buildAttachmentsPreview()
                   else if (widget.feed.content.isNotEmpty)
                     Container(
                       width: double.infinity,
@@ -1610,7 +1631,7 @@ class FeedCardState extends State<FeedCard> {
                     ),
 
                   // Pagination Indicator Overlay
-                  if (widget.feed.mediaImages.length > 1)
+                  if (widget.feed.poll == null && widget.feed.mediaImages.length > 1)
                     Positioned(
                       bottom: 8,
                       left: 0,
@@ -1644,7 +1665,9 @@ class FeedCardState extends State<FeedCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (widget.feed.mediaImages.isNotEmpty &&
+                if ((widget.feed.mediaImages.isNotEmpty ||
+                        widget.feed.poll != null ||
+                        widget.feed.attachments.isNotEmpty) &&
                     widget.feed.content.isNotEmpty)
                   Text(
                     widget.feed.content,
@@ -1668,6 +1691,28 @@ class FeedCardState extends State<FeedCard> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
+                    ),
+                  ),
+                if (widget.feed.attachments.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Iconsax.attach_circle,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${widget.feed.attachments.length} file${widget.feed.attachments.length == 1 ? '' : 's'} attached',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 6),
@@ -1707,6 +1752,255 @@ class FeedCardState extends State<FeedCard> {
             ),
           ),
           const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentsPreview() {
+    final attachments = widget.feed.attachments;
+    return Container(
+      width: double.infinity,
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Iconsax.folder_open,
+                  size: 10,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'FILES',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...attachments.take(4).map((file) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Iconsax.document,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            file.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            _formatFileSize(file.size),
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+          if (attachments.length > 4)
+            Text(
+              '+${attachments.length - 4} more files',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPollPreview() {
+    final poll = widget.feed.poll!;
+    final totalVotes = poll.options.fold<int>(0, (sum, o) => sum + o.votes);
+    final hasVoted = widget.currentUserUid != null &&
+        poll.votedUserIds.contains(widget.currentUserUid);
+
+    return Container(
+      width: double.infinity,
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Iconsax.judge,
+                  size: 10,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  "POLL",
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            poll.question,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...poll.options.take(3).map((option) {
+            final pct = totalVotes == 0
+                ? 0
+                : ((option.votes / totalVotes) * 100).round();
+            return Container(
+              margin: const EdgeInsets.only(bottom: 4),
+              width: double.infinity,
+              height: 24,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  if (hasVoted)
+                    FractionallySizedBox(
+                      widthFactor: totalVotes == 0 ? 0 : option.votes / totalVotes,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            option.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight:
+                                  hasVoted ? FontWeight.w600 : FontWeight.normal,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (hasVoted)
+                          Text(
+                            "$pct%",
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          if (poll.options.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                "+ ${poll.options.length - 3} more options",
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "$totalVotes votes",
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                hasVoted ? "Voted" : "Tap to vote",
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: hasVoted
+                      ? Theme.of(context).colorScheme.secondary
+                      : Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

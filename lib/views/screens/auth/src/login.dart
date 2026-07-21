@@ -167,7 +167,8 @@ class _LoginState extends State<Login> {
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
                       ),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             "Don't have account?",

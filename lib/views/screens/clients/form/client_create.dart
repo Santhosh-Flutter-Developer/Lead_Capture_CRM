@@ -191,35 +191,44 @@ class _ContactCreateState extends State<ContactCreate> {
       return Stack(
         alignment: Alignment.topRight,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: kIsWeb
-                ? Image.memory(
-                    _profileImageBytes ?? Uint8List(0),
-                    height: 130,
-                    width: 130,
-                    fit: BoxFit.cover,
-                  )
-                : Image.file(
-                    File(_profileImage!.path),
-                    height: 130,
-                    width: 130,
-                    fit: BoxFit.cover,
-                  ),
+          GestureDetector(
+            onTap: () async {
+              final result = await PickImage.pickFromGallery();
+              if (result != null) {
+                setState(() => _profileImage = result);
+                if (kIsWeb) {
+                  result.readAsBytes().then(
+                    (b) => setState(() => _profileImageBytes = b),
+                  );
+                }
+              }
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: kIsWeb
+                  ? Image.memory(
+                      _profileImageBytes ?? Uint8List(0),
+                      height: 130,
+                      width: 130,
+                      fit: BoxFit.cover,
+                    )
+                  : Image.file(
+                      File(_profileImage!.path),
+                      height: 130,
+                      width: 130,
+                      fit: BoxFit.cover,
+                    ),
+            ),
           ),
           Positioned(
             top: 4,
             right: 4,
             child: GestureDetector(
-              onTap: () async {
-                final result = await PickImage.selectImage(context);
-                if (result != null) {
-                  setState(() => _profileImage = result);
-                  if (kIsWeb)
-                    result.readAsBytes().then(
-                      (b) => setState(() => _profileImageBytes = b),
-                    );
-                }
+              onTap: () {
+                setState(() {
+                  _profileImage = null;
+                  _profileImageBytes = null;
+                });
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -241,7 +250,7 @@ class _ContactCreateState extends State<ContactCreate> {
 
     return GestureDetector(
       onTap: () async {
-        final result = await PickImage.selectImage(context);
+        final result = await PickImage.pickFromGallery();
         if (result != null) {
           setState(() => _profileImage = result);
           if (kIsWeb)
@@ -524,35 +533,44 @@ class _CompanyCreateState extends State<CompanyCreate> {
       return Stack(
         alignment: Alignment.topRight,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: kIsWeb
-                ? Image.memory(
-                    _logoBytes ?? Uint8List(0),
-                    height: 130,
-                    width: 130,
-                    fit: BoxFit.cover,
-                  )
-                : Image.file(
-                    File(_logo!.path),
-                    height: 130,
-                    width: 130,
-                    fit: BoxFit.cover,
-                  ),
+          GestureDetector(
+            onTap: () async {
+              final result = await PickImage.pickFromGallery();
+              if (result != null) {
+                setState(() => _logo = result);
+                if (kIsWeb) {
+                  result.readAsBytes().then(
+                    (b) => setState(() => _logoBytes = b),
+                  );
+                }
+              }
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: kIsWeb
+                  ? Image.memory(
+                      _logoBytes ?? Uint8List(0),
+                      height: 130,
+                      width: 130,
+                      fit: BoxFit.cover,
+                    )
+                  : Image.file(
+                      File(_logo!.path),
+                      height: 130,
+                      width: 130,
+                      fit: BoxFit.cover,
+                    ),
+            ),
           ),
           Positioned(
             top: 4,
             right: 4,
             child: GestureDetector(
-              onTap: () async {
-                final result = await PickImage.selectImage(context);
-                if (result != null) {
-                  setState(() => _logo = result);
-                  if (kIsWeb)
-                    result.readAsBytes().then(
-                      (b) => setState(() => _logoBytes = b),
-                    );
-                }
+              onTap: () {
+                setState(() {
+                  _logo = null;
+                  _logoBytes = null;
+                });
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -574,7 +592,7 @@ class _CompanyCreateState extends State<CompanyCreate> {
 
     return GestureDetector(
       onTap: () async {
-        final result = await PickImage.selectImage(context);
+        final result = await PickImage.pickFromGallery();
         if (result != null) {
           setState(() => _logo = result);
           if (kIsWeb)

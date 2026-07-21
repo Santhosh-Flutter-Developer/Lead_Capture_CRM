@@ -164,55 +164,58 @@ class _AppErrorsState extends State<AppErrors> {
               ),
             ),
           ),
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: _errors.length,
-            separatorBuilder: (_, _) =>
-                const Divider(height: 1, indent: 16, endIndent: 16),
-            itemBuilder: (context, index) {
-              final item = _errors[index];
-              final isSelected = _selectedError?["id"] == item["id"];
-              return ListTile(
-                selected: isSelected,
-                selectedTileColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.05),
-                onTap: () => setState(() => _selectedError = item),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                title: Text(
-                  item["error"] ?? "Unknown Exception",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    fontSize: 13,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
+          child: Material(
+            color: Colors.transparent,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _errors.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+              itemBuilder: (context, index) {
+                final item = _errors[index];
+                final isSelected = _selectedError?["id"] == item["id"];
+                return ListTile(
+                  selected: isSelected,
+                  selectedTileColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.05),
+                  onTap: () => setState(() => _selectedError = item),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
                   ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _formatTime(item["time"]),
+                  title: Text(
+                    item["error"] ?? "Unknown Exception",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      fontSize: 13,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                ),
-                trailing: isSelected
-                    ? Icon(
-                        Iconsax.arrow_right_3,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-              );
-            },
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _formatTime(item["time"]),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(
+                          Iconsax.arrow_right_3,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : null,
+                );
+              },
+            ),
           ),
         ),
         // Right Side: Detailed View

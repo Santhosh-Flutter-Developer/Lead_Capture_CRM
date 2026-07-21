@@ -75,7 +75,8 @@ class _CustomSearchableDropdownState<T>
   @override
   void didUpdateWidget(covariant CustomSearchableDropdown<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.items != oldWidget.items) {
+    if (widget.items.length != oldWidget.items.length ||
+        !identical(widget.items, oldWidget.items)) {
       _filtered = List<T>.from(widget.items);
       _overlayEntry?.markNeedsBuild();
     }

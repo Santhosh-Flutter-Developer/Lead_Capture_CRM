@@ -42,11 +42,6 @@ class _LeadEditState extends State<LeadEdit> {
   // final bool _allowFollowUp = true;
 
   bool _showCompanyDetails = false;
-  bool _companyrefresh = false;
-  bool _contactrefresh = false;
-  bool _sourceRefresh = false;
-  bool _categoryRefresh = false;
-  bool _statusRefresh = false;
   late Future _future;
 
   List<LeadCategoryModel> _leadCategories = [];
@@ -81,6 +76,9 @@ class _LeadEditState extends State<LeadEdit> {
     bool refreshSource = false,
     bool refreshCategory = false,
     bool refreshStatus = false,
+    bool refreshContact = false,
+    bool refreshCompany = false,
+    bool refreshPriority = false,
   }) async {
     try {
       if (refreshSource) {
@@ -96,6 +94,26 @@ class _LeadEditState extends State<LeadEdit> {
       if (refreshStatus) {
         _leadStatus.clear();
         _leadStatus = await LeadStatusService.getAllLeadStatus();
+        return;
+      }
+      if (refreshContact) {
+        _contacts = (await ClientService.getAllClients())
+            .where(
+              (c) =>
+                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
+            )
+            .toList();
+        return;
+      }
+      if (refreshCompany) {
+        _clients = (await ClientService.getAllClients())
+            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
+            .toList();
+        return;
+      }
+      if (refreshPriority) {
+        _leadPriorities.clear();
+        _leadPriorities = await LeadPriorityService.getAllLeadPriority();
         return;
       }
       _leadModel = await LeadService.getLead(uid: widget.uid);
@@ -467,15 +485,14 @@ class _LeadEditState extends State<LeadEdit> {
             keyboardType: TextInputType.emailAddress,
           ),
         ),
-        _sourceRefresh == true
-            ? const SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('lead_source_${_leadSource.length}'),
                         initialItem: _selectedLeadSource?.name,
                         label: 'Lead Source',
                         items: _leadSource.map((e) => e.name).toList(),
@@ -505,13 +522,8 @@ class _LeadEditState extends State<LeadEdit> {
                           );
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _sourceRefresh = true;
-                          });
                           await _init(refreshSource: true);
-                          setState(() {
-                            _sourceRefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -528,15 +540,14 @@ class _LeadEditState extends State<LeadEdit> {
                   ],
                 ),
               ),
-        _categoryRefresh == true
-            ? const SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('lead_category_${_leadCategories.length}'),
                         label: 'Lead Category',
                         initialItem: _leadCategory?.name,
                         items: _leadCategories.map((e) => e.name).toList(),
@@ -566,13 +577,8 @@ class _LeadEditState extends State<LeadEdit> {
                           );
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _categoryRefresh = true;
-                          });
                           await _init(refreshCategory: true);
-                          setState(() {
-                            _categoryRefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -591,17 +597,56 @@ class _LeadEditState extends State<LeadEdit> {
               ),
         SizedBox(
           width: itemWidth,
-          child: FormDropdownSearch(
-            label: 'Lead Priority',
-            initialItem: _leadPriority?.name,
-            items: _leadPriorities.map((e) => e.name).toList(),
-            onChanged: (value) {
-              _leadPriority = _leadPriorities.firstWhere(
-                (element) => element.name == value,
-                orElse: () => _leadPriorities.first,
-              );
-            },
-            validator: (value) => value == null ? "* Required" : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: FormDropdownSearch(
+                  key: ValueKey('lead_priority_${_leadPriorities.length}'),
+                  label: 'Lead Priority',
+                  initialItem: _leadPriority?.name,
+                  items: _leadPriorities.map((e) => e.name).toList(),
+                  onChanged: (value) {
+                    _leadPriority = _leadPriorities.firstWhere(
+                      (element) => element.name == value,
+                      orElse: () => _leadPriorities.first,
+                    );
+                  },
+                  validator: (value) => value == null ? "* Required" : null,
+                ),
+              ),
+              const SizedBox(width: 8.0),
+              InkWell(
+                onTap: () async {
+                  dynamic val;
+                  if (kIsMobile) {
+                    val = await Sheet.showSheet(
+                      context,
+                      widget: const LeadPriorityCreate(),
+                    );
+                  } else {
+                    val = await GeneralDialog.showRTLSheet(
+                      context,
+                      const LeadPriorityCreate(),
+                    );
+                  }
+                  if (val is Map && val["status"] == true) {
+                    await _init(refreshPriority: true);
+                    setState(() {});
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(5.0),
+                    child: Icon(Icons.add),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
 
@@ -626,15 +671,14 @@ class _LeadEditState extends State<LeadEdit> {
         //     validator: (value) => value == null ? "* Required" : null,
         //   ),
         // ),
-        _statusRefresh == true
-            ? const SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('lead_status_${_leadStatus.length}'),
                         label: 'Status',
                         initialItem: _leadStatusModel?.name,
                         items: _leadStatus.map((e) => e.name).toList(),
@@ -663,13 +707,8 @@ class _LeadEditState extends State<LeadEdit> {
                           );
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _statusRefresh = true;
-                          });
                           await _init(refreshStatus: true);
-                          setState(() {
-                            _statusRefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -717,15 +756,14 @@ class _LeadEditState extends State<LeadEdit> {
       spacing: horizontalSpacing,
       runSpacing: verticalSpacing,
       children: [
-        _contactrefresh == true
-            ? SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('contact_${_contacts.length}'),
                         label: 'Name',
                         isRequired: true,
                         initialItem: _clientName.text,
@@ -758,16 +796,7 @@ class _LeadEditState extends State<LeadEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _contactrefresh = true;
-                          });
-                          _contacts = (await ClientService.getAllClients())
-                              .where(
-                                (c) =>
-                                    c.isCompany == false &&
-                                    (c.clientName?.isNotEmpty ?? false),
-                              )
-                              .toList();
+                          await _init(refreshContact: true);
                           if (val["contact"] != null) {
                             _selectedContact = val["contact"];
                             _clientName.text =
@@ -778,9 +807,7 @@ class _LeadEditState extends State<LeadEdit> {
                                 _selectedContact?.salutation ?? '';
                             _gender.text = _selectedContact?.gender ?? '';
                           }
-                          setState(() {
-                            _contactrefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -859,15 +886,14 @@ class _LeadEditState extends State<LeadEdit> {
         //     hintText: 'Enter Company Name',
         //   ),
         // ),
-        _companyrefresh == true
-            ? SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
                         initialItem: _selectedclient?.companyName,
                         items: _clients.map((e) => e.companyName).toList(),
@@ -907,10 +933,7 @@ class _LeadEditState extends State<LeadEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _companyrefresh = true;
-                          });
-                          _clients = await ClientService.getAllClients();
+                          await _init(refreshCompany: true);
                           if (val["company"] != null) {
                             _selectedclient = val["company"];
                             _companyWebsiteController.text =
@@ -925,9 +948,7 @@ class _LeadEditState extends State<LeadEdit> {
                             _companyAddressController.text =
                                 _selectedclient?.companyAddress ?? "";
                           }
-                          setState(() {
-                            _companyrefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -1025,6 +1046,13 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _companyZipController,
             hintText: 'Enter Postal Code',
             keyboardType: TextInputType.number,
+            valid: (input) {
+              if (input == null || input.isEmpty) return null;
+              if (!RegExp(r'^\d{6}$').hasMatch(input)) {
+                return 'Must be 6 digits';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(

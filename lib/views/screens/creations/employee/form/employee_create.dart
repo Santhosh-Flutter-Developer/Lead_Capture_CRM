@@ -1074,19 +1074,19 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
             },
           ),
         ),
-        SizedBox(
-          width: itemWidth,
-          child: FormDropdownSearch(
-            items: const ['Yes', 'No'],
-            initialItem: 'No',
-            label: 'Allow Outside Office Punch',
-            onChanged: (value) {
-              if (value != null) {
-                _outsideOffice = value.toString();
-              }
-            },
-          ),
-        ),
+        // SizedBox(
+        //   width: itemWidth,
+        //   child: FormDropdownSearch(
+        //     items: const ['Yes', 'No'],
+        //     initialItem: 'No',
+        //     label: 'Allow Outside Office Punch',
+        //     onChanged: (value) {
+        //       if (value != null) {
+        //         _outsideOffice = value.toString();
+        //       }
+        //     },
+        //   ),
+        // ),
       ],
     );
   }

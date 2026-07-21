@@ -139,13 +139,13 @@ class _ContactUpdateState extends State<ContactUpdate> {
               child: FormFields(label: "Email", controller: _email),
             ),
             const SizedBox(width: 16),
-            Expanded(
-              child: FormFields(
-                label: "Password",
-                controller: _password,
-                hintText: "Leave blank to keep existing",
-              ),
-            ),
+            // Expanded(
+            //   child: FormFields(
+            //     label: "Password",
+            //     controller: _password,
+            //     hintText: "Leave blank to keep existing",
+            //   ),
+            // ),
           ],
         ),
         const SizedBox(height: 12),
@@ -165,23 +165,23 @@ class _ContactUpdateState extends State<ContactUpdate> {
               ),
             ),
             const SizedBox(width: 16),
-            Expanded(
-              child: FormDropdownSearch(
-                label: "Language",
-                items: AppStrings.spokenLanguages,
-                initialItem: _language,
-                onChanged: (v) => _language = v as String?,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormDropdownSearch(
-                label: "Login Allowed",
-                items: const ["Yes", "No"],
-                initialItem: _loginAllowed ? "Yes" : "No",
-                onChanged: (v) => _loginAllowed = v == "Yes",
-              ),
-            ),
+            // Expanded(
+            //   child: FormDropdownSearch(
+            //     label: "Language",
+            //     items: AppStrings.spokenLanguages,
+            //     initialItem: _language,
+            //     onChanged: (v) => _language = v as String?,
+            //   ),
+            // ),
+            // const SizedBox(width: 16),
+            // Expanded(
+            //   child: FormDropdownSearch(
+            //     label: "Login Allowed",
+            //     items: const ["Yes", "No"],
+            //     initialItem: _loginAllowed ? "Yes" : "No",
+            //     onChanged: (v) => _loginAllowed = v == "Yes",
+            //   ),
+            // ),
           ],
         ),
       ],
@@ -195,8 +195,18 @@ class _ContactUpdateState extends State<ContactUpdate> {
       networkImage: _profileImageUrl,
       label: "Upload Profile",
       onChanged: (file) {
-        setState(() => _profileImage = file);
-        if (kIsWeb) file.readAsBytes().then((b) => setState(() => _profileImageBytes = b));
+        setState(() {
+          _profileImage = file;
+          if (_profileImageUrl != null) {
+            _oldImageRemoved = true;
+            _profileImageUrl = null;
+          }
+        });
+        if (kIsWeb) {
+          file.readAsBytes().then(
+            (b) => setState(() => _profileImageBytes = b),
+          );
+        }
       },
       onRemove: () {
         _profileImage = null;
@@ -214,7 +224,10 @@ class _ContactUpdateState extends State<ContactUpdate> {
 
     String? imageUrl = _profileImageUrl;
     if (_profileImage != null) {
-      imageUrl = await xFileToUploadUrl(_profileImage!, StorageFolder.clientPhotos);
+      imageUrl = await xFileToUploadUrl(
+        _profileImage!,
+        StorageFolder.clientPhotos,
+      );
     }
 
     if (_oldImageRemoved) {
@@ -392,7 +405,13 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
         Row(
           children: [
             Expanded(
-              child: FormFields(label: "Postal Code", controller: _postal),
+              child: FormFields(
+                label: "Postal Code",
+                controller: _postal,
+                isRequired: true,
+                valid: (input) =>
+                    Validation.validPostalCode(input: input, isReq: true),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -421,8 +440,16 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
       networkImage: _logoUrl,
       label: "Upload Logo",
       onChanged: (file) {
-        setState(() => _logo = file);
-        if (kIsWeb) file.readAsBytes().then((b) => setState(() => _logoBytes = b));
+        setState(() {
+          _logo = file;
+          if (_logoUrl != null) {
+            _oldLogoRemoved = true;
+            _logoUrl = null;
+          }
+        });
+        if (kIsWeb) {
+          file.readAsBytes().then((b) => setState(() => _logoBytes = b));
+        }
       },
       onRemove: () {
         _logo = null;
@@ -440,7 +467,10 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
 
     String? logoUrl = _logoUrl;
     if (_logo != null) {
-      logoUrl = await xFileToUploadUrl(_logo!, StorageFolder.clientCompanyLogos);
+      logoUrl = await xFileToUploadUrl(
+        _logo!,
+        StorageFolder.clientCompanyLogos,
+      );
     }
 
     if (_oldLogoRemoved) {
@@ -503,34 +533,52 @@ class ImagePickerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (image != null || networkImage != null) {
+    final hasLocalImage = image != null;
+
+    if (hasLocalImage || networkImage != null) {
       return Stack(
         alignment: Alignment.topRight,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: networkImage != null
-                ? CachedNetworkImage(
-                    imageUrl: networkImage!,
-                    placeholder: (_, _) => Shimmer.fromColors(
-                      baseColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      highlightColor: Theme.of(context).colorScheme.surface,
-                      child: Container(
-                        height: 140,
-                        width: 140,
-                        color: Theme.of(context).colorScheme.surface,
+          GestureDetector(
+            onTap: () async {
+              final result = await PickImage.pickFromGallery();
+              if (result != null) onChanged(result);
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: hasLocalImage
+                  ? (kIsWeb
+                        ? Image.memory(
+                            imageBytes ?? Uint8List(0),
+                            height: 140,
+                            width: 140,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.file(
+                            File(image!.path),
+                            height: 140,
+                            width: 140,
+                            fit: BoxFit.cover,
+                          ))
+                  : CachedNetworkImage(
+                      imageUrl: networkImage!,
+                      placeholder: (_, _) => Shimmer.fromColors(
+                        baseColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        highlightColor: Theme.of(context).colorScheme.surface,
+                        child: Container(
+                          height: 140,
+                          width: 140,
+                          color: Theme.of(context).colorScheme.surface,
+                        ),
                       ),
+                      errorWidget: (_, _, _) => const Icon(Icons.error),
+                      height: 140,
+                      width: 140,
+                      fit: BoxFit.cover,
                     ),
-                    errorWidget: (_, _, _) => const Icon(Icons.error),
-                    height: 140,
-                    width: 140,
-                    fit: BoxFit.cover,
-                  )
-                : (kIsWeb
-                    ? Image.memory(imageBytes ?? Uint8List(0), height: 140, width: 140, fit: BoxFit.cover)
-                    : Image.file(File(image!.path!), height: 140, width: 140, fit: BoxFit.cover)),
+            ),
           ),
           Positioned(
             top: 4,
@@ -557,7 +605,7 @@ class ImagePickerWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: () async {
-        final result = await PickImage.selectImage(context);
+        final result = await PickImage.pickFromGallery();
         if (result != null) onChanged(result);
       },
       child: DottedBorder(

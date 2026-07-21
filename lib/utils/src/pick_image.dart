@@ -1,10 +1,12 @@
 import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 import '/constants/constants.dart';
+import 'platform.dart';
 
 // Single conditional import provides BOTH rotateXFile() AND nativeUploadFromPath()
 // from the correct platform file. Both files define both functions.
@@ -29,6 +31,34 @@ class PickImage {
     );
     if (pickOption == null) return null;
     return pickOption == 1 ? captureImage() : _pickImageGallery();
+  }
+
+  /// Opens the gallery directly without showing the camera/gallery sheet.
+  static Future<XFile?> pickFromGallery() async {
+    if (kIsWeb) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+        dialogTitle: 'Select a photo',
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final pf = result.files.single;
+      if (pf.bytes == null) return null;
+      return XFile.fromData(pf.bytes!, name: pf.name);
+    }
+    if (kIsWindows) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        dialogTitle: 'Select a photo',
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final pickedPath = result.files.single.path;
+      if (pickedPath == null) return null;
+      return XFile(pickedPath);
+    }
+    return _pickImageGallery();
   }
 
   static Future<XFile?> captureImage() async {

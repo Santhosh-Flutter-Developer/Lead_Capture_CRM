@@ -142,7 +142,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               _addressController.text = employee!.address;
               _aboutController.text = employee!.about;
               _loginAllowed = employee!.loginAllowed ? 'Yes' : 'No';
-              _receiveEmailNotifications = employee!.receiveEmailNotifications ? 'Yes' : 'No';
+              _receiveEmailNotifications = employee!.receiveEmailNotifications
+                  ? 'Yes'
+                  : 'No';
               _maritalStatus = employee!.maritalStatus;
               _employeeType = employee!.employeeType;
               _outsideOffice = employee!.outsideOffice ? 'Yes' : 'No';
@@ -258,17 +260,22 @@ class _EmployeeEditState extends State<EmployeeEdit> {
       _roleModel = null;
     } else {
       // Switching to employee mode - restore preserved values
-      _employeeIdController.text = _preservedEmployeeId ?? _originalEmployee?.employeeId ?? '';
-      _dateOfJoiningController.text = _preservedDateOfJoining ?? _originalEmployee?.dateOfJoining.formatDate ?? '';
+      _employeeIdController.text =
+          _preservedEmployeeId ?? _originalEmployee?.employeeId ?? '';
+      _dateOfJoiningController.text =
+          _preservedDateOfJoining ??
+          _originalEmployee?.dateOfJoining.formatDate ??
+          '';
       _gender = _preservedGender ?? _originalEmployee?.gender;
-      
+
       _department.clear();
       if (_preservedDepartment.isNotEmpty) {
         _department.addAll(_preservedDepartment);
-      } else if (_originalEmployee?.department != null && _originalEmployee!.department!.isNotEmpty) {
+      } else if (_originalEmployee?.department != null &&
+          _originalEmployee!.department!.isNotEmpty) {
         _department.addAll(_originalEmployee!.department!);
       }
-      
+
       _reportingTo.clear();
       if (_preservedReportingTo.isNotEmpty) {
         _reportingTo.addAll(_preservedReportingTo);
@@ -312,7 +319,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
             (sd) => sd.uid == _preservedSubDepartment,
           );
         } catch (e) {
-          _subDepartmentModel = _subDepartmentList.isNotEmpty ? _subDepartmentList.first : null;
+          _subDepartmentModel = _subDepartmentList.isNotEmpty
+              ? _subDepartmentList.first
+              : null;
         }
       } else if (_originalEmployee?.subDepartment != null) {
         _subDepartmentList.clear();
@@ -958,7 +967,10 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               hintText: 'DD/MM/YYYY',
               readOnly: true,
               onTap: () async {
-                var result = await datePicker(context, lastDate: DateTime.now());
+                var result = await datePicker(
+                  context,
+                  lastDate: DateTime.now(),
+                );
                 if (result != null) {
                   _dateOfBirthController.text = result.formatDate;
                   _selectedDateOfBirth = result;
@@ -1191,19 +1203,19 @@ class _EmployeeEditState extends State<EmployeeEdit> {
             },
           ),
         ),
-        SizedBox(
-          width: itemWidth,
-          child: FormDropdownSearch(
-            items: const ['Yes', 'No'],
-            initialItem: _outsideOffice,
-            label: 'Allow Outside Office Punch',
-            onChanged: (value) {
-              if (value != null) {
-                _outsideOffice = value.toString();
-              }
-            },
-          ),
-        ),
+        // SizedBox(
+        //   width: itemWidth,
+        //   child: FormDropdownSearch(
+        //     items: const ['Yes', 'No'],
+        //     initialItem: _outsideOffice,
+        //     label: 'Allow Outside Office Punch',
+        //     onChanged: (value) {
+        //       if (value != null) {
+        //         _outsideOffice = value.toString();
+        //       }
+        //     },
+        //   ),
+        // ),
       ],
     );
   }
@@ -1298,7 +1310,10 @@ class _EmployeeEditState extends State<EmployeeEdit> {
             subDepartment: _subDepartmentModel?.uid,
             mobileNumber: _mobileNumberController.text.trim(),
             gender: _gender ?? 'Male',
-            dateOfJoining: _selectedDateOfJoining!,
+            dateOfJoining:
+                _selectedDateOfJoining ??
+                _originalEmployee?.dateOfJoining ??
+                DateTime.now(),
             dateOfBirth: _selectedDateOfBirth,
             role: _roleModel?.uid ?? '',
             address: _addressController.text.trim(),

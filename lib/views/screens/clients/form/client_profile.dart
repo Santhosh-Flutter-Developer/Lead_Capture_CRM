@@ -33,7 +33,8 @@ class _ClientProfileState extends State<ClientProfile> {
 
   Future<void> loadProjects() async {
     try {
-      projectsList = await ProjectService.getAllProjects();
+      final allProjects = await ProjectService.getAllProjects();
+      projectsList = allProjects.where((p) => p.client == widget.client.uid).toList();
 
       if (mounted) {
         setState(() {});

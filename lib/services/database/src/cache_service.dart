@@ -71,7 +71,7 @@ class CacheService {
   Future<void> init() async {
     if (_isInitialized) return;
 
-    await Hive.initFlutter();
+    await Hive.initFlutter('lead_capture_crm');
     await _openBoxes();
     await _initSyncScheduler();
 
@@ -270,7 +270,7 @@ class CacheService {
       fromMap: DealStatusModel.fromMap,
     );
   }
-  
+
   static ProjectModel? getProjectByUid(String uid) {
     return _getEntity<ProjectModel>(
       uid: uid,

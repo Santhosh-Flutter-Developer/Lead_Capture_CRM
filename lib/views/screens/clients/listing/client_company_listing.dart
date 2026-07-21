@@ -145,9 +145,9 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
               // if (!(permissions?.canView ?? false)) {
               //   return buildNoPermissionView(context);
               // }
-              if (state.clients.isEmpty) {
-                return const NoData(text: "No clients company available");
-              }
+              // if (state.clients.isEmpty) {
+              //   return const NoData(text: "No clients company available");
+              // }
               return RefreshIndicator(
                 onRefresh: () => _refreshClients(context),
                 child: ListView(

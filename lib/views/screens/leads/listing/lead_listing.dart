@@ -1021,6 +1021,13 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               ),
               onPressed: () async {
                 try {
+                  // Fetch all categories, priorities, and statuses
+                  final categories =
+                      await LeadCategoryService.getAllLeadCategories();
+                  final priorities =
+                      await LeadPriorityService.getAllLeadPriority();
+                  final statuses = await LeadStatusService.getAllLeadStatus();
+
                   List<List<String>> exportData = [];
                   exportData.add([
                     'Lead Name',
@@ -1041,17 +1048,42 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   ]);
 
                   for (var lead in _filteredLeads) {
+                    final category = categories.firstWhere(
+                      (c) => c.uid == lead.leadCategory,
+                      orElse: () => LeadCategoryModel(
+                        name: lead.leadCategory,
+                        description: '',
+                        createdBy: UserDataModel.fromEmptyMap(),
+                      ),
+                    );
+                    final priority = priorities.firstWhere(
+                      (p) => p.uid == lead.leadPriority,
+                      orElse: () => LeadPriorityModel(
+                        name: lead.leadPriority,
+                        description: '',
+                        color: 0,
+                        createdBy: UserDataModel.fromEmptyMap(),
+                      ),
+                    );
+                    final status = statuses.firstWhere(
+                      (s) => s.uid == lead.leadStatus,
+                      orElse: () => LeadStatusModel(
+                        name: lead.leadStatus,
+                        description: '',
+                        color: 0,
+                        orderNumber: 0,
+                        createdBy: UserDataModel.fromEmptyMap(),
+                      ),
+                    );
+
                     exportData.add([
                       lead.leadName,
                       lead.leadEmail,
                       lead.leadSource.name,
-                      CacheService.leadCategoryByUid(lead.leadCategory)?.name ??
-                          lead.leadCategory,
-                      CacheService.leadPriorityByUid(lead.leadPriority)?.name ??
-                          lead.leadPriority,
+                      category.name,
+                      priority.name,
                       lead.leadValue.toString(),
-                      CacheService.leadStatusByUid(lead.leadStatus)?.name ??
-                          lead.leadStatus,
+                      status.name,
                       lead.companyName ?? '',
                       lead.companyMobile ?? '',
                       lead.companyCountry?.name ?? '',
