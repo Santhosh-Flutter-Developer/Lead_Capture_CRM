@@ -5,6 +5,7 @@ import 'package:leadcapture/utils/src/download.dart';
 import 'package:leadcapture/utils/src/route.dart' as navigate;
 import 'package:path/path.dart' as path;
 import 'package:shimmer/shimmer.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
 import '/views/views.dart';
@@ -382,7 +383,14 @@ class _DocsTab extends StatelessWidget {
                 FlushBar.show(context, "Invalid file URL", isSuccess: false);
                 return;
               }
-              await Download.downloadFromUrl(context, file.url, file.name);
+              if (file.extension.toLowerCase() == 'pdf') {
+                navigate.route(
+                  context,
+                  PdfViewerScreen(url: file.url, title: path.basename(file.name)),
+                );
+              } else {
+                await Download.downloadFromUrl(context, file.url, file.name);
+              }
             },
           ),
         );
@@ -448,5 +456,28 @@ extension MessagesExtensions on List<MessagesModel> {
               f.mimeType != 'link',
         )
         .toList();
+  }
+}
+
+class PdfViewerScreen extends StatelessWidget {
+  final String url;
+  final String title;
+
+  const PdfViewerScreen({super.key, required this.url, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        backgroundColor: Theme.of(context).cardTheme.color,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      body: SfPdfViewer.network(url),
+    );
   }
 }

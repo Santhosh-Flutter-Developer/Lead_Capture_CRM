@@ -112,9 +112,20 @@ class _DealEditState extends State<DealEdit> {
       _cityModel = _dealModel.companyCity;
 
       if (_dealModel.dealStatus != null && _dealModel.dealStatus!.isNotEmpty) {
-        _dealStatusModel = await DealStatusService.getDealStatus(
-          uid: _dealModel.dealStatus!,
-        );
+        try {
+          _dealStatusModel = await DealStatusService.getDealStatus(
+            uid: _dealModel.dealStatus!,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _dealStatusModel = await DealStatusService.getByNameOrCreate(
+              name: _dealModel.dealStatus!,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve deal status: $_dealModel.dealStatus");
+          }
+        }
       } else {
         _dealStatusModel = null;
       }
@@ -279,7 +290,7 @@ class _DealEditState extends State<DealEdit> {
             hintText: 'Enter Deal Name',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? 'Deal Name is required' : null,
+                input == null || input.isEmpty ? '* Deal Name is required' : null,
           ),
         ),
         SizedBox(
@@ -474,12 +485,36 @@ class _DealEditState extends State<DealEdit> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(label: "Mobile", controller: _mobile),
+          child: FormFields(
+            label: "Mobile",
+            controller: _mobile,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
+          ),
         ),
         SizedBox(
           width: itemWidth,
@@ -520,6 +555,7 @@ class _DealEditState extends State<DealEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
+                        isRequired: true,
                         initialItem: _selectedclient?.companyName,
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
@@ -602,6 +638,19 @@ class _DealEditState extends State<DealEdit> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile',
             keyboardType: TextInputType.phone,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(

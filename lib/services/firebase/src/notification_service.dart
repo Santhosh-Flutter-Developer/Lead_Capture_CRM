@@ -15,21 +15,19 @@
 //   → Generate Key Pair → copy the key string into kVapidKey below.
 // ─────────────────────────────────────────────────────────────────────────────
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:http/http.dart' as http;
-import 'package:crypto/crypto.dart';
 import '/constants/constants.dart';
 import '/firebase_options.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 import '/app/app.dart';
+import '/views/screens/calendar/form/event_view.dart';
 
 // Only import dart:io + path_provider on non-web platforms.
 // On web these packages either don't exist or have no filesystem access.
@@ -107,8 +105,8 @@ class NotificationService {
         _handleBackgroundMessage(message.data);
       });
 
-      final initialMessage =
-          await FirebaseMessaging.instance.getInitialMessage();
+      final initialMessage = await FirebaseMessaging.instance
+          .getInitialMessage();
       if (initialMessage != null) {
         _handleBackgroundMessage(initialMessage.data);
       }
@@ -125,7 +123,8 @@ class NotificationService {
 
     final title =
         message.notification?.title ?? message.data['title'] ?? 'Notification';
-    final body = message.notification?.body ??
+    final body =
+        message.notification?.body ??
         message.data['body'] ??
         'You have a new message';
 
@@ -140,8 +139,10 @@ class NotificationService {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text(body),
                 ],
               ),
@@ -202,11 +203,13 @@ class NotificationService {
 
       await _localNotifications
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(androidChannel);
 
-      const initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const initializationSettingsAndroid = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
 
       final darwinNotificationCategories = [
         DarwinNotificationCategory(
@@ -396,8 +399,8 @@ class NotificationService {
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
         _handleBackgroundMessage(message.data);
       });
-      RemoteMessage? initialMessage =
-          await FirebaseMessaging.instance.getInitialMessage();
+      RemoteMessage? initialMessage = await FirebaseMessaging.instance
+          .getInitialMessage();
       if (initialMessage != null) {
         _handleBackgroundMessage(initialMessage.data);
       }
@@ -432,6 +435,25 @@ class NotificationService {
           ),
         ),
       );
+      return;
+    }
+
+    if (message['type'] == 'eventStarted' ||
+        message['type'] == 'eventReminder') {
+      final eventId = message['eventId'];
+      if (eventId != null && eventId.toString().isNotEmpty) {
+        try {
+          final event = await EventService.getEvent(uid: eventId.toString());
+          navigator.push(
+            CupertinoPageRoute(
+              builder: (context) => EventViewPage(event: event),
+            ),
+          );
+        } catch (e, st) {
+          await ErrorService.recordError(e, st);
+        }
+      }
+      return;
     }
 
     await showDialog(

@@ -15,10 +15,12 @@ class CalendarLoading extends CalendarState {}
 class CalendarLoaded extends CalendarState {
   final List<EventModel> events;
   final List<TaskModel> tasks;
-  CalendarLoaded(this.events, this.tasks);
+  final List<LeadModel> leads;
+  final List<DealModel> deals;
+  CalendarLoaded(this.events, this.tasks, this.leads, this.deals);
 
   @override
-  List<Object> get props => [events, tasks];
+  List<Object> get props => [events, tasks, leads, deals];
 }
 
 // Error state

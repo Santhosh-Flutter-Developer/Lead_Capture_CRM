@@ -12,6 +12,8 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
   FirebaseFirestore firestore = FirebaseFirestore.instance;
   List<EventModel> allEvents = [];
   List<TaskModel> allTasks = [];
+  List<LeadModel> allLeads = [];
+  List<DealModel> allDeals = [];
 
   CalendarBloc() : super(CalendarLoading()) {
     on<StreamCalendar>(_streamCalendar);
@@ -51,20 +53,50 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
               .toList(),
         );
 
+    final leadsStream = firestore
+        .collection(Collections.users.name)
+        .doc(cid)
+        .collection(Collections.leads.name)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((d) => LeadModel.fromMap(d.id, d.data()))
+              .toList(),
+        );
+
+    final dealsStream = firestore
+        .collection(Collections.users.name)
+        .doc(cid)
+        .collection(Collections.deals.name)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((d) => DealModel.fromMap(d.id, d.data()))
+              .toList(),
+        );
+
     await emit.forEach(
-      Rx.combineLatest2<
+      Rx.combineLatest4<
         List<EventModel>,
         List<TaskModel>,
+        List<LeadModel>,
+        List<DealModel>,
         Map<String, dynamic>
       >(
         eventsStream,
         tasksStream,
-        (events, tasks) => {'events': events, 'tasks': tasks},
+        leadsStream,
+        dealsStream,
+        (events, tasks, leads, deals) => {'events': events, 'tasks': tasks, 'leads': leads, 'deals': deals},
       ),
       onData: (data) {
         return CalendarLoaded(
           data['events'] as List<EventModel>,
           data['tasks'] as List<TaskModel>,
+          data['leads'] as List<LeadModel>,
+          data['deals'] as List<DealModel>,
         );
       },
       onError: (error, stackTrace) {

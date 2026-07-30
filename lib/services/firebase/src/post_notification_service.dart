@@ -25,6 +25,10 @@ class PostNotificationService {
       }
 
       var serviceAccountDoc = await firebase.system.doc('serviceAccount').get();
+      if (!serviceAccountDoc.exists || serviceAccountDoc.data() == null) {
+        debugPrint("Service account document not found or empty");
+        return null;
+      }
       var serviceAccount = serviceAccountDoc.data()!['account'];
 
       // otherwise generate new one
@@ -60,18 +64,18 @@ class PostNotificationService {
   }) async {
     try {
       final String? serverKey = await _getAccessToken();
-      if (serverKey == null) return;
-
-      String endpointFirebaseCloudMessaging =
-          "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
-      if (model.toFcms.isNotEmpty) {
+      
+      // Try to send push notification if server key is available
+      if (serverKey != null && model.toFcms.isNotEmpty) {
+        String endpointFirebaseCloudMessaging =
+            "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
+        
         for (var element in model.toFcms) {
           final Map<String, dynamic> message = {
             "message": {
               "notification": {
                 "title": model.title,
                 "body": model.message,
-                // if (model.img != null) "image": model.img,
               },
               "android": {
                 "priority": "high",
@@ -79,10 +83,6 @@ class PostNotificationService {
                   "channel_id": "high_importance_channel",
                   "click_action": "FLUTTER_NOTIFICATION_CLICK",
                 },
-                // if (model.img != null)
-                //   "notification": {
-                //     "image": model.img,
-                //   },
               },
               "apns": {
                 "headers": {"apns-priority": "10"},
@@ -90,9 +90,7 @@ class PostNotificationService {
                   "aps": {
                     "category": "FLUTTER_NOTIFICATION_CATEGORY_DEFAULT",
                     "alert": {"title": model.title, "body": model.message},
-                    // if (model.img != null) "mutable-content": 1,
                   },
-                  // if (model.img != null) "mediaUrl": model.img,
                 },
               },
               "token": element,
@@ -100,21 +98,29 @@ class PostNotificationService {
             },
           };
 
-          final http.Response response = await http.post(
-            Uri.parse(endpointFirebaseCloudMessaging),
-            headers: {
-              'Authorization': 'Bearer $serverKey',
-              'Content-Type': 'application/json',
-            },
-            body: json.encode(message),
-          );
+          try {
+            final http.Response response = await http.post(
+              Uri.parse(endpointFirebaseCloudMessaging),
+              headers: {
+                'Authorization': 'Bearer $serverKey',
+                'Content-Type': 'application/json',
+              },
+              body: json.encode(message),
+            );
 
-          if (response.statusCode == 200) {
-            debugPrint(response.body);
+            if (response.statusCode == 200) {
+              debugPrint(response.body);
+            }
+          } catch (e) {
+            debugPrint("Push notification failed for token $element: $e");
+            // Continue with other tokens even if one fails
           }
         }
+      } else if (serverKey == null) {
+        debugPrint("Push notification skipped: server key not available (service account missing)");
       }
 
+      // Always store notification in database
       var cid = await Spdb.getCid();
 
       await CommonService.add(

@@ -156,7 +156,8 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
       if (item.isStatic) {
         menus.add({
           'icon': item.icon,
-          'title': 'App Version : ${AppPackageInfo.version}',
+          'title':
+              'App Version : ${AppPackageInfo.version}+${AppPackageInfo.buildNumber}',
           'onTap': false,
         });
         continue;
@@ -288,7 +289,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                                             ? -1
                                             : index;
                                       });
-  
+
                                       // if (widget.isCollapsed) {
                                       //   widget.onCollapseChanged(false);
                                       // }

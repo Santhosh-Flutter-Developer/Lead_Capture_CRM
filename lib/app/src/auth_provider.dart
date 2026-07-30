@@ -44,6 +44,8 @@ class AuthProvider with ChangeNotifier {
 
         if (isLogin) {
           var isAdmin = await Spdb.isAdminLoggedIn();
+          // Initialize static lead statuses
+          await LeadStatusService.initializeStaticLeadStatuses();
           // Web gets the same sidebar (desktop) layout as native desktop
           if (kIsDesktop || kIsWeb) {
             _homeWidget = RouteScreen();

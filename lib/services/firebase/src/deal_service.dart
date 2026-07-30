@@ -217,6 +217,55 @@ class DealService {
           .collection(Collections.deals.name)
           .doc(uid)
           .update({'dealStatus': dealStatus});
+
+      // Get deal details for notification
+      final dealDoc = await firebase.users
+          .doc(cid)
+          .collection(Collections.deals.name)
+          .doc(uid)
+          .get();
+
+      if (dealDoc.exists) {
+        final dealData = dealDoc.data();
+        final deal = DealModel.fromMap(uid, dealData!);
+
+        // Get the new status name
+        final newStatus = await DealStatusService.getDealStatus(uid: dealStatus);
+
+        // Collect workflow users for notifications
+        List<String> users = deal.workFlow.toSet().toList();
+        users.add(deal.createdBy.uid);
+
+        // Also notify users with deal edit/view permissions
+        List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+          page: 'Deals',
+          permissionCheck: (perm) => perm.canEdit || perm.canView,
+        );
+        users.addAll(usersWithPermission);
+
+        List<String> toUids = users.toSet().toList();
+        List<String> fcmIds = [];
+
+        for (var i in toUids) {
+          fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
+        }
+
+        var user = await Spdb.getUser();
+
+        var notif = NotificationModel(
+          collectionId: await Spdb.getCid() ?? '',
+          title: 'Deal : ${deal.dealName}',
+          body: 'Deal status changed to ${newStatus.name} by ${user.name}',
+          createdAt: DateTime.now(),
+          toFcms: fcmIds,
+          toUids: toUids,
+          senderId: await Spdb.getUid(),
+          type: NotificationType.deal,
+          payload: {'dealId': uid},
+        );
+
+        await PostNotificationService.sendNotification(model: notif);
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("Error updating deal status: $e\n$st");

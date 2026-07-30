@@ -139,21 +139,54 @@ class _LeadEditState extends State<LeadEdit> {
       _cityModel = _leadModel.companyCity;
 
       if (_leadModel.leadCategory.isNotEmpty) {
-        _leadCategory = await LeadCategoryService.getLeadCategory(
-          uid: _leadModel.leadCategory,
-        );
+        try {
+          _leadCategory = await LeadCategoryService.getLeadCategory(
+            uid: _leadModel.leadCategory,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _leadCategory = await LeadCategoryService.getByNameOrCreate(
+              name: _leadModel.leadCategory,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve lead category: $_leadModel.leadCategory");
+          }
+        }
       }
 
       if (_leadModel.leadStatus.isNotEmpty) {
-        _leadStatusModel = await LeadStatusService.getLeadStatus(
-          uid: _leadModel.leadStatus,
-        );
+        try {
+          _leadStatusModel = await LeadStatusService.getLeadStatus(
+            uid: _leadModel.leadStatus,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _leadStatusModel = await LeadStatusService.getByNameOrCreate(
+              name: _leadModel.leadStatus,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve lead status: $_leadModel.leadStatus");
+          }
+        }
       }
 
       if (_leadModel.leadPriority.isNotEmpty) {
-        _leadPriority = await LeadPriorityService.getLeadPriority(
-          uid: _leadModel.leadPriority,
-        );
+        try {
+          _leadPriority = await LeadPriorityService.getLeadPriority(
+            uid: _leadModel.leadPriority,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _leadPriority = await LeadPriorityService.getByNameOrCreate(
+              name: _leadModel.leadPriority,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve lead priority: $_leadModel.leadPriority");
+          }
+        }
       }
 
       // _allowFollowUp = _leadModel.allowFollowUp;
@@ -473,7 +506,7 @@ class _LeadEditState extends State<LeadEdit> {
             hintText: 'e.g. John Doe',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? 'Lead Name is required' : null,
+                input == null || input.isEmpty ? '* Lead Name is required' : null,
           ),
         ),
         SizedBox(
@@ -483,6 +516,15 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _leadEmailController,
             hintText: 'e.g. johndoe@example.com',
             keyboardType: TextInputType.emailAddress,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
@@ -495,6 +537,7 @@ class _LeadEditState extends State<LeadEdit> {
                         key: ValueKey('lead_source_${_leadSource.length}'),
                         initialItem: _selectedLeadSource?.name,
                         label: 'Lead Source',
+                        isRequired: true,
                         items: _leadSource.map((e) => e.name).toList(),
                         onChanged: (value) {
                           _selectedLeadSource = _leadSource.firstWhere(
@@ -549,6 +592,7 @@ class _LeadEditState extends State<LeadEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_category_${_leadCategories.length}'),
                         label: 'Lead Category',
+                        isRequired: true,
                         initialItem: _leadCategory?.name,
                         items: _leadCategories.map((e) => e.name).toList(),
                         onChanged: (value) {
@@ -604,6 +648,7 @@ class _LeadEditState extends State<LeadEdit> {
                 child: FormDropdownSearch(
                   key: ValueKey('lead_priority_${_leadPriorities.length}'),
                   label: 'Lead Priority',
+                  isRequired: true,
                   initialItem: _leadPriority?.name,
                   items: _leadPriorities.map((e) => e.name).toList(),
                   onChanged: (value) {
@@ -680,6 +725,7 @@ class _LeadEditState extends State<LeadEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_status_${_leadStatus.length}'),
                         label: 'Status',
+                        isRequired: true,
                         initialItem: _leadStatusModel?.name,
                         items: _leadStatus.map((e) => e.name).toList(),
                         onChanged: (value) {
@@ -840,12 +886,36 @@ class _LeadEditState extends State<LeadEdit> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(label: "Mobile", controller: _mobile),
+          child: FormFields(
+            label: "Mobile",
+            controller: _mobile,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
+          ),
         ),
         SizedBox(
           width: itemWidth,
@@ -895,6 +965,7 @@ class _LeadEditState extends State<LeadEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
+                        isRequired: true,
                         initialItem: _selectedclient?.companyName,
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
@@ -982,6 +1053,19 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile Number',
             keyboardType: TextInputType.phone,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(

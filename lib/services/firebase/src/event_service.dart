@@ -6,6 +6,10 @@ import '/services/services.dart';
 class EventService {
   static final FirebaseConfig firebase = FirebaseConfig();
 
+  static String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
   static Future<void> createEvent({
     required EventModel event,
     String? docId,
@@ -47,22 +51,26 @@ class EventService {
         ),
       );
 
-      var creatorFcmIds = await AuthService.getUserFcmIds(
-        uid: event.createdBy.uid,
-      );
-
-      ReminderService.createReminder(
-        scheduledAt: event.eventDateTime,
-        notification: NotificationModel(
-          collectionId: cid ?? '',
-          title: 'Event Reminder',
-          body: 'You have an upcoming event: ${event.eventName}',
-          toFcms: creatorFcmIds,
-          toUids: [event.createdBy.uid],
-          payload: {},
-          type: NotificationType.eventReminder,
-        ),
-      );
+      // Create reminders for all attendees
+      for (var attendeeId in users) {
+        var attendeeFcmIds = await AuthService.getUserFcmIds(uid: attendeeId);
+        
+        // Set reminder to be sent at event start time
+        final reminderTime = event.eventDateTime;
+        
+        ReminderService.createReminder(
+          scheduledAt: reminderTime,
+          notification: NotificationModel(
+            collectionId: cid ?? '',
+            title: 'Event Reminder',
+            body: 'Event starting now: ${event.eventName} at ${_formatDateTime(event.eventDateTime)}',
+            toFcms: attendeeFcmIds,
+            toUids: [attendeeId],
+            payload: {'eventId': event.uid},
+            type: NotificationType.eventReminder,
+          ),
+        );
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
@@ -83,6 +91,32 @@ class EventService {
         event.toUpdateMap(),
         activity: '${event.eventName} has been updated',
       );
+
+      // Update reminders for all attendees
+      final users = <String>{
+        ...event.eventAttendes,
+        event.createdBy.uid,
+      }.where((e) => e.isNotEmpty).toList();
+
+      for (var attendeeId in users) {
+        var attendeeFcmIds = await AuthService.getUserFcmIds(uid: attendeeId);
+        
+        // Set reminder to be sent at event start time
+        final reminderTime = event.eventDateTime;
+        
+        ReminderService.createReminder(
+          scheduledAt: reminderTime,
+          notification: NotificationModel(
+            collectionId: cid ?? '',
+            title: 'Event Reminder',
+            body: 'Event starting now: ${event.eventName} at ${_formatDateTime(event.eventDateTime)}',
+            toFcms: attendeeFcmIds,
+            toUids: [attendeeId],
+            payload: {'eventId': uid},
+            type: NotificationType.eventReminder,
+          ),
+        );
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");

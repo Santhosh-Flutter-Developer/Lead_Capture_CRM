@@ -335,51 +335,6 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               }
               await _refreshLead();
             }),
-            const SizedBox(width: 8),
-            _appBarButton(Iconsax.trash, "Delete", () async {
-              final result = await showDialog<bool>(
-                context: context,
-                builder: (context) => const ConfirmDialog(
-                  title: 'Delete Lead',
-                  content: 'Are you sure you want to delete this lead?',
-                ),
-              );
-
-              if (result != true) return;
-
-              try {
-                final deletedLead = widget.lead;
-                final isUndoPressed = ValueNotifier(false);
-                await LeadService.deleteLead(uid: _lead.uid ?? '');
-
-                if (!mounted) return;
-
-                FlushBar.show(
-                  context,
-                  'Lead deleted successfully',
-                  actionLabel: 'UNDO',
-                  onActionPressed: () async {
-                    isUndoPressed.value = true;
-                    await LeadService.restoreLead(deletedLead);
-
-                    // refresh list
-                    context.read<LeadBloc>().add(StreamLead());
-
-                    Navigator.of(context).pop('restored');
-                  },
-                );
-                // Future.delayed(const Duration(seconds: 4), () {
-                // if (!isUndoPressed.value && mounted) {
-                //   Navigator.of(context).pop('deleted');
-                // }
-                // });
-              } catch (e, st) {
-                await ErrorService.recordError(e, st);
-                if (mounted) {
-                  FlushBar.show(context, e.toString(), isSuccess: false);
-                }
-              }
-            }, isDanger: true),
           ],
           const SizedBox(width: 16),
         ],

@@ -500,54 +500,6 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
               }
               await _refreshDeal();
             }),
-            const SizedBox(width: 8),
-            _appBarButton(Iconsax.trash, "Delete", () async {
-              final result = await showDialog<bool>(
-                context: context,
-                builder: (context) => const ConfirmDialog(
-                  title: 'Delete Deal',
-                  content: 'Are you sure you want to delete this deal?',
-                ),
-              );
-
-              if (result != true) return;
-
-              try {
-                final deletedDeal = widget.deal;
-                bool isUndoPressed = false;
-
-                await DealService.deleteDeal(uid: _deal.uid ?? '');
-
-                if (!mounted) return;
-
-                FlushBar.show(
-                  context,
-                  'Deal deleted successfully',
-                  actionLabel: 'UNDO',
-                  onActionPressed: () async {
-                    isUndoPressed = true;
-
-                    await DealService.restoreDeal(deletedDeal);
-
-                    // refresh your deals list (update event name if needed)
-                    context.read<DealBloc>().add(StreamDeals());
-
-                    Navigator.of(context).pop('restored');
-                  },
-                );
-
-                Future.delayed(const Duration(seconds: 4), () {
-                  if (!isUndoPressed && mounted) {
-                    Navigator.of(context).pop('deleted');
-                  }
-                });
-              } catch (e, st) {
-                await ErrorService.recordError(e, st);
-                if (mounted) {
-                  FlushBar.show(context, e.toString(), isSuccess: false);
-                }
-              }
-            }, isDanger: true),
           ],
           const SizedBox(width: 16),
         ],
@@ -1881,7 +1833,9 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
                     style: TextStyle(fontSize: 11),
                   ),
                   trailing: const Icon(Iconsax.export_1, size: 16),
-                  onTap: () {},
+                  onTap: () {
+                    Download.downloadFromUrl(context, file.url, file.name);
+                  },
                 ),
               ),
             ),

@@ -219,6 +219,56 @@ class LeadService {
           .collection(Collections.leads.name)
           .doc(uid)
           .update(updateData);
+
+      // Get lead details for notification
+      final leadDoc = await firebase.users
+          .doc(cid)
+          .collection(Collections.leads.name)
+          .doc(uid)
+          .get();
+
+      if (leadDoc.exists) {
+        final leadData = leadDoc.data();
+        final lead = LeadModel.fromMap(uid, leadData!);
+
+        // Get the new status name
+        final newStatus = await LeadStatusService.getLeadStatus(uid: leadStatus);
+
+        // Collect workflow users for notifications
+        List<String> users = lead.workflow.toSet().toList();
+        users.add(lead.createdBy.uid);
+        if (lead.clientId != null) users.add(lead.clientId!);
+
+        // Also notify users with lead edit/view permissions
+        List<String> usersWithPermission = await RoleService.getUsersWithPermission(
+          page: 'Leads',
+          permissionCheck: (perm) => perm.canEdit || perm.canView,
+        );
+        users.addAll(usersWithPermission);
+
+        List<String> toUids = users.toSet().toList();
+        List<String> fcmIds = [];
+
+        for (var i in toUids) {
+          fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
+        }
+
+        var user = await Spdb.getUser();
+
+        var notif = NotificationModel(
+          collectionId: await Spdb.getCid() ?? '',
+          title: 'Lead : ${lead.leadName}',
+          body: 'Lead status changed to ${newStatus.name} by ${user.name}',
+          createdAt: DateTime.now(),
+          toFcms: fcmIds,
+          toUids: toUids,
+          senderId: await Spdb.getUid(),
+          type: NotificationType.lead,
+          payload: {'leadId': uid},
+        );
+
+        await PostNotificationService.sendNotification(model: notif);
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");

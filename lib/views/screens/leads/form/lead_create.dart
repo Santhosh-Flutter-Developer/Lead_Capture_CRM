@@ -127,6 +127,14 @@ class _LeadCreateState extends State<LeadCreate> {
       _leadPriorities = await LeadPriorityService.getAllLeadPriority();
       _leadStatus = await LeadStatusService.getAllLeadStatus();
       _leadSource = await LeadSourceService.getAllLeadSource();
+      
+      // Set default status to 'New'
+      if (_leadStatus.isNotEmpty) {
+        _leadStatusModel = _leadStatus.firstWhere(
+          (status) => status.name.toLowerCase() == 'new',
+          orElse: () => _leadStatus.first,
+        );
+      }
       _clients = (await ClientService.getAllClients())
           .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
           .toList();
@@ -387,7 +395,7 @@ class _LeadCreateState extends State<LeadCreate> {
             hintText: 'e.g. John Doe',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? 'Required' : null,
+                input == null || input.isEmpty ? '* Required' : null,
           ),
         ),
         SizedBox(
@@ -397,6 +405,15 @@ class _LeadCreateState extends State<LeadCreate> {
             controller: _leadEmailController,
             hintText: 'e.g. email@example.com',
             keyboardType: TextInputType.emailAddress,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
@@ -408,6 +425,7 @@ class _LeadCreateState extends State<LeadCreate> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_source_${_leadSource.length}'),
                         label: 'Lead Source',
+                        isRequired: true,
                         items: _leadSource.map((e) => e.name).toList(),
                         onChanged: (value) {
                           _selectedLeadSource = _leadSource.firstWhere(
@@ -462,6 +480,7 @@ class _LeadCreateState extends State<LeadCreate> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_category_${_leadCategories.length}'),
                         label: 'Lead Category',
+                        isRequired: true,
                         items: _leadCategories.map((e) => e.name).toList(),
                         onChanged: (value) {
                           _selectedLeadCategory = _leadCategories.firstWhere(
@@ -516,6 +535,7 @@ class _LeadCreateState extends State<LeadCreate> {
                 child: FormDropdownSearch(
                   key: ValueKey('lead_priority_${_leadPriorities.length}'),
                   label: 'Lead Priority',
+                  isRequired: true,
                   items: _leadPriorities.map((e) => e.name).toList(),
                   onChanged: (value) {
                     _selectedLeadPriority = _leadPriorities.firstWhere(
@@ -590,6 +610,7 @@ class _LeadCreateState extends State<LeadCreate> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_status_${_leadStatus.length}'),
                         label: 'Status',
+                        isRequired: true,
                         items: _leadStatus.map((e) => e.name).toList(),
                         onChanged: (value) {
                           _leadStatusModel = _leadStatus.firstWhere(
@@ -756,12 +777,36 @@ class _LeadCreateState extends State<LeadCreate> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(label: "Mobile", controller: _mobile),
+          child: FormFields(
+            label: "Mobile",
+            controller: _mobile,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
+          ),
         ),
         SizedBox(
           width: itemWidth,
@@ -813,6 +858,7 @@ class _LeadCreateState extends State<LeadCreate> {
                       child: FormDropdownSearch(
                         key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
+                        isRequired: true,
                         initialItem: _selectedclient?.companyName ?? "",
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
@@ -899,6 +945,19 @@ class _LeadCreateState extends State<LeadCreate> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile Number',
             keyboardType: TextInputType.phone,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(

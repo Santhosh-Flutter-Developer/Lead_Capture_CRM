@@ -7,6 +7,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/models/src/lead_model.dart';
 import 'package:leadcapture/models/src/region_model.dart';
+import 'package:leadcapture/models/src/client_model.dart';
 import 'package:leadcapture/services/database/src/spdb.dart';
 import 'package:leadcapture/services/firebase/src/lead_category_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_priority_service.dart';
@@ -14,6 +15,7 @@ import 'package:leadcapture/services/firebase/src/lead_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_source_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_status_service.dart';
 import 'package:leadcapture/services/firebase/src/region_service.dart';
+import 'package:leadcapture/services/firebase/src/client_service.dart';
 
 import 'package:leadcapture/utils/src/download.dart';
 import 'package:leadcapture/views/components/src/xlsx_csv_reader.dart';
@@ -91,16 +93,66 @@ class _LeadUploadState extends State<LeadUpload> {
     return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
+  bool _validateRowData(List<String> row, int rowIndex) {
+    // Check required fields
+    if (row[0].trim().isEmpty ||
+        row[2].trim().isEmpty ||
+        row[4].trim().isEmpty ||
+        row[6].trim().isEmpty) {
+      return false;
+    }
+
+    // Validate email format if provided
+    if (row[1].trim().isNotEmpty) {
+      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+      if (!emailRegex.hasMatch(row[1].trim())) {
+        return false;
+      }
+    }
+
+    // Validate lead value is numeric if provided
+    if (row[5].trim().isNotEmpty) {
+      if (double.tryParse(row[5].trim()) == null) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool _validateExcelData() {
+    if (_rows.isEmpty) return false;
+
+    if (_rows.first.length < 14) {
+      FlushBar.show(
+        context,
+        "Error: The uploaded file does not have required columns.",
+        isSuccess: false,
+      );
+      return false;
+    }
+
+    // Validate all data rows
+    for (var i = 1; i < _rows.length; i++) {
+      if (!_validateRowData(_rows[i], i)) {
+        FlushBar.show(
+          context,
+          "Data format mismatch. Please verify the imported Excel file and try again.",
+          isSuccess: false,
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   void _uploadLeadData() async {
     try {
       if (_rows.isEmpty) return;
 
-      if (_rows.first.length < 15) {
-        FlushBar.show(
-          context,
-          "Error: The uploaded file does not have required columns.",
-          isSuccess: false,
-        );
+      // Validate data before upload
+      if (!_validateExcelData()) {
         return;
       }
 
@@ -178,19 +230,14 @@ class _LeadUploadState extends State<LeadUpload> {
 
           double leadValue = double.tryParse(row[5].trim()) ?? 0;
 
-          DateTime createdAt = DateTime.now();
-          if (row[14].trim().isNotEmpty) {
-            createdAt = DateFormat("dd-MM-yyyy").parse(row[14].trim());
-          }
-
           final leadModel = LeadModel(
             leadName: row[0].trim(),
             leadEmail: row[1].trim(),
             leadSource: source,
-            leadCategory: category.name,
-            leadPriority: priority.name,
+            leadCategory: category.uid ?? category.name,
+            leadPriority: priority.uid ?? priority.name,
             leadValue: leadValue,
-            leadStatus: status.name,
+            leadStatus: status.uid ?? status.name,
             companyName: row[7].trim(),
             companyMobile: row[8].trim(),
             companyCountry: country,
@@ -198,7 +245,7 @@ class _LeadUploadState extends State<LeadUpload> {
             companyCity: city,
             companyAddress: row[12].trim(),
             notes: row[13].trim(),
-            createdAt: createdAt,
+            createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
             createdBy: currentUser,
             attachments: [],
@@ -206,7 +253,51 @@ class _LeadUploadState extends State<LeadUpload> {
             leadsConverted: false,
           );
 
-          await LeadService.createLead(lead: leadModel);
+          final createdLead = await LeadService.createLead(lead: leadModel);
+
+          // Create Company client if company details are provided
+          String? companyId;
+          if (row[7].trim().isNotEmpty) {
+            final companyClient = ClientModel(
+              companyName: row[7].trim(),
+              officePhoneNo: row[8].trim().isNotEmpty ? row[8].trim() : null,
+              country: country,
+              state: state,
+              city: city,
+              companyAddress: row[12].trim().isNotEmpty ? row[12].trim() : null,
+              createdBy: currentUser,
+              isCompany: true,
+              isActive: true,
+            );
+            companyId = await ClientService.createClient(client: companyClient);
+          }
+
+          // Create Contact client if lead name is provided
+          String? contactId;
+          if (row[0].trim().isNotEmpty) {
+            final contactClient = ClientModel(
+              clientName: row[0].trim(),
+              email: row[1].trim().isNotEmpty ? row[1].trim() : null,
+              country: country,
+              state: state,
+              city: city,
+              createdBy: currentUser,
+              isCompany: false,
+              isActive: true,
+            );
+            contactId = await ClientService.createClient(client: contactClient);
+          }
+
+          // Update lead with clientId reference (prefer company if both exist)
+          if (companyId != null || contactId != null) {
+            final clientId = companyId ?? contactId;
+            if (clientId != null) {
+              await LeadService.updateLead(
+                uid: createdLead,
+                lead: leadModel.copyWith(clientId: clientId),
+              );
+            }
+          }
 
           uploadedCount++;
         } catch (e, st) {

@@ -214,6 +214,8 @@ class LeadStatusService {
 
   static Future<LeadStatusModel> getByNameOrCreate({
     required String name,
+    int orderNumber = 0,
+    int color = 0xFF2196F3,
   }) async {
     try {
       var cid = await Spdb.getCid();
@@ -227,15 +229,33 @@ class LeadStatusService {
 
       if (query.docs.isNotEmpty) {
         final doc = query.docs.first;
-        return LeadStatusModel.fromMap(doc.id, doc.data());
+        final existingStatus = LeadStatusModel.fromMap(doc.id, doc.data());
+        
+        // Update orderNumber and color if they differ
+        if (existingStatus.orderNumber != orderNumber || existingStatus.color != color) {
+          await firebase.users
+              .doc(cid)
+              .collection(Collections.leadStatus.name)
+              .doc(doc.id)
+              .update({
+                'orderNumber': orderNumber,
+                'color': color,
+              });
+          return existingStatus.copyWith(
+            orderNumber: orderNumber,
+            color: color,
+          );
+        }
+        
+        return existingStatus;
       }
 
       final newModel = LeadStatusModel(
         name: name,
         createdBy: await Spdb.getUser(),
         description: '',
-        color: Colors.blue.toARGB32(),
-        orderNumber: 0,
+        color: color,
+        orderNumber: orderNumber,
       );
 
       final docRef = await firebase.users
@@ -250,6 +270,32 @@ class LeadStatusService {
       await ErrorService.recordError(e, st);
       debugPrint("Error in getByNameOrCreate LeadStatus: $e\n$st");
       rethrow;
+    }
+  }
+
+  static Future<void> initializeStaticLeadStatuses() async {
+    try {
+      final user = await Spdb.getUser();
+      if (user.uid == null || user.uid!.isEmpty) {
+        return;
+      }
+
+      final statuses = [
+        {'name': 'New', 'color': Colors.green.toARGB32(), 'orderNumber': 1},
+        {'name': 'In Progress', 'color': Colors.blue.toARGB32(), 'orderNumber': 2},
+        {'name': 'Completed', 'color': Colors.grey.toARGB32(), 'orderNumber': 3},
+      ];
+
+      for (var statusData in statuses) {
+        await getByNameOrCreate(
+          name: statusData['name'] as String,
+          orderNumber: statusData['orderNumber'] as int,
+          color: statusData['color'] as int,
+        );
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("Error initializing static lead statuses: $e\n$st");
     }
   }
 }

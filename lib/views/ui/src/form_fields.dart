@@ -316,10 +316,6 @@ class _FormDropdownSearchState extends State<FormDropdownSearch> {
       selectedValue = widget.initialItem;
       setState(() {});
     }
-    // Detect when items list changes and force rebuild
-    if (!identical(widget.items, oldWidget.items)) {
-      setState(() {});
-    }
   }
 
   @override
@@ -357,7 +353,7 @@ class _FormDropdownSearchState extends State<FormDropdownSearch> {
 
             // Dropdown
             CustomSearchableDropdown(
-              key: ValueKey(widget.items?.length),
+              key: ValueKey('dropdown_${widget.items?.length}_${widget.items?.hashCode}'),
               initialValue: selectedValue,
               items: widget.items ?? [],
               itemAsString: (s) => s,

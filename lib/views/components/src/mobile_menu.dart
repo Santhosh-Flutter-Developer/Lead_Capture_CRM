@@ -165,7 +165,7 @@ class _MobileMenuState extends State<MobileMenu> {
           _buildListTile(
             icon: item.icon,
             title: 'App Version',
-            subtitle: AppPackageInfo.version,
+            subtitle: '${AppPackageInfo.version}+${AppPackageInfo.buildNumber}',
             onTap: () {},
             showTrailing: false,
           ),
