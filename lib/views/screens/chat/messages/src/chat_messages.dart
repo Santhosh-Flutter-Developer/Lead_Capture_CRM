@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io' show File; // used in non-web branches only
 import 'package:flutter/foundation.dart';
-import 'package:leadcapture/utils/src/download_io.dart'
-    if (dart.library.html) 'package:leadcapture/utils/src/download_web.dart'
+import 'package:minicrm/utils/src/download_io.dart'
+    if (dart.library.html) 'package:minicrm/utils/src/download_web.dart'
     show saveFileToDownloads;
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -61,107 +61,18 @@ class _ChatMessagesState extends State<ChatMessages> {
   StreamSubscription<List<MessagesModel>>? _subscription;
   bool _isSearching = false;
   String _searchQuery = '';
-  final ScrollController _scrollController = ScrollController();
-  List<MessagesModel> _recentMessages = [];
-  List<MessagesModel> _historicalMessages = [];
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  bool _initialLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_scrollListener);
 
     _stream = ChatService.getChatMessagesStream(
       uid: widget.chat.uid ?? '',
-      limit: 30,
     ).asBroadcastStream();
 
-    _subscription = _stream.listen((messages) {
-      _markMessagesAsSeen(messages);
-      if (mounted) {
-        setState(() {
-          _recentMessages = messages;
-          _initialLoading = false;
-        });
-      }
-    }, onError: (error) {
-      if (mounted) {
-        setState(() {
-          _initialLoading = false;
-        });
-      }
-    });
-  }
-
-  void _scrollListener() {
-    if (_scrollController.hasClients &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200) {
-      _loadMoreMessages();
-    }
-  }
-
-  List<MessagesModel> _getCombinedMessages() {
-    final seenUids = <String>{};
-    final List<MessagesModel> combined = [];
-
-    for (var msg in _recentMessages) {
-      if (msg.uid != null && seenUids.add(msg.uid!)) {
-        combined.add(msg);
-      }
-    }
-    for (var msg in _historicalMessages) {
-      if (msg.uid != null && seenUids.add(msg.uid!)) {
-        combined.add(msg);
-      }
-    }
-
-    combined.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return combined;
-  }
-
-  Future<void> _loadMoreMessages() async {
-    if (_isLoadingMore || !_hasMore) return;
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    final combined = _getCombinedMessages();
-    if (combined.isEmpty) {
-      setState(() {
-        _isLoadingMore = false;
-      });
-      return;
-    }
-
-    final oldestMessage = combined.last;
-    try {
-      final newPage = await ChatService.getChatMessagesPage(
-        uid: widget.chat.uid ?? '',
-        limit: 30,
-        lastTimestamp: oldestMessage.timestamp,
-      );
-
-      if (newPage.length < 30) {
-        _hasMore = false;
-      }
-
-      if (mounted) {
-        setState(() {
-          _historicalMessages.addAll(newPage);
-          _isLoadingMore = false;
-        });
-      }
-    } catch (e, st) {
-      debugPrint("Error loading more messages: $e\n$st");
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-      }
-    }
+    // This subscription handles the *side-effect* of marking messages as seen.
+    // It does NOT call setState or manage UI data.
+    _subscription = _stream.listen(_markMessagesAsSeen);
   }
 
   /// A background task to mark incoming messages as seen.
@@ -184,7 +95,6 @@ class _ChatMessagesState extends State<ChatMessages> {
   @override
   void dispose() {
     _subscription?.cancel();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -195,7 +105,6 @@ class _ChatMessagesState extends State<ChatMessages> {
       uid: widget.chat.uid ?? '',
       currentUser: widget.currentUser,
       isGroupChat: widget.chat.isGroupChat,
-      chat: widget.chat,
       child: Scaffold(
         appBar: kIsMobile || width < 1000
             ? ChatTopBar(
@@ -245,35 +154,40 @@ class _ChatMessagesState extends State<ChatMessages> {
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
             ),
-            child: _initialLoading
-                ? const WaitingLoading()
-                : Builder(
-                    builder: (context) {
-                      final allChats = _getCombinedMessages();
+            // The StreamBuilder is now the *only* thing responsible for UI data
+            child: StreamBuilder<List<MessagesModel>>(
+              stream: _stream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const WaitingLoading();
+                } else if (snapshot.hasError) {
+                  return ErrorDisplay(error: snapshot.error.toString());
+                }
 
-                      final chats = _searchQuery.isEmpty
-                          ? allChats
-                          : allChats.where((msg) {
-                              final text = (msg.message).toLowerCase();
+                final allChats = snapshot.data ?? [];
 
-                              return text.contains(_searchQuery.toLowerCase());
-                            }).toList();
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: BuildSliverChat(
-                              chats: chats,
-                              scrollController: _scrollController,
-                              isLoadingMore: _isLoadingMore,
-                              searchQuery: _searchQuery,
-                              onOpenChat: widget.onOpenChat,
-                            ),
-                          ),
-                          ChatInputBar(chat: widget.chat),
-                        ],
-                      );
-                    },
-                  ),
+                final chats = _searchQuery.isEmpty
+                    ? allChats
+                    : allChats.where((msg) {
+                        final text = (msg.message).toLowerCase();
+
+                        return text.contains(_searchQuery.toLowerCase());
+                      }).toList();
+                return Column(
+                  children: [
+                    Expanded(
+                      // Pass the raw list to BuildSliverChat
+                      child: BuildSliverChat(
+                        chats: chats,
+                        searchQuery: _searchQuery,
+                        onOpenChat: widget.onOpenChat,
+                      ),
+                    ),
+                    ChatInputBar(chat: widget.chat),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -287,14 +201,9 @@ class BuildSliverChat extends StatefulWidget {
   final List<MessagesModel> chats;
   final String searchQuery;
   final Function(ChatModel chat, String opponentUid)? onOpenChat;
-  final ScrollController scrollController;
-  final bool isLoadingMore;
-
   const BuildSliverChat({
     super.key,
     required this.chats,
-    required this.scrollController,
-    required this.isLoadingMore,
     this.searchQuery = '',
     this.onOpenChat,
   });
@@ -304,43 +213,32 @@ class BuildSliverChat extends StatefulWidget {
 }
 
 class _BuildSliverChatState extends State<BuildSliverChat> {
+  final ScrollController _scrollController = ScrollController();
   bool _showGoToBottomButton = false;
 
   @override
   void initState() {
+    _scrollController.addListener(() {
+      // Show "Go to Bottom" if not already at the bottom (i.e. pixels > 50)
+      if (_scrollController.offset > 50 && !_showGoToBottomButton) {
+        setState(() {
+          _showGoToBottomButton = true;
+        });
+      }
+      // Hide it when near the bottom
+      else if (_scrollController.offset <= 50 && _showGoToBottomButton) {
+        setState(() {
+          _showGoToBottomButton = false;
+        });
+      }
+    });
     super.initState();
-    widget.scrollController.addListener(_scrollListener);
-  }
-
-  @override
-  void didUpdateWidget(covariant BuildSliverChat oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollController != widget.scrollController) {
-      oldWidget.scrollController.removeListener(_scrollListener);
-      widget.scrollController.addListener(_scrollListener);
-    }
   }
 
   @override
   void dispose() {
-    widget.scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _scrollListener() {
-    if (!mounted) return;
-    // Show "Go to Bottom" if not already at the bottom (i.e. pixels > 50)
-    if (widget.scrollController.offset > 50 && !_showGoToBottomButton) {
-      setState(() {
-        _showGoToBottomButton = true;
-      });
-    }
-    // Hide it when near the bottom
-    else if (widget.scrollController.offset <= 50 && _showGoToBottomButton) {
-      setState(() {
-        _showGoToBottomButton = false;
-      });
-    }
   }
 
   /// Groups a flat list of chats into a map keyed by date labels.
@@ -392,28 +290,9 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
 
     final List<Widget> slivers = [];
 
-    // If we are loading more historical messages, show spinner at the top of scroll view
-    // Since reverse: true is set, index 0 of slivers (before reverse) is the bottom of the array
-    // which gets placed at the top of the viewport when reversed.
-    if (widget.isLoadingMore) {
-      slivers.add(
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     if (pinned.isNotEmpty) {
-      slivers.add(
+      slivers.insert(
+        0,
         SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,7 +369,11 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
               chatUid: uid,
               message: message,
               isSender: message.senderId == currentUser,
-              isLast: message.senderId == currentUser,
+              // The 'isLast' logic seems to be for seenBy.
+              // Note: This logic assumes chats are sorted newest-to-oldest per day.
+              // If they are sorted oldest-to-newest, this should be `index == chats.length - 1`.
+              // Based on `reverse: true` in CustomScrollView, assuming 0 is the *newest*.
+              isLast: message.senderId == currentUser && index == 0,
               onOpenChat: widget.onOpenChat,
             );
           }, childCount: chats.length),
@@ -501,7 +384,7 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
     return Stack(
       children: [
         CustomScrollView(
-          controller: widget.scrollController,
+          controller: _scrollController,
           reverse: true, // This makes the list start at the bottom
           slivers: slivers.reversed
               .toList(), // This reverses the *order of groups* (e.g., Today, Yesterday)
@@ -523,7 +406,7 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
                   elevation: 2,
                 ),
                 onPressed: () {
-                  widget.scrollController.animateTo(
+                  _scrollController.animateTo(
                     0.0,
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOut,
@@ -567,158 +450,5 @@ DateTime _parseDateKey(String key) {
     return DateTime(yesterday.year, yesterday.month, yesterday.day);
   } else {
     return DateFormat('MMM d, yyyy').parse(key);
-  }
-}
-
-class ThreadSheet extends StatelessWidget {
-  final MessagesModel parentMessage;
-  final ChatModel chat;
-
-  const ThreadSheet({
-    super.key,
-    required this.parentMessage,
-    required this.chat,
-  });
-
-  static void show(BuildContext context, MessagesModel parentMessage, ChatModel chat) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ThreadSheet(parentMessage: parentMessage, chat: chat),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    return Container(
-      height: screenHeight * 0.85,
-      margin: EdgeInsets.only(top: 24, bottom: keyboardHeight),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Iconsax.message_programming,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    "Thread Reply",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    parentMessage.senderName ?? "User",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    parentMessage.message,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            
-            Expanded(
-              child: StreamBuilder<List<MessagesModel>>(
-                stream: ChatService.getThreadMessagesStream(
-                  chatId: chat.uid ?? '',
-                  parentMessageId: parentMessage.uid ?? '',
-                ),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text("Error: ${snapshot.error}"));
-                  }
-                  final replies = snapshot.data ?? [];
-                  if (replies.isEmpty) {
-                    return Center(
-                      child: Text(
-                        "No replies yet. Be the first to reply!",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    );
-                  }
-                  
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: replies.length,
-                    itemBuilder: (context, index) {
-                      final reply = replies[index];
-                      final isSender = reply.senderId == parentMessage.senderId;
-                      return ChatBubble(
-                        chatUid: chat.uid ?? '',
-                        message: reply,
-                        isSender: isSender,
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const Divider(),
-            
-            ChatInputBar(
-              chat: chat,
-              threadId: parentMessage.uid,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

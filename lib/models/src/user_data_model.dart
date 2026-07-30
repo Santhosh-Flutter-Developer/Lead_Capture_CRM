@@ -50,7 +50,7 @@ class UserDataModel {
     desc: map['desc']?.toString(),
     userType: UserType.values.firstWhere(
       (e) => e.name == map['userType']?.toString(),
-      orElse: () => UserType.employee,
+      orElse: () => UserType.admin, // Changed fallback to admin
     ),
   );
 }
@@ -59,7 +59,7 @@ class UserDataModel {
     return UserDataModel(
       uid: '',
       name: 'User',
-      userType: UserType.employee,
+      userType: UserType.admin, // Changed from employee
       profilePic: AppStrings.emptyProfilePhotoUrl,
     );
   }

@@ -8,7 +8,7 @@ import '/utils/utils.dart';
 import '/views/views.dart';
 
 class TaskCreate extends StatefulWidget {
-  final List<EmployeeModel>? employees;
+  final List<AdminModel>? employees;
 
   const TaskCreate({super.key, this.employees});
 
@@ -26,7 +26,6 @@ class _TaskCreateState extends State<TaskCreate> {
   final TextEditingController _tags = TextEditingController();
   final TextEditingController _reminder = TextEditingController();
 
-  List<ProjectModel> _projectList = [];
   List<LeadModel> _leadList = [];
   List<TaskModel> _taskList = [];
 
@@ -35,7 +34,6 @@ class _TaskCreateState extends State<TaskCreate> {
   final List<String> _selectedObservers = [];
   final List<String> _selectedParticipants = [];
 
-  String? _selectedProject;
   String? _selectedLead;
   String? _selectedSubTaskOf;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -62,7 +60,6 @@ class _TaskCreateState extends State<TaskCreate> {
 
   Future<void> _init() async {
     try {
-      _projectList = await ProjectService.getAllProjects();
       _leadList = await LeadService.getAllLeads();
       _taskList = await TaskService.getAllTasks();
     } catch (e) {
@@ -174,16 +171,6 @@ class _TaskCreateState extends State<TaskCreate> {
                   icon: Iconsax.hierarchy,
                   child: Column(
                     children: [
-                      _buildDropdownField(
-                        "Project",
-                        _projectList.map((e) => e.projectName).toList(),
-                        (val) {
-                          _selectedProject = _projectList
-                              .firstWhere((e) => e.projectName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
                       _buildDropdownField(
                         "Subtask of",
                         _taskList.map((e) => e.taskName).toList(),
@@ -686,7 +673,6 @@ class _TaskCreateState extends State<TaskCreate> {
         final task = TaskModel(
           taskName: _taskName.text,
           description: _description.text,
-          project: _selectedProject,
           subTaskOf: _selectedSubTaskOf,
           lead: _selectedLead,
           deadline: _selectedDeadLine,

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:leadcapture/models/src/download_model.dart';
-import 'package:leadcapture/utils/src/open_file.dart';
-import 'package:leadcapture/utils/src/platform.dart';
-import 'package:leadcapture/views/screens/download/bloc/download_bloc.dart';
-import 'package:leadcapture/views/screens/download/bloc/download_event.dart';
-import 'package:leadcapture/views/screens/download/bloc/download_state.dart';
-import 'package:leadcapture/views/ui/src/back.dart';
-import 'package:leadcapture/views/ui/src/loading.dart';
+import 'package:minicrm/models/src/download_model.dart';
+import 'package:minicrm/utils/src/open_file.dart';
+import 'package:minicrm/utils/src/platform.dart';
+import 'package:minicrm/views/screens/download/bloc/download_bloc.dart';
+import 'package:minicrm/views/screens/download/bloc/download_event.dart';
+import 'package:minicrm/views/screens/download/bloc/download_state.dart';
+import 'package:minicrm/views/ui/src/back.dart';
+import 'package:minicrm/views/ui/src/loading.dart';
 
 // DownloadHistoryColors removed in favor of Theme.of(context)
 

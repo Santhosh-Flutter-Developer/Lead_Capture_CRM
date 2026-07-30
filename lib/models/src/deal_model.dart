@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:leadcapture/constants/src/enum.dart';
+import 'package:minicrm/constants/src/enum.dart';
 import '/models/models.dart';
 
 class DealModel {

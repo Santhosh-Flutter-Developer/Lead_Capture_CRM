@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphview/GraphView.dart';
 import 'package:iconsax/iconsax.dart';
-import '/services/services.dart';
 
 class OrgChart extends StatefulWidget {
   final List<dynamic> rawData;
@@ -125,7 +124,7 @@ class _OrgChartState extends State<OrgChart> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  CacheService.getUserByUid(id)?.name ?? 'Unknown',
+                  id,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,

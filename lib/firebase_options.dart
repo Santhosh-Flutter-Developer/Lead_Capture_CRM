@@ -41,47 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
-    appId: '1:204207195810:web:4f329a51ecefce1f0339fb',
-    messagingSenderId: '204207195810',
-    projectId: 'leadcapture-79a43',
-    authDomain: 'leadcapture-79a43.firebaseapp.com',
-    storageBucket: 'leadcapture-79a43.firebasestorage.app',
+    apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
+    appId: '1:884184513529:web:46707c8332034373995b28',
+    messagingSenderId: '884184513529',
+    projectId: 'minicrm-8575d',
+    authDomain: 'minicrm-8575d.firebaseapp.com',
+    storageBucket: 'minicrm-8575d.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCfQhvOiQ2e_ChtI2e5d8Lc68kQviqssCk',
-    appId: '1:204207195810:android:e65d94b37fc20e380339fb',
-    messagingSenderId: '204207195810',
-    projectId: 'leadcapture-79a43',
-    storageBucket: 'leadcapture-79a43.firebasestorage.app',
+    apiKey: 'AIzaSyAjVPl1vneMq-KO2selNvn0Ecg318sukZw',
+    appId: '1:884184513529:android:54066778be973917995b28',
+    messagingSenderId: '884184513529',
+    projectId: 'minicrm-8575d',
+    storageBucket: 'minicrm-8575d.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBpJYFQN_hwLFBafWn3zdYx1dJ1mE3UtBk',
-    appId: '1:204207195810:ios:61ae8bd9237a1df40339fb',
-    messagingSenderId: '204207195810',
-    projectId: 'leadcapture-79a43',
-    storageBucket: 'leadcapture-79a43.firebasestorage.app',
+    apiKey: 'AIzaSyA-0HCeMWGmBndG1-zrkXFTmElShQuHxKE',
+    appId: '1:884184513529:ios:267ce2465c45dea6995b28',
+    messagingSenderId: '884184513529',
+    projectId: 'minicrm-8575d',
+    storageBucket: 'minicrm-8575d.firebasestorage.app',
     iosBundleId: 'com.srisoftwarez.leadcapture',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBpJYFQN_hwLFBafWn3zdYx1dJ1mE3UtBk',
-    appId: '1:204207195810:ios:506bd2b6cbef2e170339fb',
-    messagingSenderId: '204207195810',
-    projectId: 'leadcapture-79a43',
-    storageBucket: 'leadcapture-79a43.firebasestorage.app',
+    apiKey: 'AIzaSyA-0HCeMWGmBndG1-zrkXFTmElShQuHxKE',
+    appId: '1:884184513529:ios:2ca4f423ce3d10cf995b28',
+    messagingSenderId: '884184513529',
+    projectId: 'minicrm-8575d',
+    storageBucket: 'minicrm-8575d.firebasestorage.app',
     iosBundleId: 'com.srisoftwarez.leadcapture.macos',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
-    appId: '1:204207195810:web:a2372760280e11a90339fb',
-    messagingSenderId: '204207195810',
-    projectId: 'leadcapture-79a43',
-    authDomain: 'leadcapture-79a43.firebaseapp.com',
-    storageBucket: 'leadcapture-79a43.firebasestorage.app',
+    apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
+    appId: '1:884184513529:web:4c6b449427e46eaa995b28',
+    messagingSenderId: '884184513529',
+    projectId: 'minicrm-8575d',
+    authDomain: 'minicrm-8575d.firebaseapp.com',
+    storageBucket: 'minicrm-8575d.firebasestorage.app',
   );
-
 }

@@ -27,7 +27,6 @@ class _FeedCreateState extends State<FeedCreate> {
   List<TextEditingController> _pollOptionControllers = [];
 
   late Future _future;
-  EmployeeModel? _employee;
   AdminModel? _admin;
 
   @override
@@ -41,11 +40,7 @@ class _FeedCreateState extends State<FeedCreate> {
     var isAdmin = await Spdb.isAdminLoggedIn();
     var uid = await Spdb.getUid();
     if (uid != null) {
-      if (isAdmin) {
-        _admin = await AdminService.getAdmin(uid: uid);
-      } else {
-        _employee = await EmployeeService.getEmployee(uid: uid);
-      }
+      _admin = await AdminService.getAdmin(uid: uid);
     }
     setState(() {});
   }
@@ -204,10 +199,9 @@ class _FeedCreateState extends State<FeedCreate> {
 
       // Construct FeedModel
       final feedModel = FeedModel(
-        authorId: _admin?.uid ?? _employee?.uid ?? '',
-        authorName: _admin?.name ?? _employee?.name ?? '',
-        authorAvatar:
-            _admin?.profileImageUrl ?? _employee?.profileImageUrl ?? '',
+        authorId: _admin?.uid ?? '',
+        authorName: _admin?.name ?? '',
+        authorAvatar: _admin?.profileImageUrl ?? '',
         content: _contentController.text,
         createdAt: DateTime.now(),
         mediaImages: mediaImages,
@@ -319,13 +313,12 @@ class _FeedCreateState extends State<FeedCreate> {
                               radius: 22,
                               backgroundImage: NetworkImage(
                                 _admin?.profileImageUrl ??
-                                    _employee?.profileImageUrl ??
                                     AppStrings.emptyProfilePhotoUrl,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              _admin?.name ?? _employee?.name ?? 'N/A',
+                              _admin?.name ?? 'N/A',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,

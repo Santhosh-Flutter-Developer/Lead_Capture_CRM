@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:leadcapture/models/src/trash_model.dart';
+import 'package:minicrm/models/src/trash_model.dart';
 import '/theme/theme.dart';
 import '/constants/constants.dart';
 import '/services/services.dart';
@@ -336,11 +336,36 @@ class _TrashScreenState extends State<TrashScreen> {
               }).toList();
 
               if (filteredDocs.isEmpty) {
-                return ListView(
-                  children: const [
-                    SizedBox(height: 120),
-                    Center(child: Text("No deleted items found")),
-                  ],
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Iconsax.trash,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _search.isEmpty ? "No deleted items" : "No results found",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _search.isEmpty
+                            ? "Items you delete will appear here"
+                            : "Try a different search term",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }
 

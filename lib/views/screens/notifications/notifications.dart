@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:leadcapture/constants/src/enum.dart';
+import 'package:minicrm/constants/src/enum.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/utils/utils.dart';
@@ -134,18 +134,13 @@ class _NotificationsListingState extends State<NotificationsListing> {
     return '${diff.inDays}d';
   }
 
-  Future<dynamic> _resolveProfileByUid(String uid) async {
+  Future<AdminModel?> _resolveProfileByUid(String uid) async {
     if (uid.trim().isEmpty) return null;
 
-    final cached = CacheService.getUserByUid(uid);
-    if (cached is EmployeeModel || cached is AdminModel) {
+    final cached = CacheService.adminByUid(uid);
+    if (cached != null) {
       return cached;
     }
-
-    try {
-      final employee = await EmployeeService.getEmployee(uid: uid);
-      if (employee != null) return employee;
-    } catch (_) {}
 
     try {
       final admin = await AdminService.getAdmin(uid: uid);
@@ -162,22 +157,7 @@ class _NotificationsListingState extends State<NotificationsListing> {
     final profile = await _resolveProfileByUid(senderUid);
     if (!mounted) return;
 
-    if (profile is EmployeeModel) {
-      if (kIsMobile) {
-        await Sheet.showSheet(
-          context,
-          widget: EmployeeDetails(employee: profile),
-        );
-      } else { 
-        await GeneralDialog.showRTLSheet(
-          context,
-          EmployeeDetails(employee: profile),
-        );
-      }
-      return;
-    }
-
-    if (profile is AdminModel) {
+    if (profile != null) {
       if (kIsMobile) {
         await Sheet.showSheet(context, widget: AdminProfile(admin: profile));
       } else {

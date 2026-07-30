@@ -94,27 +94,11 @@ class _DealCreateState extends State<DealCreate> {
     }
   }
 
-  Future<void> _init({
-    bool refreshStatus = false,
-    bool refreshCompany = false,
-    bool refreshContact = false,
-  }) async {
+  Future<void> _init({bool refreshStatus = false}) async {
     try {
       if (refreshStatus) {
         _dealStatus.clear();
         _dealStatus.addAll(await DealStatusService.getAllDealStatus());
-        return;
-      }
-      if (refreshCompany) {
-        _clients = (await ClientService.getAllClients())
-            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
-            .toList();
-        return;
-      }
-      if (refreshContact) {
-        _contacts = (await ClientService.getAllClients())
-            .where((c) => c.isCompany == false && (c.clientName?.isNotEmpty ?? false))
-            .toList();
         return;
       }
       _dealStatus.addAll(await DealStatusService.getAllDealStatus());
@@ -122,7 +106,9 @@ class _DealCreateState extends State<DealCreate> {
           .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
           .toList();
       _contacts = (await ClientService.getAllClients())
-          .where((c) => c.isCompany == false && (c.clientName?.isNotEmpty ?? false))
+          .where(
+            (c) => c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
+          )
           .toList();
 
       if (widget.prefillDeal?.dealStatus != null) {
@@ -261,7 +247,7 @@ class _DealCreateState extends State<DealCreate> {
             controller: _dealNameController,
             isRequired: true,
             hintText: 'e.g. New Business Deal',
-            valid: (val) => val == null || val.isEmpty ? '* Required' : null,
+            valid: (val) => val == null || val.isEmpty ? 'Required' : null,
           ),
         ),
         SizedBox(
@@ -269,17 +255,9 @@ class _DealCreateState extends State<DealCreate> {
           child: FormFields(
             label: 'Deal Email',
             controller: _dealEmailController,
+            isRequired: true,
             hintText: 'e.g. email@example.com',
             keyboardType: TextInputType.emailAddress,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
@@ -392,7 +370,7 @@ class _DealCreateState extends State<DealCreate> {
                     Expanded(
                       child: FormDropdownSearch(
                         key: ValueKey('contact_${_contacts.length}'),
-                        label: 'Name',
+                        label: "Name",
                         isRequired: true,
                         initialItem: _clientName.text,
                         items: _contacts.map((e) => e.clientName).toList(),
@@ -404,10 +382,12 @@ class _DealCreateState extends State<DealCreate> {
                                   (cat) => cat?.clientName == value,
                                   orElse: () => null,
                                 );
-                            _clientName.text = _selectedContact?.clientName ?? '';
+                            _clientName.text =
+                                _selectedContact?.clientName ?? '';
                             _email.text = _selectedContact?.email ?? "";
                             _mobile.text = _selectedContact?.mobileNumber ?? "";
-                            _salutation.text = _selectedContact?.salutation ?? '';
+                            _salutation.text =
+                                _selectedContact?.salutation ?? '';
                             _gender.text = _selectedContact?.gender ?? '';
                           });
                         },
@@ -426,13 +406,21 @@ class _DealCreateState extends State<DealCreate> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshContact: true);
+                          _contacts = (await ClientService.getAllClients())
+                              .where(
+                                (c) =>
+                                    c.isCompany == false &&
+                                    (c.clientName?.isNotEmpty ?? false),
+                              )
+                              .toList();
                           if (val["contact"] != null) {
                             _selectedContact = val["contact"];
-                            _clientName.text = _selectedContact?.clientName ?? '';
+                            _clientName.text =
+                                _selectedContact?.clientName ?? '';
                             _email.text = _selectedContact?.email ?? "";
                             _mobile.text = _selectedContact?.mobileNumber ?? "";
-                            _salutation.text = _selectedContact?.salutation ?? '';
+                            _salutation.text =
+                                _selectedContact?.salutation ?? '';
                             _gender.text = _selectedContact?.gender ?? '';
                           }
                           setState(() {});
@@ -470,36 +458,12 @@ class _DealCreateState extends State<DealCreate> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
+            isRequired: true,
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(
-            label: "Mobile",
-            controller: _mobile,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
-          ),
+          child: FormFields(label: "Mobile", controller: _mobile),
         ),
         SizedBox(
           width: itemWidth,
@@ -538,7 +502,6 @@ class _DealCreateState extends State<DealCreate> {
                       child: FormDropdownSearch(
                         key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
-                        isRequired: true,
                         initialItem: _selectedclient?.companyName ?? "",
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
@@ -575,7 +538,7 @@ class _DealCreateState extends State<DealCreate> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshCompany: true);
+                          _clients = await ClientService.getAllClients();
                           if (val["company"] != null) {
                             _selectedclient = val["company"];
                             _companyWebsiteController.text =
@@ -598,9 +561,12 @@ class _DealCreateState extends State<DealCreate> {
                           color: Theme.of(context).colorScheme.primary,
                           borderRadius: BorderRadius.circular(8.0),
                         ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5.0),
-                          child: Icon(Icons.add),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: Icon(
+                            Icons.add,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
                         ),
                       ),
                     ),
@@ -622,19 +588,6 @@ class _DealCreateState extends State<DealCreate> {
             controller: _companyMobileController,
             hintText: 'Enter mobile number',
             keyboardType: TextInputType.phone,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
@@ -856,7 +809,7 @@ class _DealCreateState extends State<DealCreate> {
           }
         }
 
-        final workflow = await EmployeeService.getUserWorkflow();
+        final workflow = [await Spdb.getUid() ?? ''];
         ClientModel clientModel = ClientModel(
           clientName: _clientName.text.trim(),
           email: _email.text.trim(),

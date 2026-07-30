@@ -46,13 +46,13 @@ class _CreateChatState extends State<CreateChat>
       _employees.clear();
       _admins.clear();
 
-      var employees = await EmployeeService.getAllEmployees();
+      // var employees = await EmployeeService.getAllEmployees();
       var admins = await AdminService.getAllAdmins();
 
-      _members.addAll(employees);
+      // _members.addAll(employees);
       _members.addAll(admins);
 
-      _employees.addAll(employees); // employees only
+      // _employees.addAll(employees); // employees only
       _admins.addAll(admins); // admins only
 
       setState(() {});

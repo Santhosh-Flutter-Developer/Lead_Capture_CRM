@@ -224,14 +224,14 @@ class ChatListPanel extends StatefulWidget {
 
 class _ChatListPanelState extends State<ChatListPanel> {
   late final TextEditingController _searchController;
-  late final ValueListenable<List<EmployeeModel>> _cacheListenable;
+  late final ValueListenable<List<AdminModel>> _cacheListenable;
   List<ChatModel> _filteredChats = [];
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _cacheListenable = CacheService().getAllListenableEmployees();
+    _cacheListenable = CacheService.getAllListenableAdmins();
 
     // Initialize the filtered list with all chats
     _filteredChats = widget.chats;
@@ -279,7 +279,7 @@ class _ChatListPanelState extends State<ChatListPanel> {
           );
 
           if (opponentUid.isNotEmpty) {
-            final employee = cacheValue.cast<EmployeeModel?>().firstWhere(
+            final employee = cacheValue.cast<AdminModel?>().firstWhere(
               (e) => e?.uid == opponentUid,
               orElse: () => null,
             );
@@ -514,15 +514,8 @@ class _ChatListItem extends StatelessWidget {
   Future<dynamic> _resolveProfileByUid(String uid) async {
     if (uid.trim().isEmpty) return null;
 
-    final cached = CacheService.getUserByUid(uid);
-    if (cached is EmployeeModel || cached is AdminModel) {
-      return cached;
-    }
-
-    try {
-      final employee = await EmployeeService.getEmployee(uid: uid);
-      if (employee != null) return employee;
-    } catch (_) {}
+    final cached = CacheService.adminByUid(uid);
+    if (cached is AdminModel) return cached;
 
     try {
       final admin = await AdminService.getAdmin(uid: uid);
@@ -536,21 +529,6 @@ class _ChatListItem extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
     final profile = await _resolveProfileByUid(uid);
     if (!context.mounted) return;
-
-    if (profile is EmployeeModel) {
-      if (kIsMobile || width < 1000) {
-        await Sheet.showSheet(
-          context,
-          widget: EmployeeDetails(employee: profile),
-        );
-      } else {
-        await GeneralDialog.showRTLSheet(
-          context,
-          EmployeeDetails(employee: profile),
-        );
-      }
-      return;
-    }
 
     if (profile is AdminModel) {
       if (kIsMobile || width < 1000) {
@@ -577,15 +555,11 @@ class _ChatListItem extends StatelessWidget {
             orElse: () => currentUserUid,
           );
 
-    var user = CacheService.getUserByUid(opponentUid);
+    var user = CacheService.adminByUid(opponentUid);
 
     final String name = isSelfChat ? 'You' : (user?.name ?? '');
 
-    final String imageUrl = user is EmployeeModel
-        ? (user.profileImageUrl ?? '')
-        : user is AdminModel
-        ? (user.profileImageUrl ?? '')
-        : '';
+    final String imageUrl = user is AdminModel ? (user.profileImageUrl ?? '') : '';
 
     final bool nameValid = name.isNotEmpty;
     final bool avatarValid = imageUrl.isNotEmpty;

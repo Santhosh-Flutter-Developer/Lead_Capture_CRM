@@ -33,15 +33,27 @@ class LifecycleHandler extends WidgetsBindingObserver {
     if (uid.isEmpty) return;
     switch (state) {
       case AppLifecycleState.resumed:
-        UserStatusService.setOnline(uid);
+        try {
+          UserStatusService.setOnline(uid);
+        } catch (e) {
+          debugPrint("Failed to set user online: $e");
+        }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        UserStatusService.setOffline(uid);
+        try {
+          UserStatusService.setOffline(uid);
+        } catch (e) {
+          debugPrint("Failed to set user offline: $e");
+        }
         break;
       default:
-        UserStatusService.setOffline(uid);
+        try {
+          UserStatusService.setOffline(uid);
+        } catch (e) {
+          debugPrint("Failed to set user offline: $e");
+        }
     }
   }
 }
@@ -69,7 +81,11 @@ void main() async {
     // ── Desktop (Windows / macOS / Linux) ────────────────────────────────
     // setupDesktopNotifier() is the conditional import:
     //   • web / unsupported  → stub (no-op)
-    //   • native             → localNotifier.setup() + listenForNotifications()
+    //   • native             → windowManager.ensureInitialized() +
+    //                           localNotifier.setup() + listenForNotifications()
+    // window_manager's ensureInitialized() call lives inside the native-only
+    // file (not here) — importing window_manager directly in main.dart would
+    // break the web build compile, same reason local_notifier was moved out.
     await setupDesktopNotifier();
   }
 
@@ -85,7 +101,12 @@ void main() async {
     final uid = await Spdb.getUid();
     if (uid != null && uid.isNotEmpty) {
       WidgetsBinding.instance.addObserver(LifecycleHandler(uid));
-      UserStatusService.setOnline(uid);
+      try {
+        await UserStatusService.setOnline(uid);
+      } catch (e) {
+        // Silently ignore status update errors during initialization
+        debugPrint("Failed to set user online status: $e");
+      }
     }
   }
 

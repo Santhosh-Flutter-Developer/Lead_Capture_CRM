@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:leadcapture/models/src/chat_model.dart';
+import 'package:minicrm/models/src/chat_model.dart';
+
 import '/constants/constants.dart';
 
   class NotificationModel {

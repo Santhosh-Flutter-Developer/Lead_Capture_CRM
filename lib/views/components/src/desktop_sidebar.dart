@@ -138,14 +138,11 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
   }
 
   Future<List<Map<String, dynamic>>> _getMenus() async {
-    final settings = await SettingsService().fetchSettings();
-    final bool payrollEnabled = settings.payrollEnabled;
-    final userPermissions = await MenuService.getUserPermissions();
+    final userPermissions = MenuService.getAllPermissions();
 
     // Get filtered menu items using MenuService
     final menuItems = await MenuService.filterMenuItems(
       isAdmin: widget.isAdmin,
-      payrollEnabled: payrollEnabled,
       userPermissions: userPermissions,
     );
 
@@ -156,8 +153,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
       if (item.isStatic) {
         menus.add({
           'icon': item.icon,
-          'title':
-              'App Version : ${AppPackageInfo.version}+${AppPackageInfo.buildNumber}',
+          'title': 'App Version : ${AppPackageInfo.version}',
           'onTap': false,
         });
         continue;

@@ -185,17 +185,21 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
         final e = dayLeads[index];
 
         return LeadCard(
-          title: e.leadName,
-          category: e.leadSource.name,
+          title: e.clientName != null && e.clientName!.isNotEmpty
+              ? e.clientName!
+              : e.leadName,
+          category: e.leadName,
           categoryColor: Theme.of(context).colorScheme.primaryContainer,
           textColor: Theme.of(context).colorScheme.onPrimaryContainer,
           time: (e.createdAt).formatDateTime,
-          avatars: [e.createdBy.uid],
           onTap: () {
             if (kIsDesktop) {
-              GeneralDialog.showRTLSheet(context, LeadEdit(uid: e.uid ?? ''));
+              GeneralDialog.showRTLSheet(context, LeadsViewPage(lead: e));
             } else {
-              Sheet.showSheet(context, widget: LeadEdit(uid: e.uid ?? ''));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => LeadsViewPage(lead: e)),
+              );
             }
           },
           completed: e.leadsConverted,
@@ -516,12 +520,12 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
                               if (kIsDesktop) {
                                 GeneralDialog.showRTLSheet(
                                   context,
-                                  LeadEdit(uid: item.uid ?? ''),
+                                  LeadsViewPage(lead: item),
                                 );
                               } else {
-                                Sheet.showSheet(
+                                Navigator.push(
                                   context,
-                                  widget: LeadEdit(uid: item.uid ?? ''),
+                                  MaterialPageRoute(builder: (context) => LeadsViewPage(lead: item)),
                                 );
                               }
                             },
@@ -555,6 +559,23 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit, size: 20),
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                                if (kIsDesktop) {
+                                                  GeneralDialog.showRTLSheet(
+                                                    context,
+                                                    LeadEdit(uid: item.uid ?? ''),
+                                                  );
+                                                } else {
+                                                  Sheet.showSheet(
+                                                    context,
+                                                    widget: LeadEdit(uid: item.uid ?? ''),
+                                                  );
+                                                }
+                                              },
                                             ),
                                             if (item.leadValue > 0)
                                               Text(
@@ -676,7 +697,6 @@ class LeadCard extends StatelessWidget {
   final Color categoryColor;
   final Color textColor;
   final String time;
-  final List<String> avatars;
   final bool completed;
   final VoidCallback? onTap;
 
@@ -687,7 +707,6 @@ class LeadCard extends StatelessWidget {
     required this.categoryColor,
     required this.textColor,
     required this.time,
-    required this.avatars,
     required this.completed,
     this.onTap,
   });
@@ -759,33 +778,8 @@ class LeadCard extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 30,
-                  width: 100,
-                  child: Stack(
-                    children: List.generate(avatars.length, (index) {
-                      final avatarUserId = avatars[index];
-                      final avatarUrl = CacheService.getUserByUid(avatarUserId);
-
-                      return Positioned(
-                        left: index * 20.0,
-                        child: CircleAvatar(
-                          radius: 15,
-                          backgroundColor: Theme.of(context).colorScheme.surface,
-                          child: CircleAvatar(
-                            radius: 13,
-                            backgroundImage: NetworkImage(
-                              avatarUrl?.profileImageUrl ??
-                                  AppStrings.emptyProfilePhotoUrl,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
                 Icon(
                   Icons.check_circle_outline,
                   size: 24,

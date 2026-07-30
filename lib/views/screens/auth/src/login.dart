@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/views/screens/auth/src/company_registration.dart';
+import '/views/screens/auth/src/company_registration.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -40,50 +40,6 @@ class _LoginState extends State<Login> {
         }
         String? companyLogo = result["companyLogo"];
         FlushBar.show(context, "Login Successful");
-
-        bool isEmployee = result.containsKey("userData");
-        if (isEmployee) {
-          var data = result["userData"];
-          var uid = result["uid"];
-          EmployeeModel emp = EmployeeModel.fromMap(uid, data);
-          if (emp.isInitialPasswordChanged == false) {
-            Navigate.routeReplace(
-              context,
-              ChangeInitialPassword(
-                companyId: result["collectionId"],
-                employee: emp,
-              ),
-            );
-            return;
-          }
-          if (emp.receiveEmailNotifications) {
-            LoginAlertModel alertInfo =
-                await LoginAlertDeviceInfo.getLoginAlertInfo();
-            await EmailService.sendEmail(
-              to: [emp.email.trim()],
-              toName: [emp.name],
-              subject: "New login alert",
-              message: EmailTemplates.loginAlert
-                  .replaceAll("{ip_address}", alertInfo.ipAddress)
-                  .replaceAll("{location}", alertInfo.location)
-                  .replaceAll("{datetime}", alertInfo.dateTime.listingDateTime)
-                  .replaceAll("{device}", alertInfo.device),
-            );
-          }
-          await Spdb.setEmployeeLogin(
-            model: emp,
-            cid: result["collectionId"],
-            logoUrl: companyLogo,
-          );
-          RoleModel role = await RoleService.getRole(uid: emp.role);
-          await PermissionService.savePermissions(role.permissions);
-          await CacheService.syncAllCollections();
-          if (kIsDesktop) {
-            FirestoreNotificationListener.listenForNotifications();
-          }
-          Navigate.routeReplace(context, MainScreen(isAdmin: false));
-          return;
-        }
 
         var data = result["adminData"];
         var uid = result["uid"];
@@ -167,8 +123,7 @@ class _LoginState extends State<Login> {
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
                       ),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      Row(
                         children: [
                           Text(
                             "Don't have account?",

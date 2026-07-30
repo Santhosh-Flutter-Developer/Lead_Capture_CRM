@@ -13,89 +13,14 @@ class ChatService {
 
   static Stream<List<MessagesModel>> getChatMessagesStream({
     required String uid,
-    int? limit,
-  }) async* {
-    var cid = await Spdb.getCid();
-    var userid = await Spdb.getUid();
-    var query = firebase.users
-        .doc(cid)
-        .collection(Collections.chats.name)
-        .doc(uid)
-        .collection(Collections.messages.name)
-        .orderBy('timestamp', descending: true);
-
-    if (limit != null) {
-      query = query.limit(limit);
-    }
-
-    yield* query
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) {
-                var data = doc.data();
-                data['uid'] = doc.id;
-
-                final message = MessagesModel.fromMap(doc.id, data);
-
-                if (userid != null && message.deletedFor.contains(userid)) {
-                  return null;
-                }
-
-                return message;
-              })
-              .whereType<MessagesModel>()
-              .toList();
-        });
-  }
-
-  static Future<List<MessagesModel>> getChatMessagesPage({
-    required String uid,
-    required int limit,
-    required DateTime lastTimestamp,
-  }) async {
-    var cid = await Spdb.getCid();
-    var userid = await Spdb.getUid();
-
-    final snapshot = await firebase.users
-        .doc(cid)
-        .collection(Collections.chats.name)
-        .doc(uid)
-        .collection(Collections.messages.name)
-        .orderBy('timestamp', descending: true)
-        .startAfter([lastTimestamp.millisecondsSinceEpoch])
-        .limit(limit)
-        .get();
-
-    return snapshot.docs
-        .map((doc) {
-          final data = doc.data();
-          data['uid'] = doc.id;
-
-          final message = MessagesModel.fromMap(doc.id, data);
-
-          if (userid != null && message.deletedFor.contains(userid)) {
-            return null;
-          }
-
-          return message;
-        })
-        .whereType<MessagesModel>()
-        .toList();
-  }
-
-  static Stream<List<MessagesModel>> getThreadMessagesStream({
-    required String chatId,
-    required String parentMessageId,
   }) async* {
     var cid = await Spdb.getCid();
     var userid = await Spdb.getUid();
     yield* firebase.users
         .doc(cid)
         .collection(Collections.chats.name)
-        .doc(chatId)
+        .doc(uid)
         .collection(Collections.messages.name)
-        .where('threadId', isEqualTo: parentMessageId)
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
@@ -152,23 +77,24 @@ class ChatService {
     required String chatId,
     required String searchTerm,
   }) async {
-    final messages = await getChatMessages(uid: chatId);
-    final terms = searchTerm.toLowerCase().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    var cid = await Spdb.getCid();
 
-    if (terms.isEmpty) return [];
-
-    return messages.where((msg) {
-      final text = msg.message.toLowerCase();
-      
-      // Check if all search terms are contained in either the message text or attachment names
-      final matchText = terms.every((term) => text.contains(term));
-      final matchFiles = msg.attachments.any((file) {
-        final name = file.name.toLowerCase();
-        return terms.every((term) => name.contains(term));
-      });
-
-      return matchText || matchFiles;
-    }).toList();
+    return await firebase.users
+        .doc(cid)
+        .collection(Collections.chats.name)
+        .doc(chatId)
+        .collection(Collections.messages.name)
+        .where('searchKeywords', arrayContains: searchTerm.toLowerCase())
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            var data = doc.data();
+            data['uid'] = doc.id;
+            return MessagesModel.fromMap(doc.id, data);
+          }).toList();
+        })
+        .first;
   }
 
   static Future<void> updateSeenChat({
@@ -377,7 +303,6 @@ class ChatService {
     List<FileModel>? attachments,
     String? replyFor,
     List<MentionModel>? mentions,
-    String? threadId,
   }) async {
     try {
       var cid = await Spdb.getCid();
@@ -421,7 +346,6 @@ class ChatService {
         replyFor: replyFor,
         attachments: attachments ?? [],
         mentions: mentions ?? [],
-        threadId: threadId,
       );
 
       final docRef = await CommonService.add(
@@ -429,24 +353,19 @@ class ChatService {
         chat.toMap(),
       );
 
-      final updateData = <String, dynamic>{
-        "deletedFor": [],
-        "updatedAt": DateTime.now().millisecondsSinceEpoch,
-      };
-
-      if (threadId == null) {
-        updateData["lastMessage"] = LastMessageModel(
-          messageId: docRef.id,
-          message: lastMsg,
-          senderId: senderId,
-          timestamp: DateTime.now(),
-        ).toMap();
-      }
-
       await CommonService.update(
         '${Collections.users.name}/$cid/${Collections.chats.name}',
         chatId,
-        updateData,
+        {
+          "lastMessage": LastMessageModel(
+            messageId: docRef.id,
+            message: lastMsg,
+            senderId: senderId,
+            timestamp: DateTime.now(),
+          ).toMap(),
+          "deletedFor": [],
+          "updatedAt": DateTime.now().millisecondsSinceEpoch,
+        },
       );
     } catch (e, st) {
       await ErrorService.recordError(e, st);

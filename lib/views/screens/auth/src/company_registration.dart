@@ -5,14 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:leadcapture/theme/src/app_colors.dart';
-import 'package:leadcapture/utils/src/assets.dart';
-import 'package:leadcapture/utils/src/validation.dart';
-import 'package:leadcapture/views/screens/auth/src/login.dart';
-import 'package:leadcapture/views/ui/src/flush_bar.dart';
-import 'package:leadcapture/views/ui/src/form_fields.dart';
-import 'package:leadcapture/views/ui/src/loading.dart';
+import '/theme/theme.dart';
+import '/utils/utils.dart';
 import '/services/services.dart';
+import '/views/views.dart';
 
 class CompanyRegistration extends StatefulWidget {
   const CompanyRegistration({super.key});

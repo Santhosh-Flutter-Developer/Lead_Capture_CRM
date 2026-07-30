@@ -3,8 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import 'file_picker_io.dart'
-    if (dart.library.html) 'file_picker_web.dart'
-    show readBytesFromPath;
+    if (dart.library.html) 'file_picker_web.dart' show readBytesFromPath;
 
 export 'package:file_picker/file_picker.dart' show PlatformFile, FileType;
 

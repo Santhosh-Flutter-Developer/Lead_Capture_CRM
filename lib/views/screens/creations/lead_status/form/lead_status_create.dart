@@ -210,7 +210,10 @@ class _LeadStatusCreateState extends State<LeadStatusCreate> {
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
-        Navigator.pop(context, true);
+        Navigator.pop(context, {
+          "status": true,
+          "name": leadStatusModel.name,
+        });
 
         FlushBar.show(context, 'Status created successfully', isSuccess: true);
       } catch (e, st) {

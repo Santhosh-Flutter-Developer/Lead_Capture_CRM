@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:leadcapture/utils/src/platform.dart';
-import 'package:leadcapture/views/components/src/sheet.dart';
-import 'package:leadcapture/views/screens/tasks/listing/tasks_listing.dart';
-import 'package:leadcapture/views/ui/src/general_dialog.dart';
+import 'package:minicrm/utils/src/platform.dart';
+import 'package:minicrm/views/components/src/sheet.dart';
+import 'package:minicrm/views/screens/tasks/listing/tasks_listing.dart';
+import 'package:minicrm/views/ui/src/general_dialog.dart';
 import '/models/models.dart';
 
 class TaskStatusPieChart extends StatefulWidget {

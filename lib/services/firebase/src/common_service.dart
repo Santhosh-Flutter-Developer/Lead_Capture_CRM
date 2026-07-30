@@ -262,13 +262,24 @@ class ErrorService {
     var cid = await Spdb.getCid();
     var uid = await Spdb.getUid();
 
-    await firebase.errors.add({
-      "error": e.toString(),
-      "stackTrace": st.toString(),
-      "time": DateTime.now(),
-      "cid": cid,
-      "uid": uid,
-      "device": (await DeviceInfo.getDeviceInfo(forDebug: true)).toMatchMap(),
-    });
+    // Only log to Firestore if user is authenticated (has cid)
+    // Skip during app initialization before authentication
+    if (cid == null || cid.isEmpty) {
+      return;
+    }
+
+    try {
+      await firebase.errors.add({
+        "error": e.toString(),
+        "stackTrace": st.toString(),
+        "time": DateTime.now(),
+        "cid": cid,
+        "uid": uid,
+        "device": (await DeviceInfo.getDeviceInfo(forDebug: true)).toMatchMap(),
+      });
+    } catch (error) {
+      // Silently ignore Firestore errors to prevent infinite error loops
+      debugPrint("Failed to log error to Firestore: $error");
+    }
   }
 }

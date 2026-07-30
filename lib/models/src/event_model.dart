@@ -16,6 +16,12 @@ class EventModel {
   final bool completed;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// Status of the server-scheduled "Event Started" push notification.
+  /// Set to [EventNotificationStatus.pending] on the client when the event
+  /// is created; everything after that is written by the
+  /// `onEventWritten` / `sendEventStartNotifications` Cloud Functions.
+  final EventNotificationStatus notificationStatus;
   EventModel({
     this.uid,
     required this.eventName,
@@ -26,6 +32,7 @@ class EventModel {
     required this.eventAttendes,
     required this.createdBy,
     this.completed = false,
+    this.notificationStatus = EventNotificationStatus.pending,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
@@ -40,6 +47,7 @@ class EventModel {
     EventRepeatType? eventRepeatType,
     List<String>? eventAttendes,
     UserDataModel? createdBy,
+    EventNotificationStatus? notificationStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -52,6 +60,7 @@ class EventModel {
       eventRepeatType: eventRepeatType ?? this.eventRepeatType,
       eventAttendes: eventAttendes ?? this.eventAttendes,
       createdBy: createdBy ?? this.createdBy,
+      notificationStatus: notificationStatus ?? this.notificationStatus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -67,6 +76,7 @@ class EventModel {
       'eventAttendes': eventAttendes,
       'createdBy': createdBy.toMap(),
       'completed': completed,
+      'notificationStatus': notificationStatus.name,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
@@ -82,6 +92,10 @@ class EventModel {
       'eventAttendes': eventAttendes,
       'createdBy': createdBy.toMap(),
       'completed': completed,
+      // Editing the event always puts the server-side notification back to
+      // "pending" — the onEventWritten trigger re-evaluates and reschedules
+      // it. We never let the client set it to sent/cancelled directly.
+      'notificationStatus': EventNotificationStatus.pending.name,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
   }
@@ -107,6 +121,11 @@ class EventModel {
       completed: map['completed'] != null && map['completed'] is bool
           ? map['completed'] as bool
           : false,
+      notificationStatus: map['notificationStatus'] != null
+          ? EventNotificationStatus.values.byName(
+              map['notificationStatus'] as String,
+            )
+          : EventNotificationStatus.pending,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt'] as int),
     );
@@ -119,7 +138,7 @@ class EventModel {
 
   @override
   String toString() {
-    return 'EventModel(uid: $uid, eventName: $eventName, eventDateTime: $eventDateTime, eventEndDateTime: $eventEndDateTime, eventDescription: $eventDescription, eventRepeatType: $eventRepeatType, eventAttendes: $eventAttendes, createdBy: $createdBy, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'EventModel(uid: $uid, eventName: $eventName, eventDateTime: $eventDateTime, eventEndDateTime: $eventEndDateTime, eventDescription: $eventDescription, eventRepeatType: $eventRepeatType, eventAttendes: $eventAttendes, createdBy: $createdBy, notificationStatus: $notificationStatus, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override

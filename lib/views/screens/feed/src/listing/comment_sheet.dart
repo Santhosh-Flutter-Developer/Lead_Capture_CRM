@@ -22,7 +22,6 @@ class CommentSheetState extends State<CommentSheet> {
   late List<CommentModel> _comments;
   late Future _future;
   final Map<String, _CommentAuthorDisplay> _commentAuthors = {};
-  EmployeeModel? _employee;
   AdminModel? _admin;
   bool _isPosting = false;
   CommentModel? _replyingTo;
@@ -45,14 +44,7 @@ class CommentSheetState extends State<CommentSheet> {
 
   Future<void> _init() async {
     if (widget.currentUserUid == null) return;
-    bool isAdmin = await Spdb.isAdminLoggedIn();
-    if (isAdmin) {
-      _admin = await AdminService.getAdmin(uid: widget.currentUserUid!);
-    } else {
-      _employee = await EmployeeService.getEmployee(
-        uid: widget.currentUserUid!,
-      );
-    }
+    _admin = await AdminService.getAdmin(uid: widget.currentUserUid!);
     var feedModel = await FeedService.getFeed(uid: widget.feedId);
     _comments = feedModel.comments ?? [];
     _comments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -74,26 +66,11 @@ class CommentSheetState extends State<CommentSheet> {
   }
 
   Future<_CommentAuthorDisplay?> _loadCommentAuthorDisplay(String uid) async {
-    final cachedUser = CacheService.getUserByUid(uid);
-    if (cachedUser is EmployeeModel) {
-      return _CommentAuthorDisplay(
-        name: cachedUser.name,
-        avatar: cachedUser.profileImageUrl ?? '',
-      );
-    }
-
+    final cachedUser = CacheService.adminByUid(uid);
     if (cachedUser is AdminModel) {
       return _CommentAuthorDisplay(
         name: cachedUser.name,
         avatar: cachedUser.profileImageUrl ?? '',
-      );
-    }
-
-    final employee = await EmployeeService.getEmployee(uid: uid);
-    if (employee != null) {
-      return _CommentAuthorDisplay(
-        name: employee.name,
-        avatar: employee.profileImageUrl ?? '',
       );
     }
 
@@ -110,23 +87,6 @@ class CommentSheetState extends State<CommentSheet> {
 
   Future<void> _openCommentAuthorProfile(String uid) async {
     if (uid.trim().isEmpty) return;
-
-    final employee = await EmployeeService.getEmployee(uid: uid);
-    if (employee != null) {
-      if (!mounted) return;
-      if (kIsMobile) {
-        await Sheet.showSheet(
-          context,
-          widget: EmployeeDetails(employee: employee),
-        );
-      } else {
-        await GeneralDialog.showRTLSheet(
-          context,
-          EmployeeDetails(employee: employee),
-        );
-      }
-      return;
-    }
 
     final admin = await AdminService.getAdmin(uid: uid);
     if (admin != null) {
@@ -153,9 +113,8 @@ class CommentSheetState extends State<CommentSheet> {
     setState(() => _isPosting = true);
 
     try {
-      final String authorName = _admin?.name ?? _employee?.name ?? 'Anonymous';
-      final String authorAvatar =
-          _admin?.profileImageUrl ?? _employee?.profileImageUrl ?? '';
+      final String authorName = _admin?.name ?? 'Anonymous';
+      final String authorAvatar = _admin?.profileImageUrl ?? '';
 
       final newComment = CommentModel(
         commentId: DateTime.now().millisecondsSinceEpoch.toString(),

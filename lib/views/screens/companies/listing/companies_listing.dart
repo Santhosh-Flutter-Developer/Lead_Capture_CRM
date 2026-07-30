@@ -2,9 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/views/screens/companies/form/company_create.dart';
-import 'package:leadcapture/views/screens/companies/form/company_edit.dart';
-import 'package:leadcapture/views/screens/companies/form/company_profile.dart';
+import 'package:minicrm/views/screens/companies/form/company_create.dart';
+import 'package:minicrm/views/screens/companies/form/company_edit.dart';
+import 'package:minicrm/views/screens/companies/form/company_profile.dart';
 import 'package:provider/provider.dart';
 import '/services/services.dart';
 import '/views/views.dart';
@@ -400,6 +400,191 @@ class _CompanyListingViewState extends State<CompanyListingView> {
             //   ),
             // ),
             const SizedBox(width: 10),
+            if (_selectedCompanies.isNotEmpty) ...[
+              ElevatedButton.icon(
+                label: Text(
+                  "Delete",
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white),
+                ),
+                icon: const Icon(Iconsax.trash),
+                onPressed: () async {
+                  if (_selectedCompanies.isEmpty) return;
+
+                  // Confirm
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => ConfirmDialog(
+                      title: 'Delete',
+                      content: 'Are you sure want to delete these companies?',
+                    ),
+                    barrierDismissible: false,
+                  );
+
+                  if (confirm != true) return;
+
+                  try {
+                    // Backup
+                    final deletedCompanies = _selectedCompanies
+                        .map((e) => e.copyWith())
+                        .toList();
+
+                    // Loader
+                    futureLoading(context);
+
+                    // Delete
+                    for (var company in deletedCompanies) {
+                      await CompanyService.deleteCompany(
+                        uid: company.uid ?? '',
+                      );
+                    }
+
+                    // Close loader
+                    if (Navigator.canPop(context)) Navigator.pop(context);
+
+                    // Clear selection
+                    _selectedCompanies.clear();
+                    setState(() {});
+
+                    // UNDO
+                    FlushBar.show(
+                      context,
+                      'Companies deleted successfully',
+                      actionLabel: 'UNDO',
+                      onActionPressed: () async {
+                        for (var _ in deletedCompanies) {
+                          // Restore logic would go here
+                          // For now, just refresh
+                        }
+
+                        if (!context.mounted) return;
+
+                        context.read<CompanyBloc>().add(LoadCompanies());
+                      },
+                    );
+                  } catch (e, st) {
+                    if (Navigator.canPop(context)) Navigator.pop(context);
+
+                    await ErrorService.recordError(e, st);
+
+                    FlushBar.show(
+                      context,
+                      'Failed to delete companies: $e',
+                      isSuccess: false,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
+              ),
+            ],
+            const SizedBox(width: 10),
+            if (permissions?.canDelete ?? false) ...[
+              if (_selectedCompanies.isNotEmpty)
+                ElevatedButton.icon(
+                  label: Text(
+                    "Delete",
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white),
+                  ),
+                  icon: const Icon(Iconsax.trash),
+                  onPressed: () async {
+                    if (_selectedCompanies.isEmpty) return;
+
+                    // Confirm
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => ConfirmDialog(
+                        title: 'Delete',
+                        content: 'Are you sure want to delete these companies?',
+                      ),
+                      barrierDismissible: false,
+                    );
+
+                    if (confirm != true) return;
+
+                    try {
+                      // Backup
+                      final deletedCompanies = _selectedCompanies
+                          .map((e) => e.copyWith())
+                          .toList();
+
+                      // Loader
+                      futureLoading(context);
+
+                      // Delete
+                      for (var company in deletedCompanies) {
+                        await CompanyService.deleteCompany(
+                          uid: company.uid ?? '',
+                        );
+                      }
+
+                      // Close loader
+                      if (Navigator.canPop(context)) Navigator.pop(context);
+
+                      // Clear selection
+                      _selectedCompanies.clear();
+                      setState(() {});
+
+                      // UNDO
+                      FlushBar.show(
+                        context,
+                        'Companies deleted successfully',
+                        actionLabel: 'UNDO',
+                        onActionPressed: () async {
+                          for (var _ in deletedCompanies) {
+                            // Restore logic would go here
+                            // For now, just refresh
+                          }
+
+                          if (!context.mounted) return;
+
+                          context.read<CompanyBloc>().add(LoadCompanies());
+                        },
+                      );
+                    } catch (e, st) {
+                      if (Navigator.canPop(context)) Navigator.pop(context);
+
+                      await ErrorService.recordError(e, st);
+
+                      FlushBar.show(
+                        context,
+                        'Failed to delete companies: $e',
+                        isSuccess: false,
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  ),
+                ),
+            ] else ...[
+              if (_selectedCompanies.isNotEmpty) ...[
+                ElevatedButton.icon(
+                  label: Text(
+                    "Delete",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  icon: Icon(Iconsax.trash),
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
+                    foregroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
         if (kIsDesktop)
@@ -563,6 +748,63 @@ class _CompanyListingViewState extends State<CompanyListingView> {
           IconButton(
             icon: Icon(
               Iconsax.edit,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            onPressed: null,
+          ),
+        ],
+        if (permissions?.canDelete ?? false) ...[
+          IconButton(
+            icon: const Icon(Iconsax.trash),
+            color: Theme.of(context).colorScheme.error,
+            splashRadius: 20,
+            onPressed: () async {
+              // Confirm
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (_) => const ConfirmDialog(
+                  title: 'Delete Company',
+                  content: 'Are you sure you want to delete this company?',
+                ),
+              );
+
+              if (confirm != true) return;
+
+              try {
+                // Backup
+                // final deletedCompany = company.copyWith();
+
+                // Delete
+                await CompanyService.deleteCompany(uid: company.uid ?? '');
+
+                if (!context.mounted) return;
+
+                // UNDO
+                FlushBar.show(
+                  context,
+                  'Company deleted successfully',
+                  actionLabel: 'UNDO',
+                  onActionPressed: () async {
+                    // Restore logic would go here
+                    if (!context.mounted) return;
+                    context.read<CompanyBloc>().add(LoadCompanies());
+                  },
+                );
+              } catch (e, st) {
+                await ErrorService.recordError(e, st);
+
+                FlushBar.show(
+                  context,
+                  'Failed to delete company: $e',
+                  isSuccess: false,
+                );
+              }
+            },
+          ),
+        ] else ...[
+          IconButton(
+            icon: Icon(
+              Iconsax.trash,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             onPressed: null,

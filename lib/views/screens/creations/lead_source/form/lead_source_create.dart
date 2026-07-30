@@ -160,7 +160,10 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
-        Navigator.pop(context, true);
+        Navigator.pop(context, {
+          "status": true,
+          "name": leadSourceModel.name,
+        });
 
         FlushBar.show(context, 'Source created successfully', isSuccess: true);
       } catch (e, st) {

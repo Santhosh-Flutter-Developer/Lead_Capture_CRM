@@ -1,8 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/views/screens/chat/listing/bloc/chat_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -76,7 +74,7 @@ class _AboutChatState extends State<AboutChat> {
         ? widget.chat.title ?? 'Group Chat'
         : isSelfChat
         ? 'Saved Messages'
-        : CacheService.getUserByUid(widget.userUid)?.name ?? '';
+        : CacheService.adminByUid(widget.userUid)?.name ?? '';
     String opponentUid = isSelfChat
         ? currentUserUid
         : widget.chat.participants.firstWhere(
@@ -84,15 +82,11 @@ class _AboutChatState extends State<AboutChat> {
             orElse: () => '',
           );
 
-    var user = CacheService.getUserByUid(opponentUid);
+    var user = CacheService.adminByUid(opponentUid);
 
     final String imageUrl = isSelfChat
         ? ''
-        : user is EmployeeModel
-        ? (user.profileImageUrl ?? '')
-        : user is AdminModel
-        ? (user.profileImageUrl ?? '')
-        : '';
+        : (user is AdminModel ? (user.profileImageUrl ?? '') : '');
 
     return Container(
       decoration: BoxDecoration(
@@ -328,14 +322,11 @@ class _AboutChatState extends State<AboutChat> {
           ),
           itemBuilder: (context, index) {
             final uid = widget.chat.participants[index];
-            final user = CacheService.getUserByUid(uid);
+            final user = CacheService.adminByUid(uid);
             String name = '';
             String? image;
 
             if (user is AdminModel) {
-              name = user.name;
-              image = user.profileImageUrl;
-            } else if (user is EmployeeModel) {
               name = user.name;
               image = user.profileImageUrl;
             }
@@ -547,8 +538,6 @@ class _AboutChatState extends State<AboutChat> {
                   actionLabel: 'UNDO',
                   onActionPressed: () async {
                     await ChatService.restoreChat(deletedChat);
-                    if (!context.mounted) return;
-                    context.read<ChatBloc>().add(StreamChat());
                   },
                 );
               }

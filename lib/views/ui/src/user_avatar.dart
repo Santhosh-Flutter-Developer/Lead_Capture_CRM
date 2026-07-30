@@ -203,7 +203,7 @@ class _UserAvatarState extends State<UserAvatar> {
                     child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                   ),
                   _buildMetaRow(Iconsax.sms, email),
-                  if (model is EmployeeModel && model.mobileNumber.isNotEmpty)
+                  if (model is AdminModel && model.mobileNumber.isNotEmpty)
                     _buildMetaRow(Iconsax.call, model.mobileNumber),
                 ],
               ],
@@ -239,22 +239,12 @@ class _UserAvatarState extends State<UserAvatar> {
   }
 
   Future<dynamic> _fetchUserDetails() async {
-    if (widget.userData.userType == UserType.employee) {
-      return await EmployeeService.getEmployee(uid: widget.userData.uid);
-    } else if (widget.userData.userType == UserType.admin) {
-      return await AdminService.getAdmin(uid: widget.userData.uid);
-    }
-    return null;
+    // Both employee and admin types now default to Admin fetching
+    return await AdminService.getAdmin(uid: widget.userData.uid);
   }
 
   String _getRoleText(dynamic model) {
     if (model is AdminModel) return "ADMINISTRATOR";
-    if (model is EmployeeModel) {
-      return CacheService.designationByUid(
-            model.designation,
-          )?.name.toUpperCase() ??
-          "EMPLOYEE";
-    }
     return "USER";
   }
 

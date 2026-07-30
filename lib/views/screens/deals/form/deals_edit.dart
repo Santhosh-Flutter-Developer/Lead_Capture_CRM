@@ -33,7 +33,7 @@ class _DealEditState extends State<DealEdit> {
   final TextEditingController _companyAddressController =
       TextEditingController();
   final TextEditingController _companyZipController = TextEditingController();
-  final TextEditingController _clientName = TextEditingController();
+    final TextEditingController _clientName = TextEditingController();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _mobile = TextEditingController();
   final TextEditingController _salutation = TextEditingController();
@@ -64,30 +64,11 @@ class _DealEditState extends State<DealEdit> {
     super.initState();
   }
 
-  Future<void> _init({
-    bool refreshStatus = false,
-    bool refreshCompany = false,
-    bool refreshContact = false,
-  }) async {
+  Future<void> _init({bool refreshStatus = false}) async {
     try {
       if (refreshStatus) {
         _dealStatus.clear();
         _dealStatus.addAll(await DealStatusService.getAllDealStatus());
-        return;
-      }
-      if (refreshCompany) {
-        _clients = (await ClientService.getAllClients())
-            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
-            .toList();
-        return;
-      }
-      if (refreshContact) {
-        _contacts = (await ClientService.getAllClients())
-            .where(
-              (c) =>
-                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
-            )
-            .toList();
         return;
       }
       _dealModel = await DealService.getDeal(uid: widget.uid);
@@ -112,20 +93,9 @@ class _DealEditState extends State<DealEdit> {
       _cityModel = _dealModel.companyCity;
 
       if (_dealModel.dealStatus != null && _dealModel.dealStatus!.isNotEmpty) {
-        try {
-          _dealStatusModel = await DealStatusService.getDealStatus(
-            uid: _dealModel.dealStatus!,
-          );
-        } catch (e) {
-          // If UID fetch fails, try by name
-          try {
-            _dealStatusModel = await DealStatusService.getByNameOrCreate(
-              name: _dealModel.dealStatus!,
-            );
-          } catch (e2) {
-            debugPrint("Failed to resolve deal status: $_dealModel.dealStatus");
-          }
-        }
+        _dealStatusModel = await DealStatusService.getDealStatus(
+          uid: _dealModel.dealStatus!,
+        );
       } else {
         _dealStatusModel = null;
       }
@@ -231,7 +201,7 @@ class _DealEditState extends State<DealEdit> {
                               ),
                               expandable: true,
                             ),
-                            const SizedBox(height: 16),
+                             const SizedBox(height: 16),
                             _buildSectionCard(
                               "Contact Details",
                               LayoutBuilder(
@@ -290,7 +260,7 @@ class _DealEditState extends State<DealEdit> {
             hintText: 'Enter Deal Name',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? '* Deal Name is required' : null,
+                input == null || input.isEmpty ? 'Deal Name is required' : null,
           ),
         ),
         SizedBox(
@@ -316,8 +286,7 @@ class _DealEditState extends State<DealEdit> {
                             (element) => element.name == value,
                           );
                         },
-                        validator: (value) =>
-                            value == null ? "* Required" : null,
+                        validator: (value) => value == null ? "* Required" : null,
                       ),
                     ),
                     const SizedBox(width: 8.0),
@@ -408,7 +377,7 @@ class _DealEditState extends State<DealEdit> {
                     Expanded(
                       child: FormDropdownSearch(
                         key: ValueKey('contact_${_contacts.length}'),
-                        label: 'Name',
+                        label: "Name",
                         isRequired: true,
                         initialItem: _clientName.text,
                         items: _contacts.map((e) => e.clientName).toList(),
@@ -440,7 +409,13 @@ class _DealEditState extends State<DealEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshContact: true);
+                          _contacts = (await ClientService.getAllClients())
+                              .where(
+                                (c) =>
+                                    c.isCompany == false &&
+                                    (c.clientName?.isNotEmpty ?? false),
+                              )
+                              .toList();
                           if (val["contact"] != null) {
                             _selectedContact = val["contact"];
                             _clientName.text =
@@ -457,6 +432,7 @@ class _DealEditState extends State<DealEdit> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8.0),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(5.0),
@@ -485,36 +461,12 @@ class _DealEditState extends State<DealEdit> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
+            isRequired: true,
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(
-            label: "Mobile",
-            controller: _mobile,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
-          ),
+          child: FormFields(label: "Mobile", controller: _mobile),
         ),
         SizedBox(
           width: itemWidth,
@@ -555,8 +507,7 @@ class _DealEditState extends State<DealEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
-                        isRequired: true,
-                        initialItem: _selectedclient?.companyName,
+                        initialItem: _selectedclient?.companyName ?? "",
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
                           _selectedclient = _clients
@@ -592,7 +543,7 @@ class _DealEditState extends State<DealEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshCompany: true);
+                          _clients = await ClientService.getAllClients();
                           if (val["company"] != null) {
                             _selectedclient = val["company"];
                             _companyWebsiteController.text =
@@ -613,10 +564,14 @@ class _DealEditState extends State<DealEdit> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8.0),
                         ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5.0),
-                          child: Icon(Icons.add),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: Icon(
+                            Icons.add,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
                         ),
                       ),
                     ),
@@ -638,19 +593,6 @@ class _DealEditState extends State<DealEdit> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile',
             keyboardType: TextInputType.phone,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
@@ -893,7 +835,7 @@ class _DealEditState extends State<DealEdit> {
             );
           }
         }
-        final workflow = await EmployeeService.getUserWorkflow();
+        final workflow = [await Spdb.getUid() ?? ''];
         ClientModel clientModel = ClientModel(
           clientName: _clientName.text.trim(),
           email: _email.text.trim(),

@@ -8,7 +8,7 @@
 
 // Flutter imports:
 import 'package:flutter/foundation.dart';
-import 'package:leadcapture/models/src/device_model.dart';
+import 'package:minicrm/models/src/device_model.dart';
 
 // Project imports:
 import '/constants/constants.dart';

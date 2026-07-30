@@ -4,13 +4,11 @@ class ChatData extends InheritedWidget {
   final String uid;
   final String currentUser;
   final bool isGroupChat;
-  final ChatModel chat;
 
   const ChatData({
     required this.uid,
     required this.currentUser,
     required this.isGroupChat,
-    required this.chat,
     required super.child,
     super.key,
   });

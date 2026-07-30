@@ -595,7 +595,7 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                                     leadStatus: status.uid!,
                                     createdBy: await Spdb.getUser(),
                                     workflow:
-                                        await EmployeeService.getUserWorkflow(),
+                                        [await Spdb.getUid() ?? ''],
                                     // company fields
                                     companyName: selectedCompany?.companyName,
                                     companyWebsite:

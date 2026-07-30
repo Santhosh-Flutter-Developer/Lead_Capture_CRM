@@ -1,10 +1,7 @@
 export 'src/auth_service.dart';
 export 'src/firebase_config.dart';
 export 'src/role_service.dart';
-export 'src/designation_service.dart';
-export 'src/department_service.dart';
-export 'src/sub_department_service.dart';
-export 'src/employee_service.dart';
+
 export 'src/storage_service.dart';
 export 'src/chat_service.dart';
 export 'src/post_notification_service.dart';
@@ -20,7 +17,6 @@ export 'src/deal_status_service.dart';
 export 'src/deal_service.dart';
 export 'src/task_service.dart';
 export 'src/admin_service.dart';
-export 'src/project_service.dart';
 export 'src/permission_service.dart';
 export 'src/version_service.dart';
 export 'src/trash_service.dart';
@@ -38,6 +34,4 @@ export 'src/reminder_service.dart';
 export 'src/company_location_service.dart';
 export 'src/company_service.dart';
 export 'src/holiday_service.dart';
-export 'src/leave_request_service.dart';
-export 'src/attendance_export_service.dart';
 export 'src/ticket_service.dart';

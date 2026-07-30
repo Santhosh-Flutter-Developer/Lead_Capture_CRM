@@ -9,14 +9,11 @@ export 'deals/deals.dart';
 export 'tasks/tasks.dart';
 export 'developer/developer.dart';
 export 'notifications/notifications.dart';
-export 'projects/projects.dart';
 export 'settings/settings.dart';
 export 'feed/feed.dart';
 export 'loginlogs/login_logs.dart';
 export 'activitylogs/activity_logs.dart';
 export 'backup/backup.dart';
 export 'calendar/calendar.dart';
-export 'holidays/holidays.dart';
-export 'salary_ledger/salary_ledger.dart';
 export 'tickets/tickets.dart';
 

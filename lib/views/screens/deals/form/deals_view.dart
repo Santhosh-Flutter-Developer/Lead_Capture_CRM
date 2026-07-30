@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/theme/src/app_colors.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:mime/mime.dart';
+import 'package:minicrm/theme/src/app_colors.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -500,6 +500,54 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
               }
               await _refreshDeal();
             }),
+            const SizedBox(width: 8),
+            _appBarButton(Iconsax.trash, "Delete", () async {
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (context) => const ConfirmDialog(
+                  title: 'Delete Deal',
+                  content: 'Are you sure you want to delete this deal?',
+                ),
+              );
+
+              if (result != true) return;
+
+              try {
+                final deletedDeal = widget.deal;
+                bool isUndoPressed = false;
+
+                await DealService.deleteDeal(uid: _deal.uid ?? '');
+
+                if (!mounted) return;
+
+                FlushBar.show(
+                  context,
+                  'Deal deleted successfully',
+                  actionLabel: 'UNDO',
+                  onActionPressed: () async {
+                    isUndoPressed = true;
+
+                    await DealService.restoreDeal(deletedDeal);
+
+                    // refresh your deals list (update event name if needed)
+                    context.read<DealBloc>().add(StreamDeals());
+
+                    Navigator.of(context).pop('restored');
+                  },
+                );
+
+                Future.delayed(const Duration(seconds: 4), () {
+                  if (!isUndoPressed && mounted) {
+                    Navigator.of(context).pop('deleted');
+                  }
+                });
+              } catch (e, st) {
+                await ErrorService.recordError(e, st);
+                if (mounted) {
+                  FlushBar.show(context, e.toString(), isSuccess: false);
+                }
+              }
+            }, isDanger: true),
           ],
           const SizedBox(width: 16),
         ],
@@ -1183,7 +1231,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Modified by ${CacheService.getUserByUid(history.userId)?.name ?? 'System'}",
+                    "Modified by ${CacheService.adminByUid(history.userId)?.name ?? 'System'}",
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -1283,7 +1331,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
     final date = comment.timestamp;
 
     var userId = comment.createdBy.uid;
-    var user = CacheService.getUserByUid(userId);
+    var user = CacheService.adminByUid(userId);
 
     UserDataModel userDataModel = UserDataModel.fromEmptyMap();
     if (user is AdminModel) {
@@ -1293,14 +1341,6 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
         desc: user.email,
         profilePic: user.profileImageUrl,
         userType: UserType.admin,
-      );
-    } else if (user is EmployeeModel) {
-      userDataModel = UserDataModel(
-        uid: userId,
-        name: user.name,
-        desc: user.email,
-        profilePic: user.profileImageUrl,
-        userType: UserType.employee,
       );
     }
 
@@ -1833,9 +1873,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
                     style: TextStyle(fontSize: 11),
                   ),
                   trailing: const Icon(Iconsax.export_1, size: 16),
-                  onTap: () {
-                    Download.downloadFromUrl(context, file.url, file.name);
-                  },
+                  onTap: () {},
                 ),
               ),
             ),

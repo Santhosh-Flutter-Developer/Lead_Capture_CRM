@@ -5,6 +5,7 @@ import '/models/models.dart';
 import '/utils/utils.dart';
 import '/constants/constants.dart';
 import '/services/services.dart';
+import '/theme/theme.dart';
 import '/views/views.dart';
 
 class LeadCreate extends StatefulWidget {
@@ -46,6 +47,8 @@ class _LeadCreateState extends State<LeadCreate> {
   // bool _allowFollowUp = true;
 
   bool _showCompanyDetails = false;
+  bool _companyrefresh = false;
+  bool _contactrefresh = false;
   late Future _future;
 
   List<LeadCategoryModel> _leadCategories = [];
@@ -77,73 +80,47 @@ class _LeadCreateState extends State<LeadCreate> {
     bool refreshSource = false,
     bool refreshCategory = false,
     bool refreshStatus = false,
-    bool refreshContact = false,
-    bool refreshCompany = false,
     bool refreshPriority = false,
   }) async {
     try {
       if (refreshSource) {
         _leadSource.clear();
         _leadSource = await LeadSourceService.getAllLeadSource();
-        return;
       }
       if (refreshCategory) {
         _leadCategories.clear();
         _leadCategories = await LeadCategoryService.getAllLeadCategories();
-        return;
       }
       if (refreshStatus) {
         _leadStatus.clear();
         _leadStatus = await LeadStatusService.getAllLeadStatus();
-        return;
-      }
-      if (refreshContact) {
-        _contacts = (await ClientService.getAllClients())
-            .where(
-              (c) =>
-                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
-            )
-            .toList();
-        return;
-      }
-      if (refreshCompany) {
-        _clients = (await ClientService.getAllClients())
-            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
-            .toList();
-        return;
       }
       if (refreshPriority) {
         _leadPriorities.clear();
         _leadPriorities = await LeadPriorityService.getAllLeadPriority();
         return;
       }
-      _leadCategories.clear();
-      _leadPriorities.clear();
-      _leadStatus.clear();
-      _leadSource.clear();
-      _clients.clear();
-      _contacts.clear();
-      _leadCategories = await LeadCategoryService.getAllLeadCategories();
-      _leadPriorities = await LeadPriorityService.getAllLeadPriority();
-      _leadStatus = await LeadStatusService.getAllLeadStatus();
-      _leadSource = await LeadSourceService.getAllLeadSource();
-      
-      // Set default status to 'New'
-      if (_leadStatus.isNotEmpty) {
-        _leadStatusModel = _leadStatus.firstWhere(
-          (status) => status.name.toLowerCase() == 'new',
-          orElse: () => _leadStatus.first,
-        );
+      if (!refreshSource && !refreshCategory && !refreshStatus && !refreshPriority) {
+        _leadCategories.clear();
+        _leadPriorities.clear();
+        _leadStatus.clear();
+        _leadSource.clear();
+        _clients.clear();
+        _contacts.clear();
+        _leadCategories = await LeadCategoryService.getAllLeadCategories();
+        _leadPriorities = await LeadPriorityService.getAllLeadPriority();
+        _leadStatus = await LeadStatusService.getAllLeadStatus();
+        _leadSource = await LeadSourceService.getAllLeadSource();
+        _clients = (await ClientService.getAllClients())
+            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
+            .toList();
+        _contacts = (await ClientService.getAllClients())
+            .where(
+              (c) =>
+                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
+            )
+            .toList();
       }
-      _clients = (await ClientService.getAllClients())
-          .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
-          .toList();
-      _contacts = (await ClientService.getAllClients())
-          .where(
-            (c) =>
-                c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
-          )
-          .toList();
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       FlushBar.show(context, e.toString(), isSuccess: false);
@@ -395,7 +372,7 @@ class _LeadCreateState extends State<LeadCreate> {
             hintText: 'e.g. John Doe',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? '* Required' : null,
+                input == null || input.isEmpty ? 'Required' : null,
           ),
         ),
         SizedBox(
@@ -405,127 +382,114 @@ class _LeadCreateState extends State<LeadCreate> {
             controller: _leadEmailController,
             hintText: 'e.g. email@example.com',
             keyboardType: TextInputType.emailAddress,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
-                width: itemWidth,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: FormDropdownSearch(
-                        key: ValueKey('lead_source_${_leadSource.length}'),
-                        label: 'Lead Source',
-                        isRequired: true,
-                        items: _leadSource.map((e) => e.name).toList(),
-                        onChanged: (value) {
-                          _selectedLeadSource = _leadSource.firstWhere(
-                            (cat) => cat.name == value,
-                            orElse: () => _leadSource.first,
-                          );
-                        },
-                        validator: (value) =>
-                            value == null ? "* Required" : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    InkWell(
-                      onTap: () async {
-                        dynamic val;
-                        if (kIsMobile) {
-                          val = await Sheet.showSheet(
-                            context,
-                            widget: const LeadSourceCreate(),
-                          );
-                        } else {
-                          val = await GeneralDialog.showRTLSheet(
-                            context,
-                            const LeadSourceCreate(),
-                          );
-                        }
-                        if (val is Map && val["status"] == true) {
-                          await _init(refreshSource: true);
-                          setState(() {});
-                        }
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5.0),
-                          child: Icon(Icons.add),
-                        ),
-                      ),
-                    ),
-                  ],
+          width: itemWidth,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: FormDropdownSearch(
+                  key: ValueKey('lead_source_${_leadSource.length}'),
+                  label: 'Lead Source',
+                  items: _leadSource.map((e) => e.name).toList(),
+                  onChanged: (value) {
+                    _selectedLeadSource = _leadSource.firstWhere(
+                      (cat) => cat.name == value,
+                      orElse: () => _leadSource.first,
+                    );
+                  },
+                  validator: (value) => value == null ? "* Required" : null,
                 ),
               ),
+              const SizedBox(width: 8.0),
+              InkWell(
+                onTap: () async {
+                  dynamic val;
+                  if (kIsMobile) {
+                    val = await Sheet.showSheet(
+                      context,
+                      widget: const LeadSourceCreate(),
+                    );
+                  } else {
+                    val = await GeneralDialog.showRTLSheet(
+                      context,
+                      const LeadSourceCreate(),
+                    );
+                  }
+                  if (val is Map && val["status"] == true) {
+                    await _init(refreshSource: true);
+                    setState(() {});
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(5.0),
+                    child: Icon(Icons.add),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         SizedBox(
-                width: itemWidth,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: FormDropdownSearch(
-                        key: ValueKey('lead_category_${_leadCategories.length}'),
-                        label: 'Lead Category',
-                        isRequired: true,
-                        items: _leadCategories.map((e) => e.name).toList(),
-                        onChanged: (value) {
-                          _selectedLeadCategory = _leadCategories.firstWhere(
-                            (cat) => cat.name == value,
-                            orElse: () => _leadCategories.first,
-                          );
-                        },
-                        validator: (value) =>
-                            value == null ? "* Required" : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    InkWell(
-                      onTap: () async {
-                        dynamic val;
-                        if (kIsMobile) {
-                          val = await Sheet.showSheet(
-                            context,
-                            widget: const LeadCategoryCreate(),
-                          );
-                        } else {
-                          val = await GeneralDialog.showRTLSheet(
-                            context,
-                            const LeadCategoryCreate(),
-                          );
-                        }
-                        if (val is Map && val["status"] == true) {
-                          await _init(refreshCategory: true);
-                          setState(() {});
-                        }
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5.0),
-                          child: Icon(Icons.add),
-                        ),
-                      ),
-                    ),
-                  ],
+          width: itemWidth,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: FormDropdownSearch(
+                  key: ValueKey('lead_category_${_leadCategories.length}'),
+                  label: 'Lead Category',
+                  items: _leadCategories.map((e) => e.name).toList(),
+                  onChanged: (value) {
+                    _selectedLeadCategory = _leadCategories.firstWhere(
+                      (cat) => cat.name == value,
+                      orElse: () => _leadCategories.first,
+                    );
+                  },
+                  validator: (value) => value == null ? "* Required" : null,
                 ),
               ),
+              const SizedBox(width: 8.0),
+              InkWell(
+                onTap: () async {
+                  dynamic val;
+                  if (kIsMobile) {
+                    val = await Sheet.showSheet(
+                      context,
+                      widget: const LeadCategoryCreate(),
+                    );
+                  } else {
+                    val = await GeneralDialog.showRTLSheet(
+                      context,
+                      const LeadCategoryCreate(),
+                    );
+                  }
+                  if (val is Map && val["status"] == true) {
+                    await _init(refreshCategory: true);
+                    setState(() {});
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(5.0),
+                    child: Icon(Icons.add),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         SizedBox(
           width: itemWidth,
           child: Row(
@@ -535,7 +499,6 @@ class _LeadCreateState extends State<LeadCreate> {
                 child: FormDropdownSearch(
                   key: ValueKey('lead_priority_${_leadPriorities.length}'),
                   label: 'Lead Priority',
-                  isRequired: true,
                   items: _leadPriorities.map((e) => e.name).toList(),
                   onChanged: (value) {
                     _selectedLeadPriority = _leadPriorities.firstWhere(
@@ -602,59 +565,57 @@ class _LeadCreateState extends State<LeadCreate> {
         //   ),
         // ),
         SizedBox(
-                width: itemWidth,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: FormDropdownSearch(
-                        key: ValueKey('lead_status_${_leadStatus.length}'),
-                        label: 'Status',
-                        isRequired: true,
-                        items: _leadStatus.map((e) => e.name).toList(),
-                        onChanged: (value) {
-                          _leadStatusModel = _leadStatus.firstWhere(
-                            (element) => element.name == value,
-                          );
-                        },
-                        validator: (value) =>
-                            value == null ? "* Required" : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    InkWell(
-                      onTap: () async {
-                        dynamic val;
-                        if (kIsMobile) {
-                          val = await Sheet.showSheet(
-                            context,
-                            widget: const LeadStatusCreate(),
-                          );
-                        } else {
-                          val = await GeneralDialog.showRTLSheet(
-                            context,
-                            const LeadStatusCreate(),
-                          );
-                        }
-                        if (val is Map && val["status"] == true) {
-                          await _init(refreshStatus: true);
-                          setState(() {});
-                        }
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5.0),
-                          child: Icon(Icons.add),
-                        ),
-                      ),
-                    ),
-                  ],
+          width: itemWidth,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: FormDropdownSearch(
+                  key: ValueKey('lead_status_${_leadStatus.length}'),
+                  label: 'Status',
+                  items: _leadStatus.map((e) => e.name).toList(),
+                  onChanged: (value) {
+                    _leadStatusModel = _leadStatus.firstWhere(
+                      (element) => element.name == value,
+                    );
+                  },
+                  validator: (value) => value == null ? "* Required" : null,
                 ),
               ),
+              const SizedBox(width: 8.0),
+              InkWell(
+                onTap: () async {
+                  dynamic val;
+                  if (kIsMobile) {
+                    val = await Sheet.showSheet(
+                      context,
+                      widget: const LeadStatusCreate(),
+                    );
+                  } else {
+                    val = await GeneralDialog.showRTLSheet(
+                      context,
+                      const LeadStatusCreate(),
+                    );
+                  }
+                  if (val is Map && val["status"] == true) {
+                    await _init(refreshStatus: true);
+                    setState(() {});
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(5.0),
+                    child: Icon(Icons.add),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         SizedBox(
           width: itemWidth,
           child: FormFields(
@@ -686,14 +647,15 @@ class _LeadCreateState extends State<LeadCreate> {
       spacing: horizontalSpacing,
       runSpacing: verticalSpacing,
       children: [
-        SizedBox(
+        _contactrefresh == true
+            ? SizedBox()
+            : SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
-                        key: ValueKey('contact_${_contacts.length}'),
                         label: 'Name',
                         isRequired: true,
                         initialItem: _clientName.text,
@@ -730,7 +692,16 @@ class _LeadCreateState extends State<LeadCreate> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshContact: true);
+                          setState(() {
+                            _contactrefresh = true;
+                          });
+                          _clients = (await ClientService.getAllClients())
+                              .where(
+                                (c) =>
+                                    c.isCompany == false &&
+                                    (c.clientName?.isNotEmpty ?? false),
+                              )
+                              .toList();
                           if (val["contact"] != null) {
                             _selectedContact = val["contact"];
                             _clientName.text =
@@ -741,7 +712,9 @@ class _LeadCreateState extends State<LeadCreate> {
                                 _selectedContact?.salutation ?? '';
                             _gender.text = _selectedContact?.gender ?? '';
                           }
-                          setState(() {});
+                          setState(() {
+                            _contactrefresh = false;
+                          });
                         }
                       },
                       child: Container(
@@ -777,36 +750,12 @@ class _LeadCreateState extends State<LeadCreate> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
+            isRequired: true,
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(
-            label: "Mobile",
-            controller: _mobile,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
-          ),
+          child: FormFields(label: "Mobile", controller: _mobile),
         ),
         SizedBox(
           width: itemWidth,
@@ -849,16 +798,16 @@ class _LeadCreateState extends State<LeadCreate> {
         //     hintText: 'Enter Company Name',
         //   ),
         // ),
-        SizedBox(
+        _companyrefresh == true
+            ? SizedBox()
+            : SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
-                        key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
-                        isRequired: true,
                         initialItem: _selectedclient?.companyName ?? "",
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
@@ -895,7 +844,10 @@ class _LeadCreateState extends State<LeadCreate> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshCompany: true);
+                          setState(() {
+                            _companyrefresh = true;
+                          });
+                          _clients = await ClientService.getAllClients();
                           if (val["company"] != null) {
                             _selectedclient = val["company"];
                             _companyWebsiteController.text =
@@ -910,7 +862,9 @@ class _LeadCreateState extends State<LeadCreate> {
                             _companyAddressController.text =
                                 _selectedclient?.companyAddress ?? "";
                           }
-                          setState(() {});
+                          setState(() {
+                            _companyrefresh = false;
+                          });
                         }
                       },
                       child: Container(
@@ -945,19 +899,6 @@ class _LeadCreateState extends State<LeadCreate> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile Number',
             keyboardType: TextInputType.phone,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
@@ -1081,7 +1022,7 @@ class _LeadCreateState extends State<LeadCreate> {
           }
         }
 
-        final workflow = await EmployeeService.getUserWorkflow();
+        final workflow = [await Spdb.getUid() ?? ''];
 
         // ClientModel clientModel = ClientModel(
         //   clientName: '',

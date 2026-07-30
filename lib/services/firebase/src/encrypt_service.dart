@@ -39,77 +39,77 @@ class EncryptService {
     }
   }
 
-  void encryptDesignation() async {
-    var cid = await Spdb.getCid();
+  // void encryptDesignation() async {
+  //   var cid = await Spdb.getCid();
 
-    var docs = await firestore
-        .collection(Collections.users.name)
-        .doc(cid)
-        .collection(Collections.designations.name)
-        .get();
+  //   var docs = await firestore
+  //       .collection(Collections.users.name)
+  //       .doc(cid)
+  //       .collection(Collections.designations.name)
+  //       .get();
 
-    for (var i in docs.docs) {
-      var designationModel = DesignationModel.fromMap(i.id, i.data());
-      await DesignationService.editDesignation(
-        uid: designationModel.uid ?? '',
-        designation: designationModel,
-      );
-    }
-  }
+  //   for (var i in docs.docs) {
+  //     var designationModel = DesignationModel.fromMap(i.id, i.data());
+  //     await DesignationService.editDesignation(
+  //       uid: designationModel.uid ?? '',
+  //       designation: designationModel,
+  //     );
+  //   }
+  // }
 
-  void encryptDepartment() async {
-    var cid = await Spdb.getCid();
+  // void encryptDepartment() async {
+  //   var cid = await Spdb.getCid();
 
-    var docs = await firestore
-        .collection(Collections.users.name)
-        .doc(cid)
-        .collection(Collections.departments.name)
-        .get();
+  //   var docs = await firestore
+  //       .collection(Collections.users.name)
+  //       .doc(cid)
+  //       .collection(Collections.departments.name)
+  //       .get();
 
-    for (var i in docs.docs) {
-      var departmentModel = DepartmentModel.fromMap(i.id, i.data());
-      await DepartmentService.editDepartment(
-        uid: departmentModel.uid ?? '',
-        department: departmentModel,
-      );
-    }
-  }
+  //   for (var i in docs.docs) {
+  //     var departmentModel = DepartmentModel.fromMap(i.id, i.data());
+  //     await DepartmentService.editDepartment(
+  //       uid: departmentModel.uid ?? '',
+  //       department: departmentModel,
+  //     );
+  //   }
+  // }
 
-  void encryptSubDepartment() async {
-    var cid = await Spdb.getCid();
+  // void encryptSubDepartment() async {
+  //   var cid = await Spdb.getCid();
 
-    var docs = await firestore
-        .collection(Collections.users.name)
-        .doc(cid)
-        .collection(Collections.subDepartments.name)
-        .get();
+  //   var docs = await firestore
+  //       .collection(Collections.users.name)
+  //       .doc(cid)
+  //       .collection(Collections.subDepartments.name)
+  //       .get();
 
-    for (var i in docs.docs) {
-      var subDepartmentModel = SubDepartmentModel.fromMap(i.id, i.data());
-      await SubDepartmentService.editSubDepartment(
-        uid: subDepartmentModel.uid ?? '',
-        subDepartment: subDepartmentModel,
-      );
-    }
-  }
+  //   for (var i in docs.docs) {
+  //     var subDepartmentModel = SubDepartmentModel.fromMap(i.id, i.data());
+  //     await SubDepartmentService.editSubDepartment(
+  //       uid: subDepartmentModel.uid ?? '',
+  //       subDepartment: subDepartmentModel,
+  //     );
+  //   }
+  // }
 
-  void encryptEmployee() async {
-    var cid = await Spdb.getCid();
+  // void encryptEmployee() async {
+  //   var cid = await Spdb.getCid();
 
-    var docs = await firestore
-        .collection(Collections.users.name)
-        .doc(cid)
-        .collection(Collections.employees.name)
-        .get();
+  //   var docs = await firestore
+  //       .collection(Collections.users.name)
+  //       .doc(cid)
+  //       .collection(Collections.employees.name)
+  //       .get();
 
-    for (var i in docs.docs) {
-      var employeeModel = EmployeeModel.fromMap(i.id, i.data());
-      await EmployeeService.editEmployee(
-        uid: employeeModel.uid ?? '',
-        employee: employeeModel,
-      );
-    }
-  }
+  //   for (var i in docs.docs) {
+  //     var employeeModel = EmployeeModel.fromMap(i.id, i.data());
+  //     await EmployeeService.editEmployee(
+  //       uid: employeeModel.uid ?? '',
+  //       employee: employeeModel,
+  //     );
+  //   }
+  // }
 
   void encryptLeadCategory() async {
     var cid = await Spdb.getCid();

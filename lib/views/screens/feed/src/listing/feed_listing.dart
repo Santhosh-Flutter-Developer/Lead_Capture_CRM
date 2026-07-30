@@ -1,5 +1,4 @@
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
@@ -202,26 +201,11 @@ class FeedCardState extends State<FeedCard> {
   }
 
   Future<_CommentAuthorDisplay?> _loadCommentAuthorDisplay(String uid) async {
-    final cachedUser = CacheService.getUserByUid(uid);
-    if (cachedUser is EmployeeModel) {
+    final cachedUser = CacheService.adminByUid(uid);
+    if (cachedUser != null) {
       return _CommentAuthorDisplay(
         name: cachedUser.name,
         avatar: cachedUser.profileImageUrl ?? '',
-      );
-    }
-
-    if (cachedUser is AdminModel) {
-      return _CommentAuthorDisplay(
-        name: cachedUser.name,
-        avatar: cachedUser.profileImageUrl ?? '',
-      );
-    }
-
-    final employee = await EmployeeService.getEmployee(uid: uid);
-    if (employee != null) {
-      return _CommentAuthorDisplay(
-        name: employee.name,
-        avatar: employee.profileImageUrl ?? '',
       );
     }
 
@@ -267,23 +251,6 @@ class FeedCardState extends State<FeedCard> {
 
   Future<void> _openUserProfileFromComment(String uid) async {
     if (uid.trim().isEmpty) return;
-
-    final employee = await EmployeeService.getEmployee(uid: uid);
-    if (employee != null) {
-      if (!mounted) return;
-      if (kIsMobile) {
-        await Sheet.showSheet(
-          context,
-          widget: EmployeeDetails(employee: employee),
-        );
-      } else {
-        await GeneralDialog.showRTLSheet(
-          context,
-          EmployeeDetails(employee: employee),
-        );
-      }
-      return;
-    }
 
     final admin = await AdminService.getAdmin(uid: uid);
     if (admin != null) {
@@ -394,23 +361,15 @@ class FeedCardState extends State<FeedCard> {
                               onTap: () => _openUserProfileFromComment(
                                 widget.feed.authorId,
                               ),
-                              child: CachedNetworkImage(
-                                imageUrl: postAuthorAvatar.isNotEmpty
-                                    ? postAuthorAvatar
-                                    : AppStrings.emptyProfilePhotoUrl,
-                                imageBuilder: (context, imageProvider) => CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).scaffoldBackgroundColor,
-                                  backgroundImage: imageProvider,
-                                ),
-                                errorWidget: (context, url, error) => CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).scaffoldBackgroundColor,
-                                  child: const Icon(Iconsax.danger, size: 16),
+                              child: CircleAvatar(
+                                radius: 16,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).scaffoldBackgroundColor,
+                                backgroundImage: NetworkImage(
+                                  postAuthorAvatar.isNotEmpty
+                                      ? postAuthorAvatar
+                                      : AppStrings.emptyProfilePhotoUrl,
                                 ),
                               ),
                             ),
@@ -985,19 +944,17 @@ class FeedCardState extends State<FeedCard> {
                                                             _openUserProfileFromComment(
                                                               comment.authorId,
                                                             ),
-                                                        child: CachedNetworkImage(
-                                                          imageUrl: authorAvatar.isNotEmpty
-                                                              ? authorAvatar
-                                                              : AppStrings.emptyProfilePhotoUrl,
-                                                          imageBuilder: (context, imageProvider) => CircleAvatar(
-                                                            radius: 12,
-                                                            backgroundColor: FeedAppColors.background,
-                                                            backgroundImage: imageProvider,
-                                                          ),
-                                                          errorWidget: (context, url, error) => const CircleAvatar(
-                                                            radius: 12,
-                                                            backgroundColor: FeedAppColors.background,
-                                                            child: Icon(Iconsax.danger, size: 12),
+                                                        child: CircleAvatar(
+                                                          radius: 12,
+                                                          backgroundColor:
+                                                              FeedAppColors
+                                                                  .background,
+                                                          backgroundImage: NetworkImage(
+                                                            authorAvatar
+                                                                    .isNotEmpty
+                                                                ? authorAvatar
+                                                                : AppStrings
+                                                                      .emptyProfilePhotoUrl,
                                                           ),
                                                         ),
                                                       ),
@@ -1230,7 +1187,7 @@ class FeedCardState extends State<FeedCard> {
                                                     '';
                                               } else {
                                                 final employee =
-                                                    await EmployeeService.getEmployee(
+                                                    await AdminService.getAdmin(
                                                       uid: uid,
                                                     );
                                                 authorName =
@@ -1495,19 +1452,13 @@ class FeedCardState extends State<FeedCard> {
                   borderRadius: BorderRadius.circular(14),
                   onTap: () =>
                       _openUserProfileFromComment(widget.feed.authorId),
-                  child: CachedNetworkImage(
-                    imageUrl: _postAuthorAvatar.isNotEmpty
-                        ? _postAuthorAvatar
-                        : AppStrings.emptyProfilePhotoUrl,
-                    imageBuilder: (context, imageProvider) => CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                      backgroundImage: imageProvider,
-                    ),
-                    errorWidget: (context, url, error) => CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                      child: const Icon(Iconsax.danger, size: 14),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                    backgroundImage: NetworkImage(
+                      _postAuthorAvatar.isNotEmpty
+                          ? _postAuthorAvatar
+                          : AppStrings.emptyProfilePhotoUrl,
                     ),
                   ),
                 ),
@@ -1579,9 +1530,7 @@ class FeedCardState extends State<FeedCard> {
                   _openPostPreview(initialImageIndex: _currentImageIndex),
               child: Stack(
                 children: [
-                  if (widget.feed.poll != null)
-                    _buildPollPreview()
-                  else if (widget.feed.mediaImages.isNotEmpty)
+                  if (widget.feed.mediaImages.isNotEmpty)
                     CarouselSlider(
                       options: CarouselOptions(
                         height: double.infinity,
@@ -1631,7 +1580,7 @@ class FeedCardState extends State<FeedCard> {
                     ),
 
                   // Pagination Indicator Overlay
-                  if (widget.feed.poll == null && widget.feed.mediaImages.length > 1)
+                  if (widget.feed.mediaImages.length > 1)
                     Positioned(
                       bottom: 8,
                       left: 0,
@@ -1666,7 +1615,6 @@ class FeedCardState extends State<FeedCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if ((widget.feed.mediaImages.isNotEmpty ||
-                        widget.feed.poll != null ||
                         widget.feed.attachments.isNotEmpty) &&
                     widget.feed.content.isNotEmpty)
                   Text(
@@ -1848,159 +1796,6 @@ class FeedCardState extends State<FeedCard> {
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPollPreview() {
-    final poll = widget.feed.poll!;
-    final totalVotes = poll.options.fold<int>(0, (sum, o) => sum + o.votes);
-    final hasVoted = widget.currentUserUid != null &&
-        poll.votedUserIds.contains(widget.currentUserUid);
-
-    return Container(
-      width: double.infinity,
-      color: Theme.of(context).scaffoldBackgroundColor,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Iconsax.judge,
-                  size: 10,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  "POLL",
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            poll.question,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...poll.options.take(3).map((option) {
-            final pct = totalVotes == 0
-                ? 0
-                : ((option.votes / totalVotes) * 100).round();
-            return Container(
-              margin: const EdgeInsets.only(bottom: 4),
-              width: double.infinity,
-              height: 24,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  if (hasVoted)
-                    FractionallySizedBox(
-                      widthFactor: totalVotes == 0 ? 0 : option.votes / totalVotes,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            option.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight:
-                                  hasVoted ? FontWeight.w600 : FontWeight.normal,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        if (hasVoted)
-                          Text(
-                            "$pct%",
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-          if (poll.options.length > 3)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                "+ ${poll.options.length - 3} more options",
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "$totalVotes votes",
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                hasVoted ? "Voted" : "Tap to vote",
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: hasVoted
-                      ? Theme.of(context).colorScheme.secondary
-                      : Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );

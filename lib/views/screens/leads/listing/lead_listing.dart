@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/utils/src/download_io.dart';
-import 'package:leadcapture/views/screens/leads/listing/lead_upload.dart';
+import 'package:minicrm/utils/src/download_io.dart';
+import 'package:minicrm/views/screens/leads/listing/lead_upload.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import '/services/services.dart';
@@ -124,7 +124,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   }
 
   List<String> employeeItems(CacheService cache) {
-    return cache.getAllListenableEmployees().value.map((e) => e.name).toList();
+    return CacheService.getAllListenableAdmins().value
+        .map((e) => e.name)
+        .toList();
   }
 
   Future<void> _refreshLeads(BuildContext context) async {
@@ -542,17 +544,13 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       _filterDropdown(
         label: "Created By",
         value: _selectedCreatedBy != null
-            ? cache
-                  .getAllListenableEmployees()
-                  .value
+            ? CacheService.getAllListenableAdmins().value
                   .firstWhere((e) => e.uid == _selectedCreatedBy)
                   .name
             : null,
         items: employeeItems(cache),
         onChanged: (v) {
-          final selectedEmployee = cache
-              .getAllListenableEmployees()
-              .value
+          final selectedEmployee = CacheService.getAllListenableAdmins().value
               .firstWhereOrNull((e) => e.name == v);
 
           setState(() => _selectedCreatedBy = selectedEmployee?.uid);
@@ -1022,10 +1020,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               onPressed: () async {
                 try {
                   // Fetch all categories, priorities, and statuses
-                  final categories =
-                      await LeadCategoryService.getAllLeadCategories();
-                  final priorities =
-                      await LeadPriorityService.getAllLeadPriority();
+                  final categories = await LeadCategoryService.getAllLeadCategories();
+                  final priorities = await LeadPriorityService.getAllLeadPriority();
                   final statuses = await LeadStatusService.getAllLeadStatus();
 
                   List<List<String>> exportData = [];
@@ -1110,6 +1106,73 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           );
         }
 
+        if ((permissions?.canDelete ?? false) && _selectedLeads.isNotEmpty) {
+          actionButtons.add(const SizedBox(width: 10));
+          actionButtons.add(
+            ElevatedButton.icon(
+              label: const Text("Delete"),
+              icon: const Icon(Iconsax.trash, size: 18),
+              onPressed: () async {
+                var result = await showDialog(
+                  context: context,
+                  builder: (context) => const ConfirmDialog(
+                    title: 'Delete',
+                    content:
+                        'Are you sure you want to delete the selected leads?',
+                  ),
+                );
+
+                if (result != true) return;
+
+                try {
+                  // ✅ STEP 1: backup
+                  final deletedLeads = List<LeadModel>.from(_selectedLeads);
+
+                  futureLoading(context);
+
+                  // ✅ STEP 2: delete
+                  for (var lead in deletedLeads) {
+                    await LeadService.deleteLead(uid: lead.uid ?? '');
+                  }
+
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+
+                  // ✅ STEP 3: clear selection
+                  _selectedLeads.clear();
+                  setState(() {});
+
+                  // ✅ STEP 4: UNDO
+                  FlushBar.show(
+                    context,
+                    'Leads deleted successfully',
+                    actionLabel: 'UNDO',
+                    onActionPressed: () async {
+                      for (var lead in deletedLeads) {
+                        await LeadService.restoreLead(
+                          lead,
+                        ); // 👈 implement this
+                      }
+
+                      // 🔥 refresh list
+                      context.read<LeadBloc>().add(StreamLead());
+                    },
+                    // onDismissed: () {
+                    //   // 🔥 refresh if user does nothing
+                    //   context.read<LeadBloc>().add(StreamLeads());
+                    // },
+                  );
+                } catch (e) {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                  FlushBar.show(context, e.toString(), isSuccess: false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              ),
+            ),
+          );
+        }
 
         // 2. Define the View Toggle (Grid/List/Calendar)
         final viewToggle = Container(
@@ -1328,27 +1391,74 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
               ],
 
-              if (lead.leadsConverted != true)
+              IconButton(
+                icon: const Icon(Icons.autorenew_rounded),
+                tooltip: 'Convert $_pageTitle to Deal',
+                color: Theme.of(context).colorScheme.secondary,
+                splashRadius: 20,
+                onPressed: () async {
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => const ConfirmDialog(
+                      title: 'Convert $_pageTitle',
+                      content:
+                          'Are you sure you want to convert this lead to a deal?',
+                    ),
+                  );
+
+                  if (result == true) {
+                    await _convertLeadToDeal(context, lead);
+                  }
+                },
+              ),
+
+              if ((permissions?.canDelete ?? false) &&
+                  (_isAdmin || lead.createdBy.uid == _currentUid)) ...[
                 IconButton(
-                  icon: const Icon(Icons.autorenew_rounded),
-                  tooltip: 'Convert $_pageTitle to Deal',
-                  color: Theme.of(context).colorScheme.secondary,
+                  icon: const Icon(Iconsax.trash),
+                  color: Theme.of(context).colorScheme.error,
                   splashRadius: 20,
+                  tooltip: 'Delete $_pageTitle',
                   onPressed: () async {
                     final result = await showDialog<bool>(
                       context: context,
-                      builder: (_) => const ConfirmDialog(
-                        title: 'Convert $_pageTitle',
-                        content:
-                            'Are you sure you want to convert this lead to a deal?',
+                      builder: (_) => ConfirmDialog(
+                        title: 'Delete $_pageTitle',
+                        content: 'Are you sure you want to delete this lead?',
                       ),
                     );
 
-                    if (result == true) {
-                      await _convertLeadToDeal(context, lead);
+                    if (result != true) return;
+
+                    try {
+                      final deletedLead = lead;
+
+                      await LeadService.deleteLead(uid: lead.uid ?? '');
+
+                      if (!mounted) return;
+
+                      FlushBar.show(
+                        context,
+                        '$_pageTitle deleted successfully',
+                        actionLabel: 'UNDO',
+                        onActionPressed: () async {
+                          await LeadService.restoreLead(deletedLead);
+
+                          // ✅ refresh after undo
+                          context.read<LeadBloc>().add(StreamLead());
+                        },
+                        // onDismissed: () {
+                        //   // ✅ refresh if no undo
+                        //   context.read<LeadBloc>().add(StreamLead());
+                        // },
+                      );
+                    } catch (e, st) {
+                      await ErrorService.recordError(e, st);
+                      FlushBar.show(context, e.toString(), isSuccess: false);
                     }
                   },
                 ),
+              ],
             ],
           ),
         ),

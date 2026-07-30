@@ -68,33 +68,31 @@ class PostNotificationService {
       // Try to send push notification if server key is available
       if (serverKey != null && model.toFcms.isNotEmpty) {
         String endpointFirebaseCloudMessaging =
-            "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
+            "https://fcm.googleapis.com/v1/projects/minicrm-8575d/messages:send";
         
         for (var element in model.toFcms) {
+          // Deliberately data-only (no top-level "notification" field) — a
+          // "notification" field makes Android/iOS auto-display it in the
+          // system tray *in addition to* the local notification the app's
+          // own background handler shows, producing two banners for the
+          // same push. showNotification() in notification_service.dart
+          // already falls back to data['title']/data['body'].
           final Map<String, dynamic> message = {
             "message": {
-              "notification": {
-                "title": model.title,
-                "body": model.message,
-              },
-              "android": {
-                "priority": "high",
-                "notification": {
-                  "channel_id": "high_importance_channel",
-                  "click_action": "FLUTTER_NOTIFICATION_CLICK",
-                },
-              },
+              "android": {"priority": "high"},
               "apns": {
                 "headers": {"apns-priority": "10"},
                 "payload": {
-                  "aps": {
-                    "category": "FLUTTER_NOTIFICATION_CATEGORY_DEFAULT",
-                    "alert": {"title": model.title, "body": model.message},
-                  },
+                  "aps": {"content-available": 1},
                 },
               },
               "token": element,
-              "data": model.payload,
+              "data": {
+                ...model.payload.map((k, v) => MapEntry(k, v.toString())),
+                "title": model.title,
+                "body": model.body,
+                "type": model.type?.name,
+              },
             },
           };
 

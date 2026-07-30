@@ -2,7 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/utils/src/download_io.dart';
+import 'package:minicrm/utils/src/download_io.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '/services/services.dart';

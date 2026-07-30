@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:leadcapture/constants/src/enum.dart';
+import 'package:minicrm/constants/src/enum.dart';
 import '/theme/theme.dart';
 
 class ConfirmDialog extends StatefulWidget {

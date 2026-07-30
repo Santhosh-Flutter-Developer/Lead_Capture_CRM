@@ -162,7 +162,10 @@ class _LeadCategoryCreateState extends State<LeadCategoryCreate> {
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
-        Navigator.pop(context, true);
+        Navigator.pop(context, {
+          "status": true,
+          "name": leadCategoryModel.name,
+        });
 
         FlushBar.show(
           context,

@@ -1,9 +1,5 @@
 export 'src/device_model.dart';
-export 'src/designation_model.dart';
 export 'src/role_model.dart';
-export 'src/department_model.dart';
-export 'src/sub_department_model.dart';
-export 'src/employee_model.dart';
 export 'src/file_model.dart';
 export 'src/chat_model.dart';
 export 'src/notification_model.dart';
@@ -16,7 +12,6 @@ export 'src/deal_status_model.dart';
 export 'src/task_model.dart';
 export 'src/deal_model.dart';
 export 'src/admin_model.dart';
-export 'src/project_model.dart';
 export 'src/version_model.dart';
 export 'src/trash_model.dart';
 export 'src/dashboard_model.dart';

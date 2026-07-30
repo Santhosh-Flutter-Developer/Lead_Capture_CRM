@@ -184,19 +184,21 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
         final e = dayDeals[index];
 
         return DealCard(
-          title: e.dealName,
-          category: e.dealStatus != null && e.dealStatus!.isNotEmpty
-              ? CacheService.dealStatusByUid(e.dealStatus!)?.name ?? ''
-              : "No status",
+          title: e.clientName != null && e.clientName!.isNotEmpty
+              ? e.clientName!
+              : e.dealName,
+          category: e.dealName,
           categoryColor: Theme.of(context).colorScheme.primaryContainer,
           textColor: Theme.of(context).colorScheme.primary,
           time: (e.createdAt).formatDateTime,
-          avatars: [e.createdBy.uid],
           onTap: () {
             if (kIsDesktop) {
-              GeneralDialog.showRTLSheet(context, DealEdit(uid: e.uid ?? ''));
+              GeneralDialog.showRTLSheet(context, DealsViewPage(deal: e));
             } else {
-              Sheet.showSheet(context, widget: DealEdit(uid: e.uid ?? ''));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DealsViewPage(deal: e)),
+              );
             }
           },
           completed: false,
@@ -509,12 +511,12 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
                               if (kIsDesktop) {
                                 GeneralDialog.showRTLSheet(
                                   context,
-                                  DealEdit(uid: item.uid ?? ''),
+                                  DealsViewPage(deal: item),
                                 );
                               } else {
-                                Sheet.showSheet(
+                                Navigator.push(
                                   context,
-                                  widget: DealEdit(uid: item.uid ?? ''),
+                                  MaterialPageRoute(builder: (context) => DealsViewPage(deal: item)),
                                 );
                               }
                             },
@@ -548,6 +550,23 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit, size: 20),
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                                if (kIsDesktop) {
+                                                  GeneralDialog.showRTLSheet(
+                                                    context,
+                                                    DealEdit(uid: item.uid ?? ''),
+                                                  );
+                                                } else {
+                                                  Sheet.showSheet(
+                                                    context,
+                                                    widget: DealEdit(uid: item.uid ?? ''),
+                                                  );
+                                                }
+                                              },
                                             ),
                                             if (item.dealValue > 0)
                                               Text(
@@ -669,7 +688,6 @@ class DealCard extends StatelessWidget {
   final Color categoryColor;
   final Color textColor;
   final String time;
-  final List<String> avatars;
   final bool completed;
   final VoidCallback? onTap;
 
@@ -680,7 +698,6 @@ class DealCard extends StatelessWidget {
     required this.categoryColor,
     required this.textColor,
     required this.time,
-    required this.avatars,
     required this.completed,
     this.onTap,
   });
@@ -752,33 +769,8 @@ class DealCard extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 30,
-                  width: 100,
-                  child: Stack(
-                    children: List.generate(avatars.length, (index) {
-                      final avatarUserId = avatars[index];
-                      final avatarUrl = CacheService.getUserByUid(avatarUserId);
-
-                      return Positioned(
-                        left: index * 20.0,
-                        child: CircleAvatar(
-                          radius: 15,
-                          backgroundColor: Theme.of(context).colorScheme.surface,
-                          child: CircleAvatar(
-                            radius: 13,
-                            backgroundImage: NetworkImage(
-                              avatarUrl?.profileImageUrl ??
-                                  AppStrings.emptyProfilePhotoUrl,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
                 Icon(
                   Icons.check_circle_outline,
                   size: 24,

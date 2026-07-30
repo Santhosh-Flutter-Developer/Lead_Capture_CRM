@@ -46,18 +46,18 @@ class _RouteScreenState extends State<RouteScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> crmWidgets = [
-      {
-        'icon': Iconsax.message,
-        'title': 'Messages',
-        'route': 'Chats',
-        'color': Colors.blueAccent,
-      },
-      {
-        'icon': Iconsax.activity,
-        'title': 'Feed',
-        'route': 'Feed',
-        'color': Colors.orangeAccent,
-      },
+      // {
+      //   'icon': Iconsax.message,
+      //   'title': 'Messages',
+      //   'route': 'Chats',
+      //   'color': Colors.blueAccent,
+      // },
+      // {
+      //   'icon': Iconsax.activity,
+      //   'title': 'Feed',
+      //   'route': 'Feed',
+      //   'color': Colors.orangeAccent,
+      // },
       {
         'icon': Iconsax.calendar,
         'title': 'Calendar',
@@ -76,18 +76,18 @@ class _RouteScreenState extends State<RouteScreen> {
         'route': 'Leads',
         'color': Colors.redAccent,
       },
-      {
-        'icon': Iconsax.building,
-        'title': 'Companies',
-        'route': 'Companies',
-        'color': Colors.indigoAccent,
-      },
-      {
-        'icon': Iconsax.calendar_2,
-        'title': 'Holidays',
-        'route': 'Holidays',
-        'color': Colors.purpleAccent,
-      },
+      // {
+      //   'icon': Iconsax.building,
+      //   'title': 'Companies',
+      //   'route': 'Companies',
+      //   'color': Colors.indigoAccent,
+      // },
+      // {
+      //   'icon': Iconsax.calendar_2,
+      //   'title': 'Holidays',
+      //   'route': 'Holidays',
+      //   'color': Colors.purpleAccent,
+      // },
       {
         'icon': Iconsax.setting,
         'title': 'Settings',

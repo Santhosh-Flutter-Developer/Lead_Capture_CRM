@@ -19,7 +19,6 @@ class TaskModel {
   final List<String> participants;
   final List<String> tags;
   final DateTime? reminder;
-  final String? project;
   final String? lead;
   final String? subTaskOf;
   bool hasStarted;
@@ -48,7 +47,6 @@ class TaskModel {
     required this.participants,
     required this.tags,
     this.reminder,
-    this.project,
     this.lead,
     this.subTaskOf,
     this.hasStarted = false,
@@ -90,7 +88,6 @@ class TaskModel {
       participants: List<String>.from(map['participants'] ?? []),
       tags: List<String>.from(map['tags'] ?? []),
       reminder: _toDateTime(map['reminder']),
-      project: map['project'] as String?,
       lead: map['lead'] as String?,
       subTaskOf: map['subTaskOf'] as String?,
       hasStarted: map['hasStarted'] as bool? ?? false,
@@ -138,7 +135,6 @@ class TaskModel {
       'participants': participants,
       'tags': tags,
       'reminder': reminder?.millisecondsSinceEpoch,
-      'project': project,
       'lead': lead,
       'subTaskOf': subTaskOf,
       'hasStarted': hasStarted,
@@ -168,7 +164,6 @@ class TaskModel {
       'participants': participants,
       'tags': tags,
       'reminder': reminder?.millisecondsSinceEpoch,
-      'project': project,
       'lead': lead,
       'subTaskOf': subTaskOf,
       'hasStarted': hasStarted,
@@ -199,7 +194,7 @@ class TaskModel {
 
   @override
   String toString() {
-    return 'TaskModel(uid: $uid, taskName: $taskName, description: $description, deadline: $deadline, deadlineRequired: $deadlineRequired, highPriority: $highPriority, statusSummaryRequired: $statusSummaryRequired, assignees: $assignees, createdBy: $createdBy, observers: $observers, participants: $participants, tags: $tags, reminder: $reminder, project: $project, lead: $lead, subTaskOf: $subTaskOf, comments: hasStarted: $hasStarted, completed: $completed, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'TaskModel(uid: $uid, taskName: $taskName, description: $description, deadline: $deadline, deadlineRequired: $deadlineRequired, highPriority: $highPriority, statusSummaryRequired: $statusSummaryRequired, assignees: $assignees, createdBy: $createdBy, observers: $observers, participants: $participants, tags: $tags, reminder: $reminder, lead: $lead, subTaskOf: $subTaskOf, comments: hasStarted: $hasStarted, completed: $completed, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -219,7 +214,6 @@ class TaskModel {
         listEquals(other.participants, participants) &&
         listEquals(other.tags, tags) &&
         other.reminder == reminder &&
-        other.project == project &&
         other.lead == lead &&
         other.subTaskOf == subTaskOf &&
         other.hasStarted == hasStarted &&
@@ -243,7 +237,6 @@ class TaskModel {
         participants.hashCode ^
         tags.hashCode ^
         reminder.hashCode ^
-        project.hashCode ^
         lead.hashCode ^
         subTaskOf.hashCode ^
         hasStarted.hashCode ^

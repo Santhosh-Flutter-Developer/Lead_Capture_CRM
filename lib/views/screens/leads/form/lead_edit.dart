@@ -42,6 +42,8 @@ class _LeadEditState extends State<LeadEdit> {
   // final bool _allowFollowUp = true;
 
   bool _showCompanyDetails = false;
+  bool _companyrefresh = false;
+  bool _contactrefresh = false;
   late Future _future;
 
   List<LeadCategoryModel> _leadCategories = [];
@@ -76,8 +78,6 @@ class _LeadEditState extends State<LeadEdit> {
     bool refreshSource = false,
     bool refreshCategory = false,
     bool refreshStatus = false,
-    bool refreshContact = false,
-    bool refreshCompany = false,
     bool refreshPriority = false,
   }) async {
     try {
@@ -94,21 +94,6 @@ class _LeadEditState extends State<LeadEdit> {
       if (refreshStatus) {
         _leadStatus.clear();
         _leadStatus = await LeadStatusService.getAllLeadStatus();
-        return;
-      }
-      if (refreshContact) {
-        _contacts = (await ClientService.getAllClients())
-            .where(
-              (c) =>
-                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
-            )
-            .toList();
-        return;
-      }
-      if (refreshCompany) {
-        _clients = (await ClientService.getAllClients())
-            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
-            .toList();
         return;
       }
       if (refreshPriority) {
@@ -139,54 +124,21 @@ class _LeadEditState extends State<LeadEdit> {
       _cityModel = _leadModel.companyCity;
 
       if (_leadModel.leadCategory.isNotEmpty) {
-        try {
-          _leadCategory = await LeadCategoryService.getLeadCategory(
-            uid: _leadModel.leadCategory,
-          );
-        } catch (e) {
-          // If UID fetch fails, try by name
-          try {
-            _leadCategory = await LeadCategoryService.getByNameOrCreate(
-              name: _leadModel.leadCategory,
-            );
-          } catch (e2) {
-            debugPrint("Failed to resolve lead category: $_leadModel.leadCategory");
-          }
-        }
+        _leadCategory = await LeadCategoryService.getLeadCategory(
+          uid: _leadModel.leadCategory,
+        );
       }
 
       if (_leadModel.leadStatus.isNotEmpty) {
-        try {
-          _leadStatusModel = await LeadStatusService.getLeadStatus(
-            uid: _leadModel.leadStatus,
-          );
-        } catch (e) {
-          // If UID fetch fails, try by name
-          try {
-            _leadStatusModel = await LeadStatusService.getByNameOrCreate(
-              name: _leadModel.leadStatus,
-            );
-          } catch (e2) {
-            debugPrint("Failed to resolve lead status: $_leadModel.leadStatus");
-          }
-        }
+        _leadStatusModel = await LeadStatusService.getLeadStatus(
+          uid: _leadModel.leadStatus,
+        );
       }
 
       if (_leadModel.leadPriority.isNotEmpty) {
-        try {
-          _leadPriority = await LeadPriorityService.getLeadPriority(
-            uid: _leadModel.leadPriority,
-          );
-        } catch (e) {
-          // If UID fetch fails, try by name
-          try {
-            _leadPriority = await LeadPriorityService.getByNameOrCreate(
-              name: _leadModel.leadPriority,
-            );
-          } catch (e2) {
-            debugPrint("Failed to resolve lead priority: $_leadModel.leadPriority");
-          }
-        }
+        _leadPriority = await LeadPriorityService.getLeadPriority(
+          uid: _leadModel.leadPriority,
+        );
       }
 
       // _allowFollowUp = _leadModel.allowFollowUp;
@@ -506,7 +458,7 @@ class _LeadEditState extends State<LeadEdit> {
             hintText: 'e.g. John Doe',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? '* Lead Name is required' : null,
+                input == null || input.isEmpty ? 'Lead Name is required' : null,
           ),
         ),
         SizedBox(
@@ -516,15 +468,6 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _leadEmailController,
             hintText: 'e.g. johndoe@example.com',
             keyboardType: TextInputType.emailAddress,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
@@ -537,7 +480,6 @@ class _LeadEditState extends State<LeadEdit> {
                         key: ValueKey('lead_source_${_leadSource.length}'),
                         initialItem: _selectedLeadSource?.name,
                         label: 'Lead Source',
-                        isRequired: true,
                         items: _leadSource.map((e) => e.name).toList(),
                         onChanged: (value) {
                           _selectedLeadSource = _leadSource.firstWhere(
@@ -592,7 +534,6 @@ class _LeadEditState extends State<LeadEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_category_${_leadCategories.length}'),
                         label: 'Lead Category',
-                        isRequired: true,
                         initialItem: _leadCategory?.name,
                         items: _leadCategories.map((e) => e.name).toList(),
                         onChanged: (value) {
@@ -648,7 +589,6 @@ class _LeadEditState extends State<LeadEdit> {
                 child: FormDropdownSearch(
                   key: ValueKey('lead_priority_${_leadPriorities.length}'),
                   label: 'Lead Priority',
-                  isRequired: true,
                   initialItem: _leadPriority?.name,
                   items: _leadPriorities.map((e) => e.name).toList(),
                   onChanged: (value) {
@@ -725,7 +665,6 @@ class _LeadEditState extends State<LeadEdit> {
                       child: FormDropdownSearch(
                         key: ValueKey('lead_status_${_leadStatus.length}'),
                         label: 'Status',
-                        isRequired: true,
                         initialItem: _leadStatusModel?.name,
                         items: _leadStatus.map((e) => e.name).toList(),
                         onChanged: (value) {
@@ -802,14 +741,15 @@ class _LeadEditState extends State<LeadEdit> {
       spacing: horizontalSpacing,
       runSpacing: verticalSpacing,
       children: [
-        SizedBox(
+        _contactrefresh == true
+            ? SizedBox()
+            : SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
-                        key: ValueKey('contact_${_contacts.length}'),
                         label: 'Name',
                         isRequired: true,
                         initialItem: _clientName.text,
@@ -842,7 +782,16 @@ class _LeadEditState extends State<LeadEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshContact: true);
+                          setState(() {
+                            _contactrefresh = true;
+                          });
+                          _contacts = (await ClientService.getAllClients())
+                              .where(
+                                (c) =>
+                                    c.isCompany == false &&
+                                    (c.clientName?.isNotEmpty ?? false),
+                              )
+                              .toList();
                           if (val["contact"] != null) {
                             _selectedContact = val["contact"];
                             _clientName.text =
@@ -853,7 +802,9 @@ class _LeadEditState extends State<LeadEdit> {
                                 _selectedContact?.salutation ?? '';
                             _gender.text = _selectedContact?.gender ?? '';
                           }
-                          setState(() {});
+                          setState(() {
+                            _contactrefresh = false;
+                          });
                         }
                       },
                       child: Container(
@@ -886,36 +837,12 @@ class _LeadEditState extends State<LeadEdit> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return null; // Not required
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
+            isRequired: true,
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(
-            label: "Mobile",
-            controller: _mobile,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
-          ),
+          child: FormFields(label: "Mobile", controller: _mobile),
         ),
         SizedBox(
           width: itemWidth,
@@ -956,16 +883,16 @@ class _LeadEditState extends State<LeadEdit> {
         //     hintText: 'Enter Company Name',
         //   ),
         // ),
-        SizedBox(
+        _companyrefresh == true
+            ? SizedBox()
+            : SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
-                        key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
-                        isRequired: true,
                         initialItem: _selectedclient?.companyName,
                         items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
@@ -1004,7 +931,10 @@ class _LeadEditState extends State<LeadEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          await _init(refreshCompany: true);
+                          setState(() {
+                            _companyrefresh = true;
+                          });
+                          _clients = await ClientService.getAllClients();
                           if (val["company"] != null) {
                             _selectedclient = val["company"];
                             _companyWebsiteController.text =
@@ -1019,7 +949,9 @@ class _LeadEditState extends State<LeadEdit> {
                             _companyAddressController.text =
                                 _selectedclient?.companyAddress ?? "";
                           }
-                          setState(() {});
+                          setState(() {
+                            _companyrefresh = false;
+                          });
                         }
                       },
                       child: Container(
@@ -1053,19 +985,6 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile Number',
             keyboardType: TextInputType.phone,
-            isRequired: true,
-            valid: (input) {
-              if (input == null || input.isEmpty) {
-                return '* Mobile is required';
-              }
-              if (!RegExp(r'^\d+$').hasMatch(input)) {
-                return 'Mobile must contain only digits';
-              }
-              if (input.length != 10) {
-                return 'Mobile must be exactly 10 digits';
-              }
-              return null;
-            },
           ),
         ),
         SizedBox(
@@ -1179,7 +1098,7 @@ class _LeadEditState extends State<LeadEdit> {
           }
         }
 
-        final workflow = await EmployeeService.getUserWorkflow();
+        final workflow = [await Spdb.getUid() ?? ''];
 
         // ClientModel clientModel = ClientModel(
         //   clientName: '',

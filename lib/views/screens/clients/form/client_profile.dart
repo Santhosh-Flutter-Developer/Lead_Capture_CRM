@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:leadcapture/services/firebase/src/common_service.dart';
-import 'package:leadcapture/services/firebase/src/project_service.dart';
+import 'package:minicrm/services/firebase/src/common_service.dart';
 import 'package:shimmer/shimmer.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
@@ -23,27 +22,9 @@ class ClientProfile extends StatefulWidget {
 }
 
 class _ClientProfileState extends State<ClientProfile> {
-  List<ProjectModel> projectsList = [];
-
   @override
   void initState() {
     super.initState();
-    loadProjects();
-  }
-
-  Future<void> loadProjects() async {
-    try {
-      final allProjects = await ProjectService.getAllProjects();
-      projectsList = allProjects.where((p) => p.client == widget.client.uid).toList();
-
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (e, st) {
-      await ErrorService.recordError(e, st);
-
-      debugPrint("${e.toString()}, ${st.toString()}");
-    }
   }
 
   @override
@@ -73,8 +54,6 @@ class _ClientProfileState extends State<ClientProfile> {
                   _buildContactInfo(context),
                   const SizedBox(height: 20),
                   _buildCompanyInfo(context),
-                  const SizedBox(height: 24),
-                  _buildProjectsExpandable(context),
                   // const SizedBox(height: 24),
                   // _buildInvoicesExpandable(context),
                 ],
@@ -305,28 +284,6 @@ class _ClientProfileState extends State<ClientProfile> {
     );
   }
 
-  Widget _buildProjectsExpandable(BuildContext context) {
-    return expandableSection(
-      context: context,
-      title: "Projects",
-      icon: Icons.folder_open_outlined,
-      child: projectsList.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text("No projects found"),
-            )
-          : Column(
-              children: projectsList.map((project) {
-                return _listTile(
-                  context,
-                  project.projectName,
-                  // project.status,
-                  // _statusColor(project.status),
-                );
-              }).toList(),
-            ),
-    );
-  }
 
   // Widget _buildInvoicesExpandable(BuildContext context) {
   Color _statusColor(String status) {
@@ -433,9 +390,3 @@ class _ClientProfileState extends State<ClientProfile> {
   );
 }
 
-class Project {
-  final String name;
-  final String status;
-
-  Project(this.name, this.status);
-}

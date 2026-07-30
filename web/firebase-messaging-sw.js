@@ -21,12 +21,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-com
 
 // ── Firebase config (matches firebase_options.dart web config) ────────────────
 firebase.initializeApp({
-  apiKey:            'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
-  authDomain:        'leadcapture-79a43.firebaseapp.com',
-  projectId:         'leadcapture-79a43',
-  storageBucket:     'leadcapture-79a43.firebasestorage.app',
+  apiKey: 'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
+  authDomain: 'leadcapture-79a43.firebaseapp.com',
+  projectId: 'leadcapture-79a43',
+  storageBucket: 'leadcapture-79a43.firebasestorage.app',
   messagingSenderId: '204207195810',
-  appId:             '1:204207195810:web:4f329a51ecefce1f0339fb',
+  appId: '1:204207195810:web:4f329a51ecefce1f0339fb',
 });
 
 const messaging = firebase.messaging();
@@ -34,19 +34,19 @@ const messaging = firebase.messaging();
 // ── Background message handler ────────────────────────────────────────────────
 // This fires when a push message arrives while the app tab is in the background
 // or the browser is closed. It shows a system notification.
-messaging.onBackgroundMessage(function(payload) {
+messaging.onBackgroundMessage(function (payload) {
   console.log('[SW] Background message received:', payload);
 
   const notificationTitle =
     payload.notification?.title ||
     payload.data?.title ||
-    'Lead Capture';
+    'Mini CRM ';
 
   const notificationOptions = {
-    body:  payload.notification?.body || payload.data?.body || 'New notification',
-    icon:  '/icons/Icon-192.png',
+    body: payload.notification?.body || payload.data?.body || 'New notification',
+    icon: '/icons/Icon-192.png',
     badge: '/icons/Icon-192.png',
-    data:  payload.data || {},
+    data: payload.data || {},
     // Vibrate pattern for mobile browsers that support it
     vibrate: [200, 100, 200],
   };
@@ -59,12 +59,12 @@ messaging.onBackgroundMessage(function(payload) {
 
 // ── Notification click handler ────────────────────────────────────────────────
 // Opens / focuses the app tab when the user taps the notification.
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('notificationclick', function (event) {
   event.notification.close();
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(function(windowClients) {
+      .then(function (windowClients) {
         // If a tab is already open, focus it
         for (var i = 0; i < windowClients.length; i++) {
           var client = windowClients[i];

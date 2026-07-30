@@ -48,6 +48,7 @@ enum Collections {
   customerTickets,
   ticketComments,
   ticketHistory,
+  eventStartNotifications,
 }
 
 enum StorageFolder {
@@ -235,6 +236,7 @@ enum NotificationType {
   permissionRequest,
   lead,
   eventReminder,
+  eventStarted,
   deal,
   chat,
   success,
@@ -243,3 +245,7 @@ enum NotificationType {
   feed,
   ticket,
 }
+
+/// Lifecycle of the server-scheduled "event started" push notification for
+/// a calendar event. Written by the Cloud Function, read-only from the app.
+enum EventNotificationStatus { pending, scheduled, sent, cancelled, failed }

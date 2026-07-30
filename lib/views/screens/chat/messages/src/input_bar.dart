@@ -2,8 +2,7 @@ part of 'chat_messages.dart';
 
 class ChatInputBar extends StatefulWidget {
   final ChatModel chat;
-  final String? threadId;
-  const ChatInputBar({super.key, required this.chat, this.threadId});
+  const ChatInputBar({super.key, required this.chat});
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -115,17 +114,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
     for (var uid in participants) {
       if (uid == currentUid) continue;
 
-      final user = CacheService.getUserByUid(uid);
+      final user = CacheService.adminByUid(uid);
 
-      if (user is EmployeeModel) {
-        users.add(
-          MentionModel(
-            uid: user.uid ?? '',
-            name: user.name,
-            image: user.profileImageUrl,
-          ),
-        );
-      } else if (user is AdminModel) {
+      if (user is AdminModel) {
         users.add(
           MentionModel(
             uid: user.uid ?? '',
@@ -325,45 +316,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    final chatData = ChatData.of(context);
-    final currentUser = chatData.currentUser;
-    final canPost = widget.chat.canPostMessage(currentUser);
-
-    if (!canPost) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainer,
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 1.0,
-            ),
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.announcement_outlined,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              "Only administrators can post in this channel.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Column(
       children: [
           if (_isReply) _replyMessage(_chat, context, _messageProvider),
@@ -593,7 +545,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
           attachments: attachments,
           replyFor: replyId,
           mentions: updatedMentions,
-          threadId: widget.threadId,
         );
       }
 
@@ -808,17 +759,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       Row(
                         children: [
                           // Avatar
-                          ((CacheService.getUserByUid(
+                          ((CacheService.adminByUid(
                                         chat?.senderId ?? '',
                                       )?.profileImageUrl) !=
                                       null &&
-                                  (CacheService.getUserByUid(
+                                  (CacheService.adminByUid(
                                     chat?.senderId ?? '',
                                   )?.profileImageUrl)!.isNotEmpty)
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(100),
                                   child: CachedNetworkImage(
-                                    imageUrl: (CacheService.getUserByUid(
+                                    imageUrl: (CacheService.adminByUid(
                                       chat?.senderId ?? '',
                                     )?.profileImageUrl)!,
                                     placeholder: (context, url) =>
@@ -844,11 +795,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
                                     context,
                                   ).colorScheme.surfaceContainerHighest,
                                   child:
-                                      ((CacheService.getUserByUid(
+                                      ((CacheService.adminByUid(
                                                 chat?.senderId ?? '',
                                               )?.profileImageUrl) ==
                                               null ||
-                                          (CacheService.getUserByUid(
+                                          (CacheService.adminByUid(
                                             chat?.senderId ?? '',
                                           )?.profileImageUrl)!.isEmpty)
                                       ? const Icon(Iconsax.user, size: 12)
@@ -858,7 +809,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           const SizedBox(width: 5),
                           // Name
                           Text(
-                            CacheService.getUserByUid(
+                            CacheService.adminByUid(
                                   chat?.senderId ?? '',
                                 )?.name ??
                                 '',

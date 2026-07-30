@@ -279,14 +279,14 @@ class _ReplyTileState extends State<ReplyTile> {
                         borderRadius: BorderRadius.circular(100),
                         child: CachedNetworkImage(
                           imageUrl:
-                              CacheService.getUserByUid(
+                              CacheService.adminByUid(
                                         widget.message?.senderId ?? '',
                                       )?.profileImageUrl !=
                                       null &&
-                                  (CacheService.getUserByUid(
+                                  (CacheService.adminByUid(
                                     widget.message?.senderId ?? '',
                                   )?.profileImageUrl)!.isNotEmpty
-                              ? (CacheService.getUserByUid(
+                              ? (CacheService.adminByUid(
                                   widget.message?.senderId ?? '',
                                 )?.profileImageUrl)!
                               : AppStrings.emptyProfilePhotoUrl,
@@ -306,7 +306,7 @@ class _ReplyTileState extends State<ReplyTile> {
                       const SizedBox(width: 5),
                       // Name
                       Text(
-                        CacheService.getUserByUid(
+                        CacheService.adminByUid(
                               widget.message?.senderId ?? '',
                             )?.name ??
                             '',

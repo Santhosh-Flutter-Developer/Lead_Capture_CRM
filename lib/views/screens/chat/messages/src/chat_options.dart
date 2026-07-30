@@ -60,16 +60,6 @@ class ChatOptions extends StatelessWidget {
               ),
               leading: const Icon(Iconsax.copy),
             ),
-            ListTile(
-              onTap: () => Navigator.pop(context, 5),
-              title: Text(
-                "Reply in Thread",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.black),
-              ),
-              leading: const Icon(Iconsax.message_programming),
-            ),
           ],
         ),
       ),

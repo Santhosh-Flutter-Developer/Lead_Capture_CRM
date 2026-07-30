@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:leadcapture/services/firebase/src/notification_service.dart' show getToken;
+import 'package:minicrm/services/firebase/src/notification_service.dart';
 // import 'notification_service.dart' show getToken;
 
 /// Returns a map of device info fields for the current native platform.

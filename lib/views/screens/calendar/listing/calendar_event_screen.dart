@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'package:minicrm/views/screens/calendar/form/event_view.dart';
 import '/constants/constants.dart';
 import '/views/views.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
 import '/services/services.dart';
-import '/views/screens/calendar/form/event_view.dart';
 
 class CalendarEventScreen extends StatelessWidget {
   final bool showAppbar;
@@ -182,7 +182,14 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                           _buildHorizontalDatePicker(),
                         ],
 
-                        Expanded(child: _buildBody(state.events, state.tasks, state.leads, state.deals)),
+                        Expanded(
+                          child: _buildBody(
+                            state.events,
+                            state.tasks,
+                            state.leads,
+                            state.deals,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -305,7 +312,12 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     );
   }
 
-  Widget _buildBody(List<EventModel> events, List<TaskModel> tasks, List<LeadModel> leads, List<DealModel> deals) {
+  Widget _buildBody(
+    List<EventModel> events,
+    List<TaskModel> tasks,
+    List<LeadModel> leads,
+    List<DealModel> deals,
+  ) {
     switch (_currentView) {
       case Calendar.day:
         return _buildDayView(events, tasks, leads, deals);
@@ -316,7 +328,12 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     }
   }
 
-  Widget _buildDayView(List<EventModel> events, List<TaskModel> tasks, List<LeadModel> leads, List<DealModel> deals) {
+  Widget _buildDayView(
+    List<EventModel> events,
+    List<TaskModel> tasks,
+    List<LeadModel> leads,
+    List<DealModel> deals,
+  ) {
     final dayEvents = events
         .where((e) => _isSameDay(e.eventDateTime, _selectedDate))
         .toList();
@@ -333,7 +350,10 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
         .where((e) => _isSameDay(e.createdAt, _selectedDate))
         .toList();
 
-    if (dayEvents.isEmpty && dayTasks.isEmpty && dayLeads.isEmpty && dayDeals.isEmpty) {
+    if (dayEvents.isEmpty &&
+        dayTasks.isEmpty &&
+        dayLeads.isEmpty &&
+        dayDeals.isEmpty) {
       return Center(
         child: Text(
           "No events, tasks, leads, or deals for today",
@@ -357,14 +377,15 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             categoryColor: Theme.of(context).colorScheme.primaryContainer,
             textColor: Theme.of(context).colorScheme.primary,
             time: _formatTimeRange(e.eventDateTime, e.eventEndDateTime),
-            avatars: e.eventAttendes,
             onTap: () {
               if (kIsDesktop) {
                 GeneralDialog.showRTLSheet(context, EventViewPage(event: e));
               } else {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => EventViewPage(event: e)),
+                  MaterialPageRoute(
+                    builder: (context) => EventViewPage(event: e),
+                  ),
                 );
               }
             },
@@ -377,12 +398,6 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             categoryColor: Theme.of(context).colorScheme.primaryContainer,
             textColor: Theme.of(context).colorScheme.primary,
             time: (e.deadline ?? DateTime.now()).formatDateTime,
-            avatars: [
-              ...(e.assignees),
-              ...(e.observers),
-              ...(e.participants),
-              ...(e.createdBy),
-            ],
             onTap: () {
               if (kIsDesktop) {
                 GeneralDialog.showRTLSheet(context, TaskEdit(uid: e.uid ?? ''));
@@ -401,14 +416,15 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             categoryColor: Theme.of(context).colorScheme.primaryContainer,
             textColor: Theme.of(context).colorScheme.primary,
             time: e.createdAt.formatDateTime,
-            avatars: [],
             onTap: () {
               if (kIsDesktop) {
                 GeneralDialog.showRTLSheet(context, LeadsViewPage(lead: e));
               } else {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => LeadsViewPage(lead: e)),
+                  MaterialPageRoute(
+                    builder: (context) => LeadsViewPage(lead: e),
+                  ),
                 );
               }
             },
@@ -423,14 +439,15 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             categoryColor: Theme.of(context).colorScheme.primaryContainer,
             textColor: Theme.of(context).colorScheme.primary,
             time: e.createdAt.formatDateTime,
-            avatars: [],
             onTap: () {
               if (kIsDesktop) {
                 GeneralDialog.showRTLSheet(context, DealsViewPage(deal: e));
               } else {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => DealsViewPage(deal: e)),
+                  MaterialPageRoute(
+                    builder: (context) => DealsViewPage(deal: e),
+                  ),
                 );
               }
             },
@@ -442,7 +459,12 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     );
   }
 
-  Widget _buildWeekView(List<EventModel> events, List<TaskModel> tasks, List<LeadModel> leads, List<DealModel> deals) {
+  Widget _buildWeekView(
+    List<EventModel> events,
+    List<TaskModel> tasks,
+    List<LeadModel> leads,
+    List<DealModel> deals,
+  ) {
     DateTime firstDayOfWeek = _selectedDate.subtract(
       Duration(days: _selectedDate.weekday - 1),
     );
@@ -460,13 +482,9 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             .where((e) => _isSameDay(e.deadline ?? DateTime.now(), day))
             .length;
 
-        var leadCount = leads
-            .where((e) => _isSameDay(e.createdAt, day))
-            .length;
+        var leadCount = leads.where((e) => _isSameDay(e.createdAt, day)).length;
 
-        var dealCount = deals
-            .where((e) => _isSameDay(e.createdAt, day))
-            .length;
+        var dealCount = deals.where((e) => _isSameDay(e.createdAt, day)).length;
 
         var totalCount = count + taskCount + leadCount + dealCount;
 
@@ -498,10 +516,9 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
               } else {
                 showInfoGeneralDialog(
                   context,
-                  title:
-                      'Items on ${day.day}/${day.month}/${day.year}',
+                  title: 'Items on ${day.day}/${day.month}/${day.year}',
                   description:
-                      'You have $count event(s), $taskCount task(s), $leadCount lead(s), & $dealCount deal(s) scheduled for this day.',
+                      'You have $count event(s), $leadCount lead(s), & $dealCount deal(s) scheduled for this day.',
                   items: events
                       .where((e) => _isSameDay(e.eventDateTime, day))
                       .toList(),
@@ -559,7 +576,12 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     );
   }
 
-  Widget _buildMonthView(List<EventModel> events, List<TaskModel> tasks, List<LeadModel> leads, List<DealModel> deals) {
+  Widget _buildMonthView(
+    List<EventModel> events,
+    List<TaskModel> tasks,
+    List<LeadModel> leads,
+    List<DealModel> deals,
+  ) {
     int daysInMonth = _getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
 
     return SingleChildScrollView(
@@ -637,7 +659,11 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
               bool hasDeals = dayDeals.isNotEmpty;
 
               bool hasItems = hasEvents || hasTasks || hasLeads || hasDeals;
-              var totalItemsCount = dayEvents.length + dayTasks.length + dayLeads.length + dayDeals.length;
+              var totalItemsCount =
+                  dayEvents.length +
+                  dayTasks.length +
+                  dayLeads.length +
+                  dayDeals.length;
 
               return InkWell(
                 onTap: () async {
@@ -799,7 +825,8 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 2),
                                     child: Text(
-                                      e.clientName != null && e.clientName!.isNotEmpty
+                                      e.clientName != null &&
+                                              e.clientName!.isNotEmpty
                                           ? e.clientName!
                                           : e.leadName,
                                       maxLines: 1,
@@ -824,7 +851,8 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 2),
                                     child: Text(
-                                      e.clientName != null && e.clientName!.isNotEmpty
+                                      e.clientName != null &&
+                                              e.clientName!.isNotEmpty
                                           ? e.clientName!
                                           : e.dealName,
                                       maxLines: 1,
@@ -933,7 +961,10 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                 } else {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => EventViewPage(event: item)),
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          EventViewPage(event: item),
+                                    ),
                                   );
                                 }
                               },
@@ -944,19 +975,43 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                     : "No description",
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
-                              trailing: Column(
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    item.eventDateTime.formatTime,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 20),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      if (kIsDesktop) {
+                                        GeneralDialog.showRTLSheet(
+                                          context,
+                                          EventEdit(uid: item.uid ?? ''),
+                                        );
+                                      } else {
+                                        Sheet.showSheet(
+                                          context,
+                                          widget: EventEdit(
+                                            uid: item.uid ?? '',
+                                          ),
+                                        );
+                                      }
+                                    },
                                   ),
-                                  Text(
-                                    item.eventEndDateTime.formatTime,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  Column(
+                                    children: [
+                                      Text(
+                                        item.eventDateTime.formatTime,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        item.eventEndDateTime.formatTime,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -986,20 +1041,42 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                     : "No description",
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
-                              trailing: Column(
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    "Deadline",
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 20),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      if (kIsDesktop) {
+                                        GeneralDialog.showRTLSheet(
+                                          context,
+                                          TaskEdit(uid: item.uid ?? ''),
+                                        );
+                                      } else {
+                                        Sheet.showSheet(
+                                          context,
+                                          widget: TaskEdit(uid: item.uid ?? ''),
+                                        );
+                                      }
+                                    },
                                   ),
-                                  Text(
-                                    (item.deadline ?? DateTime.now())
-                                        .formatTime,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  Column(
+                                    children: [
+                                      Text(
+                                        "Deadline",
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        (item.deadline ?? DateTime.now())
+                                            .formatTime,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -1009,16 +1086,23 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               onTap: () {
                                 Navigator.pop(context);
                                 if (kIsDesktop) {
-                                  GeneralDialog.showRTLSheet(context, LeadsViewPage(lead: item));
+                                  GeneralDialog.showRTLSheet(
+                                    context,
+                                    LeadsViewPage(lead: item),
+                                  );
                                 } else {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => LeadsViewPage(lead: item)),
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          LeadsViewPage(lead: item),
+                                    ),
                                   );
                                 }
                               },
                               title: Text(
-                                item.clientName != null && item.clientName!.isNotEmpty
+                                item.clientName != null &&
+                                        item.clientName!.isNotEmpty
                                     ? item.clientName!
                                     : item.leadName,
                               ),
@@ -1026,19 +1110,41 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                 item.leadName,
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
-                              trailing: Column(
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    "Created",
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 20),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      if (kIsDesktop) {
+                                        GeneralDialog.showRTLSheet(
+                                          context,
+                                          LeadEdit(uid: item.uid ?? ''),
+                                        );
+                                      } else {
+                                        Sheet.showSheet(
+                                          context,
+                                          widget: LeadEdit(uid: item.uid ?? ''),
+                                        );
+                                      }
+                                    },
                                   ),
-                                  Text(
-                                    item.createdAt.formatTime,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  Column(
+                                    children: [
+                                      Text(
+                                        "Created",
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        item.createdAt.formatTime,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -1048,16 +1154,23 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               onTap: () {
                                 Navigator.pop(context);
                                 if (kIsDesktop) {
-                                  GeneralDialog.showRTLSheet(context, DealsViewPage(deal: item));
+                                  GeneralDialog.showRTLSheet(
+                                    context,
+                                    DealsViewPage(deal: item),
+                                  );
                                 } else {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => DealsViewPage(deal: item)),
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          DealsViewPage(deal: item),
+                                    ),
                                   );
                                 }
                               },
                               title: Text(
-                                item.clientName != null && item.clientName!.isNotEmpty
+                                item.clientName != null &&
+                                        item.clientName!.isNotEmpty
                                     ? item.clientName!
                                     : item.dealName,
                               ),
@@ -1065,19 +1178,41 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                 item.dealName,
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
-                              trailing: Column(
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    "Created",
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 20),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      if (kIsDesktop) {
+                                        GeneralDialog.showRTLSheet(
+                                          context,
+                                          DealEdit(uid: item.uid ?? ''),
+                                        );
+                                      } else {
+                                        Sheet.showSheet(
+                                          context,
+                                          widget: DealEdit(uid: item.uid ?? ''),
+                                        );
+                                      }
+                                    },
                                   ),
-                                  Text(
-                                    item.createdAt.formatTime,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  Column(
+                                    children: [
+                                      Text(
+                                        "Created",
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        item.createdAt.formatTime,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -1091,16 +1226,43 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
 
                   const SizedBox(height: 12),
 
-                  /// Close button
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        "CLOSE",
-                        style: Theme.of(context).textTheme.bodySmall,
+                  /// Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (selectedDate != null)
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            if (kIsDesktop) {
+                              GeneralDialog.showRTLSheet(
+                                context,
+                                EventCreate(selectedDate: selectedDate),
+                              );
+                            } else {
+                              Sheet.showSheet(
+                                context,
+                                widget: EventCreate(selectedDate: selectedDate),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create Event'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          "CLOSE",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -1133,7 +1295,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
-            'Create',
+            'Create Event',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           content: Column(
@@ -1144,13 +1306,6 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                 icon: Iconsax.box_1,
                 label: 'Create Event',
                 result: 1,
-              ),
-              const SizedBox(height: 12),
-              _dialogButton(
-                context,
-                icon: Iconsax.tick_circle,
-                label: 'Create Task',
-                result: 2,
               ),
             ],
           ),
@@ -1194,7 +1349,6 @@ class EventCard extends StatelessWidget {
   final Color categoryColor;
   final Color textColor;
   final String time;
-  final List<String> avatars;
   final bool completed;
   final VoidCallback? onTap;
 
@@ -1205,7 +1359,6 @@ class EventCard extends StatelessWidget {
     required this.categoryColor,
     required this.textColor,
     required this.time,
-    required this.avatars,
     required this.completed,
     this.onTap,
   });
@@ -1277,33 +1430,8 @@ class EventCard extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 30,
-                  width: 100,
-                  child: Stack(
-                    children: List.generate(avatars.length, (index) {
-                      final avatarUserId = avatars[index];
-                      final avatarUrl = CacheService.getUserByUid(avatarUserId);
-
-                      return Positioned(
-                        left: index * 20.0,
-                        child: CircleAvatar(
-                          radius: 15,
-                          backgroundColor: Colors.white,
-                          child: CircleAvatar(
-                            radius: 13,
-                            backgroundImage: NetworkImage(
-                              avatarUrl?.profileImageUrl ??
-                                  AppStrings.emptyProfilePhotoUrl,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
                 Icon(
                   Icons.check_circle_outline,
                   size: 24,

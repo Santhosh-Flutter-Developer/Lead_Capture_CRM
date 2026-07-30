@@ -168,7 +168,10 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
-        Navigator.pop(context, true);
+        Navigator.pop(context, {
+          "status": true,
+          "name": dealStatusModel.name,
+        });
 
         FlushBar.show(context, 'Status created successfully', isSuccess: true);
       } catch (e, st) {

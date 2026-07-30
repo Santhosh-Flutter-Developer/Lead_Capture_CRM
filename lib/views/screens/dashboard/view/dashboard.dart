@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
-import 'package:leadcapture/constants/src/enum.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/theme/theme.dart';
 import '/services/services.dart';
+import '/constants/constants.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 const Color kBgColor = Color(0xFFF4F7FE);
@@ -954,18 +954,18 @@ Widget _buildKpiGrid(
                   ),
                 ),
                 const SizedBox(width: 10),
-                SizedBox(
-                  width: 200,
-                  child: KpiCard(
-                    title: "Active Staff",
-                    value: data.activeEmployees.toString(),
-                    icon: Icons.people_outline_rounded,
-                    progress: _calculateProgress(data.activeEmployees, 50),
-                    gradientColors: purpleGradient,
-                    enabled: permissions['Employees']?.canView ?? true,
-                    onTap: () => _openSheet(context, const EmployeeListing()),
-                  ),
-                ),
+                // SizedBox(
+                //   width: 200,
+                //   child: KpiCard(
+                //     title: "Active Staff",
+                //     value: data.activeEmployees.toString(),
+                //     icon: Icons.people_outline_rounded,
+                //     progress: _calculateProgress(data.activeEmployees, 50),
+                //     gradientColors: purpleGradient,
+                //     enabled: permissions['Employees']?.canView ?? true,
+                //     onTap: () => _openSheet(context, const AdminListing()),
+                //   ),
+                // ),
               ]
             : [
                 SizedBox(
@@ -1140,19 +1140,18 @@ Widget _buildRightPanel(
           const SizedBox(height: 20),
 
           // 🎫 TICKETS
-          _sectionTitle(context, "Recent Tickets"),
-          const SizedBox(height: 15),
+          // _sectionTitle(context, "Recent Tickets"),
+          // const SizedBox(height: 15),
 
-          if (recentTickets.isEmpty)
-            _emptyText(context, "No tickets yet.")
-          else
-            ...recentTickets.map(
-              (ticket) => TicketTile(
-                ticket: ticket,
-                onTap: () => _openSheet(context, TicketView(uid: ticket.uid!)),
-              ),
-            ),
-
+          // if (recentTickets.isEmpty)
+          //   _emptyText(context, "No tickets yet.")
+          // else
+          //   ...recentTickets.map(
+          //     (ticket) => TicketTile(
+          //       ticket: ticket,
+          //       onTap: () => _openSheet(context, TicketView(uid: ticket.uid!)),
+          //     ),
+          //   ),
           const SizedBox(height: 20),
 
           // 📌 TASKS
@@ -1235,20 +1234,20 @@ List<Widget> _adminActions(
     enabled: permissions['Deals']?.canCreate ?? true,
     onTap: () => _openSheet(context, const DealCreate()),
   ),
-  QuickActionCard(
-    icon: Icons.check_circle_outline,
-    label: "Add Task",
-    color: Colors.orange,
-    enabled: permissions['Tasks']?.canCreate ?? true,
-    onTap: () => _openSheet(context, const TaskCreate(employees: [])),
-  ),
-  QuickActionCard(
-    icon: Icons.confirmation_number_outlined,
-    label: "Add Ticket",
-    color: Colors.teal,
-    enabled: permissions['Tickets']?.canCreate ?? true,
-    onTap: () => _openSheet(context, const TicketCreate()),
-  ),
+  // QuickActionCard(
+  //   icon: Icons.check_circle_outline,
+  //   label: "Add Task",
+  //   color: Colors.orange,
+  //   enabled: permissions['Tasks']?.canCreate ?? true,
+  //   onTap: () => _openSheet(context, const TaskCreate(employees: [])),
+  // ),
+  // QuickActionCard(
+  //   icon: Icons.confirmation_number_outlined,
+  //   label: "Add Ticket",
+  //   color: Colors.teal,
+  //   enabled: permissions['Tickets']?.canCreate ?? true,
+  //   onTap: () => _openSheet(context, const TicketCreate()),
+  // ),
 
   // QuickActionCard(
   //   icon: Icons.access_time,

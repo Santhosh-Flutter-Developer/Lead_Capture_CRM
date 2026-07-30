@@ -234,7 +234,7 @@ class _SearchChatState extends State<SearchChat> {
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final message = _searchResults[index];
-        final user = CacheService.getUserByUid(message.senderId);
+        final user = CacheService.adminByUid(message.senderId);
 
         UserDataModel userData = UserDataModel.fromEmptyMap();
         if (user is AdminModel) {
@@ -243,13 +243,6 @@ class _SearchChatState extends State<SearchChat> {
             name: user.name,
             profilePic: user.profileImageUrl,
             userType: UserType.admin,
-          );
-        } else if (user is EmployeeModel) {
-          userData = UserDataModel(
-            uid: user.uid ?? '',
-            name: user.name,
-            profilePic: user.profileImageUrl,
-            userType: UserType.employee,
           );
         }
 

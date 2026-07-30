@@ -705,7 +705,7 @@ class TaskEventCard extends StatelessWidget {
                   child: Stack(
                     children: List.generate(avatars.length, (index) {
                       final avatarUserId = avatars[index];
-                      final avatarUrl = CacheService.getUserByUid(avatarUserId);
+                      final avatarUrl = CacheService.adminByUid(avatarUserId);
 
                       return Positioned(
                         left: index * 20.0,

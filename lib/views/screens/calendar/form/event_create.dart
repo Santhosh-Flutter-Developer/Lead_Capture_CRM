@@ -31,8 +31,6 @@ class _EventCreateState extends State<EventCreate> {
   DateTime? _selectedEventDateTime;
   DateTime? _selectedEndEventDateTime;
 
-  List<EmployeeModel> _employeesList = [];
-  final List<String> _selectedEventAttendes = [];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late Future _future;
@@ -53,8 +51,6 @@ class _EventCreateState extends State<EventCreate> {
 
   Future<void> _init() async {
     try {
-      _employeesList.clear();
-      _employeesList = await EmployeeService.getAllEmployees();
       setState(() {});
     } catch (e, st) {
       await ErrorService.recordError(e, st);
@@ -285,31 +281,6 @@ class _EventCreateState extends State<EventCreate> {
           ),
         ),
 
-        SizedBox(
-          width: itemWidth,
-          child: UsersListDropdown(
-            label: 'Attendees',
-            onChangedList: (list) {
-              _selectedEventAttendes.clear();
-              for (var i in list) {
-                if (i is EmployeeModel || i is AdminModel) {
-                  _selectedEventAttendes.addAll(list.map((e) => e.uid!));
-                } else if (i is ChatModel) {
-                  _selectedEventAttendes.addAll(i.participants);
-                } else if (i is Map<DepartmentModel, List<String?>>) {
-                  var depEmployees = i.entries.first.value
-                      .map((e) => e ?? '')
-                      .toList();
-                  depEmployees.removeWhere((element) => element.isEmpty);
-                  _selectedEventAttendes.addAll(depEmployees);
-                }
-              }
-            },
-            includeCurrentUser: false,
-            includeGroups: true,
-            includeDepartments: true,
-          ),
-        ),
       ],
     );
   }
@@ -332,7 +303,7 @@ class _EventCreateState extends State<EventCreate> {
                 (_selectedRepeatType ??
                     EventRepeatType.none.name.capitalizeFirst),
           ),
-          eventAttendes: _selectedEventAttendes.toSet().toList(),
+          eventAttendes: [],
           createdBy: await Spdb.getUser(),
         );
 

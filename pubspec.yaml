@@ -1,4 +1,4 @@
-name: leadcapture
+name: minicrm
 description: "A new Flutter project."
 
 publish_to: "none"
@@ -64,6 +64,8 @@ dependencies:
   hive_flutter: ^1.1.0
   local_notifier: ^0.1.6
   window_manager: ^0.5.1
+  tray_manager: ^0.5.0
+  launch_at_startup: ^0.5.1
   google_nav_bar: ^5.0.7
   badges: ^3.1.2
   pinput: ^5.0.2
@@ -100,8 +102,6 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
   msix: ^3.16.12
-  mocktail: ^1.0.3
-  fake_cloud_firestore: 4.1.0+1
 
 flutter:
   uses-material-design: true
@@ -111,6 +111,7 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/templates/
+    - assets/icons/
     - assets/mobilefacenet.tflite
     - shorebird.yaml
 
@@ -166,4 +167,3 @@ flutter_native_splash:
 #     update_blocks_activation: true
 #     show_prompt: true
 #     force_update_from_any_version: false
-

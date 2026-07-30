@@ -238,12 +238,6 @@ class _TicketListingViewState extends State<TicketListingView> {
                         ),
                         DataColumn(
                           label: Text(
-                            "Project",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
                             "Task",
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
@@ -648,17 +642,6 @@ class _TicketListingViewState extends State<TicketListingView> {
         dataCell(
           context,
           Text(
-            ticket.project != null
-                ? CacheService.getProjectByUid(ticket.project!)?.projectName ??
-                      '-'
-                : '-',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          ticket.uid ?? '',
-        ),
-        dataCell(
-          context,
-          Text(
             ticket.task != null
                 ? CacheService.getTaskByUid(ticket.task!)?.taskName ?? '-'
                 : '-',
@@ -674,9 +657,9 @@ class _TicketListingViewState extends State<TicketListingView> {
                   spacing: 6,
                   runSpacing: 6,
                   children: ticket.createdBy
-                      .map((uid) => CacheService.getUserByUid(uid))
+                      .map((uid) => CacheService.adminByUid(uid))
                       .where((user) => user != null)
-                      .map((user) => CreatedByWidget(userData: user!))
+                      .map((user) => CreatedByWidget(userData: UserDataModel(uid: user!.uid ?? '', name: user.name, userType: UserType.admin, profilePic: user.profileImageUrl)))
                       .toList(),
                 ),
           ticket.uid ?? '',

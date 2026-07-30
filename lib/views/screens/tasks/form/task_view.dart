@@ -639,23 +639,16 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildCommentItem(TaskCommentModel comment) {
-    final user = CacheService.getUserByUid(comment.userId);
-    var userData = UserDataModel.fromEmptyMap();
+    final user = CacheService.adminByUid(comment.userId);
 
-    if (user is EmployeeModel) {
+    UserDataModel userData = UserDataModel.fromEmptyMap();
+
+    if (user is AdminModel) {
       userData = UserDataModel(
+        uid: comment.userId,
         name: user.name,
-        uid: user.uid ?? '',
-        profilePic: user.profileImageUrl,
-        desc: CacheService.designationByUid(user.designation)?.name,
-        userType: UserType.employee,
-      );
-    } else if (user is AdminModel) {
-      userData = UserDataModel(
-        name: user.name,
-        uid: user.uid ?? '',
-        profilePic: user.profileImageUrl,
         desc: user.email,
+        profilePic: user.profileImageUrl,
         userType: UserType.admin,
       );
     }
@@ -804,7 +797,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                     ),
                   ),
                   Text(
-                    "By ${CacheService.getUserByUid(item.userId)?.name ?? 'User'} • ${item.timestamp.listingDateTime}",
+                    "By ${CacheService.adminByUid(item.userId)?.name ?? 'User'} • ${item.timestamp.listingDateTime}",
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1150,18 +1143,10 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildProfileTile(String uid, String role) {
-    final user = CacheService.getUserByUid(uid);
+    final user = CacheService.adminByUid(uid);
     var userData = UserDataModel.fromEmptyMap();
 
-    if (user is EmployeeModel) {
-      userData = UserDataModel(
-        name: user.name,
-        uid: user.uid ?? '',
-        profilePic: user.profileImageUrl,
-        desc: CacheService.designationByUid(user.designation)?.name,
-        userType: UserType.employee,
-      );
-    } else if (user is AdminModel) {
+    if (user is AdminModel) {
       userData = UserDataModel(
         name: user.name,
         uid: user.uid ?? '',

@@ -32,9 +32,6 @@ class _EventEditState extends State<EventEdit> {
   DateTime? _selectedEventDateTime;
   DateTime? _selectedEndEventDateTime;
 
-  List<EmployeeModel> _employeesList = [];
-  final List<String> _selectedEventAttendes = [];
-  final List<String> _selectedEventAttendesNames = [];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late Future _future;
@@ -49,8 +46,6 @@ class _EventEditState extends State<EventEdit> {
 
   Future<void> _init() async {
     try {
-      _employeesList.clear();
-      _employeesList = await EmployeeService.getAllEmployees();
       _eventModel = await EventService.getEvent(uid: widget.uid);
 
       _eventNameController.text = _eventModel.eventName;
@@ -62,21 +57,8 @@ class _EventEditState extends State<EventEdit> {
       _selectedEventDateTime = _eventModel.eventDateTime;
       _selectedEndEventDateTime = _eventModel.eventEndDateTime;
 
-      for (var i in _eventModel.eventAttendes) {
-        _selectedEventAttendes.add(i);
-
-        var employee = await EmployeeService.getEmployee(uid: i);
-        if (employee != null) {
-          _selectedEventAttendesNames.add(employee.name);
-        } else {
-          var admin = await AdminService.getAdmin(uid: i);
-          if (admin != null) {
-            _selectedEventAttendesNames.add(admin.name);
-          }
-        }
-      }
-
       _selectedRepeatType = _eventModel.eventRepeatType.name.capitalizeFirst;
+      _completed = _eventModel.completed;
 
       setState(() {});
     } catch (e, st) {
@@ -313,41 +295,6 @@ class _EventEditState extends State<EventEdit> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Members',
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                  color: AppColors.black,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8),
-              CustomSearchableDropdown(
-                initialValues: _selectedEventAttendesNames,
-                items: _employeesList.map((e) => e.name).toList(),
-                multiSelect: true,
-                onChangedList: (list) {
-                  for (var i in list) {
-                    final emp = _employeesList.firstWhere(
-                      (element) => element.name == i,
-                    );
-
-                    if (emp.uid != null) {
-                      if (!_selectedEventAttendes.contains(emp.uid)) {
-                        _selectedEventAttendes.add(emp.uid!);
-                      }
-                    }
-                  }
-                },
-                itemAsString: (s) => s,
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          width: itemWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
               SizedBox(height: 25),
               ModernCheckbox(
                 value: _completed,
@@ -382,7 +329,7 @@ class _EventEditState extends State<EventEdit> {
                 (_selectedRepeatType ??
                     EventRepeatType.none.name.capitalizeFirst),
           ),
-          eventAttendes: _selectedEventAttendes.toSet().toList(),
+          eventAttendes: [],
           completed: _completed,
           createdBy: await Spdb.getUser(),
         );
