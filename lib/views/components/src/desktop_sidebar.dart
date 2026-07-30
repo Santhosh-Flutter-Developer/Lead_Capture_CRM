@@ -205,7 +205,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
           'icon': item.icon,
           'title': item.title,
           'children': children,
-          if (trailing != null) 'trailing': trailing,
+          'trailing': ?trailing,
         });
       } else {
         // Handle simple menu item

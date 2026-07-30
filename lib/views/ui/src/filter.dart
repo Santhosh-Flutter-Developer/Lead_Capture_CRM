@@ -9,10 +9,10 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:intl/intl.dart';
-import 'package:minicrm/constants/src/enum.dart';
-import 'package:minicrm/models/src/filter_model.dart';
-import 'package:minicrm/views/ui/src/form_fields.dart';
-import 'package:minicrm/views/ui/src/submit_button.dart';
+import 'package:leadcapture/constants/src/enum.dart';
+import 'package:leadcapture/models/src/filter_model.dart';
+import 'package:leadcapture/views/ui/src/form_fields.dart';
+import 'package:leadcapture/views/ui/src/submit_button.dart';
 
 // Project imports:
 import '/utils/utils.dart';

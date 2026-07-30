@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:minicrm/views/screens/calendar/form/event_view.dart';
+import 'package:leadcapture/views/screens/calendar/form/event_view.dart';
 import '/constants/constants.dart';
 import '/views/views.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
-import '/services/services.dart';
 
 class CalendarEventScreen extends StatelessWidget {
   final bool showAppbar;

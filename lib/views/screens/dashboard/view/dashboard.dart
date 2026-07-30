@@ -5,7 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
-import '/utils/utils.dart';
+import '/utils/utils.dart' hide timeago;
 import '/views/views.dart';
 import '/theme/theme.dart';
 import '/services/services.dart';
@@ -100,8 +100,9 @@ class _DashboardState extends State<Dashboard> {
                                 valueListenable:
                                     AppSettingsNotifier.payrollEnabled,
                                 builder: (context, payrollEnabled, _) {
-                                  if (!payrollEnabled)
+                                  if (!payrollEnabled) {
                                     return const SizedBox.shrink();
+                                  }
                                   return Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -160,8 +161,9 @@ class _DashboardState extends State<Dashboard> {
                                     valueListenable:
                                         AppSettingsNotifier.payrollEnabled,
                                     builder: (context, payrollEnabled, _) {
-                                      if (!payrollEnabled)
+                                      if (!payrollEnabled) {
                                         return const SizedBox.shrink();
+                                      }
                                       return Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,

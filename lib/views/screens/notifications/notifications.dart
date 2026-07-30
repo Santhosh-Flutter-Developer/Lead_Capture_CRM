@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:minicrm/constants/src/enum.dart';
+import 'package:leadcapture/constants/src/enum.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/utils/utils.dart';

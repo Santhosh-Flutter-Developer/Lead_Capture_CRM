@@ -885,7 +885,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-              if (trailing != null) trailing,
+              ?trailing,
             ],
           ),
           const SizedBox(height: 20),
@@ -1325,7 +1325,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "${CacheService.adminByUid(history.userId)?.name ?? 'System'}",
+                    CacheService.adminByUid(history.userId)?.name ?? 'System',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -1551,7 +1551,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(.1),
+                        color: Colors.blue.withValues(alpha: .1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -1586,7 +1586,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(.1),
+                        color: Colors.red.withValues(alpha: .1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -1635,7 +1635,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(.1),
+                    color: Colors.red.withValues(alpha: .1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -2296,7 +2296,7 @@ class _ScheduleLeadActivityDialogState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(.1),
+                      color: theme.primaryColor.withValues(alpha: .1),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(

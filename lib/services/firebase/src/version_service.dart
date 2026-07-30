@@ -92,7 +92,9 @@ class VersionService {
 
   static List<int> _normalizeVersion(String v) {
     List<String> parts = v.split('.');
-    while (parts.length < 3) parts.add('0');
+    while (parts.length < 3) {
+      parts.add('0');
+    }
     if (parts.length > 3) parts = parts.sublist(0, 3);
     return parts.map((e) => int.tryParse(e) ?? 0).toList();
   }

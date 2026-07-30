@@ -32,3 +32,17 @@ export 'src/company_model.dart';
 export 'src/holiday_model.dart';
 export 'src/permission_request_model.dart';
 export 'src/customer_ticket_model.dart';
+export 'src/attendance_model.dart';
+export 'src/bank_model.dart';
+export 'src/department_model.dart';
+export 'src/designation_model.dart';
+export 'src/download_model.dart';
+export 'src/employee_model.dart';
+export 'src/filter_model.dart';
+export 'src/project_model.dart';
+export 'src/salary_ledger_model.dart';
+export 'src/sub_department_model.dart';
+export 'src/user_model.dart';
+export 'src/workpermission_model.dart';
+export 'src/worktime_model.dart';
+

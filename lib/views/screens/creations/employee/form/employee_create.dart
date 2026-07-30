@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -54,7 +53,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
   String _receiveEmailNotifications = 'Yes';
   String _maritalStatus = 'Single';
   String? _employeeType;
-  String _outsideOffice = 'No';
+  final String _outsideOffice = 'No';
 
   RoleModel? _roleModel;
   DesignationModel? _designationModel;

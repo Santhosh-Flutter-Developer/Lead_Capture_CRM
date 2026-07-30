@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import '/constants/constants.dart';
 import '/theme/theme.dart';
 import '/views/views.dart';
 import '/models/models.dart';
-import '/services/services.dart';
 import '/utils/utils.dart';
 
 class EventViewPage extends StatelessWidget {

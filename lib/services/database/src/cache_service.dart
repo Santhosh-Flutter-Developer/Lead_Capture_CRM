@@ -20,11 +20,17 @@ class CacheService {
   // --- CONFIGURATION MAP ---
   // Maps specific keys to their Box and Firestore Collection names
   static const Map<String, _BoxConfig> _config = {
+    'employee': _BoxConfig('employees', 'employees'),
     'admin': _BoxConfig('admins', 'admins'),
+    'department': _BoxConfig('departments', 'departments'),
+    'designation': _BoxConfig('designations', 'designations'),
+    'role': _BoxConfig('roles', 'roles'),
+    'subDepartment': _BoxConfig('subDepartments', 'subDepartments'),
     'leadCategory': _BoxConfig('leadCategory', 'leadCategory'),
     'leadStatus': _BoxConfig('leadStatus', 'leadStatus'),
     'leadPriority': _BoxConfig('leadPriority', 'leadPriority'),
     'dealStatus': _BoxConfig('dealStatus', 'dealStatus'),
+    'project': _BoxConfig('projects', 'projects'),
     'task': _BoxConfig('tasks', 'tasks'),
   };
 
@@ -65,7 +71,7 @@ class CacheService {
   Future<void> init() async {
     if (_isInitialized) return;
 
-    await Hive.initFlutter('mini_crm');
+    await Hive.initFlutter('lead_capture_crm');
     await _openBoxes();
     await _initSyncScheduler();
 
@@ -179,7 +185,13 @@ class CacheService {
 
   // ---------------- PUBLIC ACCESSORS ----------------
 
-
+  static EmployeeModel? employeeByUid(String uid) {
+    return _getEntity<EmployeeModel>(
+      uid: uid,
+      configKey: 'employee',
+      fromMap: EmployeeModel.fromMap,
+    );
+  }
 
   static AdminModel? adminByUid(String uid) {
     return _getEntity<AdminModel>(
@@ -189,7 +201,43 @@ class CacheService {
     );
   }
 
+  static dynamic getUserByUid(String uid) {
+    final employee = employeeByUid(uid);
+    if (employee != null) return employee;
+    return adminByUid(uid);
+  }
 
+  static RoleModel? roleByUid(String uid) {
+    return _getEntity<RoleModel>(
+      uid: uid,
+      configKey: 'role',
+      fromMap: RoleModel.fromMap,
+    );
+  }
+
+  static DepartmentModel? departmentByUid(String uid) {
+    return _getEntity<DepartmentModel>(
+      uid: uid,
+      configKey: 'department',
+      fromMap: DepartmentModel.fromMap,
+    );
+  }
+
+  static SubDepartmentModel? subDepartmentByUid(String uid) {
+    return _getEntity<SubDepartmentModel>(
+      uid: uid,
+      configKey: 'subDepartment',
+      fromMap: SubDepartmentModel.fromMap,
+    );
+  }
+
+  static DesignationModel? designationByUid(String uid) {
+    return _getEntity<DesignationModel>(
+      uid: uid,
+      configKey: 'designation',
+      fromMap: DesignationModel.fromMap,
+    );
+  }
 
   static LeadStatusModel? leadStatusByUid(String uid) {
     return _getEntity<LeadStatusModel>(
@@ -223,6 +271,14 @@ class CacheService {
     );
   }
 
+  static ProjectModel? getProjectByUid(String uid) {
+    return _getEntity<ProjectModel>(
+      uid: uid,
+      configKey: 'project',
+      fromMap: ProjectModel.fromMap,
+    );
+  }
+
   static TaskModel? getTaskByUid(String uid) {
     return _getEntity<TaskModel>(
       uid: uid,
@@ -232,20 +288,41 @@ class CacheService {
   }
 
   // ---------------- LISTENABLE ACCESSORS ----------------
+
+  ValueListenable<List<EmployeeModel>> getAllListenableEmployees() {
+    final conf = _config['employee']!;
+    if (!Hive.isBoxOpen(conf.boxName)) {
+      return ValueNotifier(<EmployeeModel>[]);
+    }
+    return Hive.box<Map<dynamic, dynamic>>(conf.boxName).listenable().map((
+      box,
+    ) {
+      return box.keys.map((key) {
+        final value = normalizeFromCache(box.get(key) ?? {});
+        return EmployeeModel.fromMap(key.toString(), value);
+      }).toList();
+    });
+  }
+
   static ValueListenable<List<AdminModel>> getAllListenableAdmins() {
     final conf = _config['admin']!;
     final box = Hive.box<Map<dynamic, dynamic>>(conf.boxName);
 
     return box.listenable().map((boxRef) {
-      return boxRef.keys.map((key) {
-        final raw = boxRef.get(key);
-        if (raw == null) return null;
-        final normalized = _normalizeCacheValue(raw);
-        return AdminModel.fromMap(key.toString(), Map<String, dynamic>.from(normalized as Map));
-      }).whereType<AdminModel>().toList();
+      return boxRef.keys
+          .map((key) {
+            final raw = boxRef.get(key);
+            if (raw == null) return null;
+            final normalized = _normalizeCacheValue(raw);
+            return AdminModel.fromMap(
+              key.toString(),
+              Map<String, dynamic>.from(normalized as Map),
+            );
+          })
+          .whereType<AdminModel>()
+          .toList();
     });
   }
-
 
   // ---------------- BULK SYNC FUNCTIONS ----------------
 

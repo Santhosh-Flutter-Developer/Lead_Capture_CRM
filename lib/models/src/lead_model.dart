@@ -1,7 +1,7 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
-import 'package:minicrm/constants/src/enum.dart';
+import 'package:leadcapture/constants/src/enum.dart';
 
 import '/models/models.dart';
 

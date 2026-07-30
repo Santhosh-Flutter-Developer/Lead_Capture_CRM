@@ -6,7 +6,6 @@ import 'package:path/path.dart' as path;
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
-import '/theme/theme.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 

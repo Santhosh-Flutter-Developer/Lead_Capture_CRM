@@ -106,8 +106,9 @@ final ThemeData lightTheme = ThemeData(
       return null;
     }),
     trackColor: WidgetStateProperty.resolveWith((states) {
-      if (states.contains(WidgetState.selected))
+      if (states.contains(WidgetState.selected)) {
         return AppColors.primary.withValues(alpha: 0.5);
+      }
       return null;
     }),
   ),
@@ -245,8 +246,9 @@ final ThemeData darkTheme = ThemeData(
       return null;
     }),
     trackColor: WidgetStateProperty.resolveWith((states) {
-      if (states.contains(WidgetState.selected))
+      if (states.contains(WidgetState.selected)) {
         return AppColors.primary.withValues(alpha: 0.5);
+      }
       return null;
     }),
   ),

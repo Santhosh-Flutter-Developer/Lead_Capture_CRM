@@ -519,7 +519,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: comments.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                separatorBuilder: (_, _) => const SizedBox(height: 16),
                 itemBuilder: (context, index) =>
                     _buildCommentItem(comments[index]),
               ),

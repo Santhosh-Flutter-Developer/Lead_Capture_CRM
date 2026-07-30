@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:line_icons/line_icons.dart';
 import 'package:mime/mime.dart';
-import 'package:minicrm/theme/src/app_colors.dart';
+import 'package:leadcapture/theme/src/app_colors.dart';
 import 'package:path/path.dart' as path;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -941,7 +941,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.primary.withOpacity(.25),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: .25),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1748,7 +1748,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(.1),
+                        color: Colors.blue.withValues(alpha: .1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -1783,7 +1783,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(.1),
+                        color: Colors.red.withValues(alpha: .1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -2055,7 +2055,7 @@ class _ScheduleDealActivityDialogState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(.1),
+                      color: theme.primaryColor.withValues(alpha: .1),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(

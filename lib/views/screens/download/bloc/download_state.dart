@@ -1,5 +1,5 @@
 
-import 'package:minicrm/models/src/download_model.dart';
+import 'package:leadcapture/models/src/download_model.dart';
 
 abstract class DownloadHistoryState {}
 

@@ -7,7 +7,7 @@
 // Package imports:
 
 // Package imports:
-import 'package:minicrm/models/src/user_model.dart';
+import 'package:leadcapture/models/src/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Project imports:

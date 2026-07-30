@@ -106,9 +106,9 @@ class AuthService {
         'createdAt': FieldValue.serverTimestamp(),
         'logo': logoUrl,
         'status': 'active',
-        if (companyLat != null) 'companyLat': companyLat,
-        if (companyLng != null) 'companyLng': companyLng,
-        if (companyRadius != null) 'companyRadius': companyRadius,
+        'companyLat': ?companyLat,
+        'companyLng': ?companyLng,
+        'companyRadius': ?companyRadius,
       });
 
       DocumentReference roleRef = companyRef

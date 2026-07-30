@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:minicrm/models/src/download_model.dart';
+import 'package:leadcapture/models/src/download_model.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -44,7 +44,7 @@ Future<String> saveFileToDownloads(Uint8List bytes, {String? fileName}) async {
 
   final safeFileName =
       (fileName == null || fileName.isEmpty) ? const Uuid().v4() : fileName;
-  final file = File('${dir!.path}/$safeFileName');
+  final file = File('${dir.path}/$safeFileName');
   await file.writeAsBytes(bytes, flush: true);
   return file.path;
 }

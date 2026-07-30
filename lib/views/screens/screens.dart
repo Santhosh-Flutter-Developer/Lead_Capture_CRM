@@ -16,4 +16,9 @@ export 'activitylogs/activity_logs.dart';
 export 'backup/backup.dart';
 export 'calendar/calendar.dart';
 export 'tickets/tickets.dart';
+export 'companies/companies.dart';
+export 'download/download.dart';
+export 'holidays/holidays.dart';
+export 'projects/projects.dart';
+
 

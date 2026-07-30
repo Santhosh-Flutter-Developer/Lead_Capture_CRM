@@ -6,7 +6,6 @@ import '/views/views.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
-import '/services/services.dart';
 
 class DealsCalendarListing extends StatefulWidget {
   final List<DealModel> dealList;

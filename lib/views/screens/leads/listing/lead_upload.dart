@@ -5,20 +5,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:minicrm/models/src/lead_model.dart';
-import 'package:minicrm/models/src/region_model.dart';
-import 'package:minicrm/services/database/src/spdb.dart';
-import 'package:minicrm/services/firebase/src/lead_category_service.dart';
-import 'package:minicrm/services/firebase/src/lead_priority_service.dart';
-import 'package:minicrm/services/firebase/src/lead_service.dart';
-import 'package:minicrm/services/firebase/src/lead_source_service.dart';
-import 'package:minicrm/services/firebase/src/lead_status_service.dart';
-import 'package:minicrm/services/firebase/src/region_service.dart';
+import 'package:leadcapture/models/src/lead_model.dart';
+import 'package:leadcapture/models/src/region_model.dart';
+import 'package:leadcapture/services/database/src/spdb.dart';
+import 'package:leadcapture/services/firebase/src/lead_category_service.dart';
+import 'package:leadcapture/services/firebase/src/lead_priority_service.dart';
+import 'package:leadcapture/services/firebase/src/lead_service.dart';
+import 'package:leadcapture/services/firebase/src/lead_source_service.dart';
+import 'package:leadcapture/services/firebase/src/lead_status_service.dart';
+import 'package:leadcapture/services/firebase/src/region_service.dart';
 
-import 'package:minicrm/utils/src/download.dart';
-import 'package:minicrm/views/components/src/xlsx_csv_reader.dart';
-import 'package:minicrm/views/ui/src/flush_bar.dart';
-import 'package:minicrm/views/ui/src/loading.dart';
+import 'package:leadcapture/utils/src/download.dart';
+import 'package:leadcapture/views/components/src/xlsx_csv_reader.dart';
+import 'package:leadcapture/views/ui/src/flush_bar.dart';
+import 'package:leadcapture/views/ui/src/loading.dart';
 
 class LeadUpload extends StatefulWidget {
   const LeadUpload({super.key});

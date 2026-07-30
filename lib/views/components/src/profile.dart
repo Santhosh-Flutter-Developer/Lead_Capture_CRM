@@ -8,7 +8,7 @@ import '/constants/constants.dart';
 
 /// Profile screen now supports only Admin users after employee-related features removal.
 class Profile extends StatefulWidget {
-  const Profile({Key? key}) : super(key: key);
+  const Profile({super.key});
 
   @override
   State<Profile> createState() => _ProfileState();

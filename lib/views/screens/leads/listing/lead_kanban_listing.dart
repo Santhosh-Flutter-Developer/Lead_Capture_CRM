@@ -581,8 +581,9 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                             width: 200,
                             child: ElevatedButton.icon(
                               onPressed: () async {
-                                if (!quickFormKey.currentState!.validate())
+                                if (!quickFormKey.currentState!.validate()) {
                                   return;
+                                }
 
                                 try {
                                   futureLoading(context);
@@ -622,18 +623,21 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                                   await LeadService.createLead(lead: lead);
 
                                   // pop loading dialog
-                                  if (Navigator.canPop(context))
+                                  if (Navigator.canPop(context)) {
                                     Navigator.pop(context);
+                                  }
                                   // pop quick lead sheet
-                                  if (Navigator.canPop(context))
+                                  if (Navigator.canPop(context)) {
                                     Navigator.pop(context);
+                                  }
                                   FlushBar.show(
                                     context,
                                     'Lead created successfully',
                                   );
                                 } catch (e) {
-                                  if (Navigator.canPop(context))
+                                  if (Navigator.canPop(context)) {
                                     Navigator.pop(context);
+                                  }
                                   FlushBar.show(
                                     context,
                                     e.toString(),

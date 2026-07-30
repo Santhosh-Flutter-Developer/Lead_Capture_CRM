@@ -176,9 +176,9 @@ class _HolidayFormState extends State<HolidayForm> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.07),
+                    color: Colors.red.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [

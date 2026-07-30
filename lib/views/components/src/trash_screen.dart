@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:minicrm/models/src/trash_model.dart';
+import 'package:leadcapture/models/src/trash_model.dart';
 import '/theme/theme.dart';
 import '/constants/constants.dart';
 import '/services/services.dart';

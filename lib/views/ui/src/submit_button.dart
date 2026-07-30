@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 // Project imports:
-import '/theme/theme.dart';
 
 class SubmitButton extends StatelessWidget {
   final void Function() event;

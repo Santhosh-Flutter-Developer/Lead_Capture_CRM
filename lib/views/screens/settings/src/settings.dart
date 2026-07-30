@@ -5,7 +5,6 @@ import '/app/app.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/services/services.dart';
-import 'company_location_settings.dart';
 
 class SettingsColors {
   static const Color primary = Color(0xFF2563EB);

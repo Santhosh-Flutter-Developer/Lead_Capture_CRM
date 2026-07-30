@@ -241,8 +241,9 @@ class _BackupListingState extends State<BackupListing> {
                 if (state is BackupLoading) {
                   return const Center(child: WaitingLoading());
                 }
-                if (state is BackupError)
+                if (state is BackupError) {
                   return _buildErrorState(state.message);
+                }
                 if (state is BackupLoaded) {
                   final items = state.backups.where((b) {
                     if (_search.isEmpty) return true;

@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:minicrm/views/screens/download/bloc/download_bloc.dart';
-import 'package:minicrm/views/screens/download/download_history.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/utils/utils.dart';

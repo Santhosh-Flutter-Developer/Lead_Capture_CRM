@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '/views/views.dart';
-import '/utils/utils.dart';
+import '/utils/utils.dart' hide timeago;
 import '/models/models.dart';
 import '/services/services.dart';
 

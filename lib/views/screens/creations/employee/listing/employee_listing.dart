@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'package:leadcapture/views/screens/creations/employee/form/employee_upload.dart';
 import 'package:provider/provider.dart';
+import '../form/employee_create.dart';
+import '../form/employee_details.dart';
+import '../form/employee_edit.dart';
 import '/services/services.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
@@ -1227,8 +1231,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                         MaterialPageRoute(
                           builder: (_) => TaskCreate(
                             employees: _selectedEmployees
-                                .where((e) => e.isEmployee)
-                                .map((e) => e.toEmployeeModel())
+                                .map((e) => e.toAdminModel())
                                 .toList(),
                           ),
                         ),

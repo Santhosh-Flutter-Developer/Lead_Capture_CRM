@@ -1,13 +1,10 @@
 import 'dart:io' show File;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import '/utils/src/pick_image.dart' show xFileToUploadUrl;
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '/constants/constants.dart';
-import '/theme/theme.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/views/views.dart';
@@ -253,10 +250,11 @@ class _ContactCreateState extends State<ContactCreate> {
         final result = await PickImage.pickFromGallery();
         if (result != null) {
           setState(() => _profileImage = result);
-          if (kIsWeb)
+          if (kIsWeb) {
             result.readAsBytes().then(
               (b) => setState(() => _profileImageBytes = b),
             );
+          }
         }
       },
       child: DottedBorder(
@@ -595,8 +593,9 @@ class _CompanyCreateState extends State<CompanyCreate> {
         final result = await PickImage.pickFromGallery();
         if (result != null) {
           setState(() => _logo = result);
-          if (kIsWeb)
+          if (kIsWeb) {
             result.readAsBytes().then((b) => setState(() => _logoBytes = b));
+          }
         }
       },
       child: DottedBorder(
