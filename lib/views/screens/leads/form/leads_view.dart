@@ -177,7 +177,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
         Navigator.pop(context);
       }
       FlushBar.show(context, 'Notes downloaded successfully', isSuccess: true);
-      if(!kIsWeb)openfile(savedPath, context);
+      if (!kIsWeb) openfile(savedPath, context);
     } catch (e, st) {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -336,50 +336,51 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               await _refreshLead();
             }),
             const SizedBox(width: 8),
-            _appBarButton(Iconsax.trash, "Delete", () async {
-              final result = await showDialog<bool>(
-                context: context,
-                builder: (context) => const ConfirmDialog(
-                  title: 'Delete Lead',
-                  content: 'Are you sure you want to delete this lead?',
-                ),
-              );
-
-              if (result != true) return;
-
-              try {
-                final deletedLead = widget.lead;
-                final isUndoPressed = ValueNotifier(false);
-                await LeadService.deleteLead(uid: _lead.uid ?? '');
-
-                if (!mounted) return;
-
-                FlushBar.show(
-                  context,
-                  'Lead deleted successfully',
-                  actionLabel: 'UNDO',
-                  onActionPressed: () async {
-                    isUndoPressed.value = true;
-                    await LeadService.restoreLead(deletedLead);
-
-                    // refresh list
-                    context.read<LeadBloc>().add(StreamLead());
-
-                    Navigator.of(context).pop('restored');
-                  },
+            if (_isAdmin)
+              _appBarButton(Iconsax.trash, "Delete", () async {
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => const ConfirmDialog(
+                    title: 'Delete Lead',
+                    content: 'Are you sure you want to delete this lead?',
+                  ),
                 );
-                // Future.delayed(const Duration(seconds: 4), () {
-                // if (!isUndoPressed.value && mounted) {
-                //   Navigator.of(context).pop('deleted');
-                // }
-                // });
-              } catch (e, st) {
-                await ErrorService.recordError(e, st);
-                if (mounted) {
-                  FlushBar.show(context, e.toString(), isSuccess: false);
+
+                if (result != true) return;
+
+                try {
+                  final deletedLead = widget.lead;
+                  final isUndoPressed = ValueNotifier(false);
+                  await LeadService.deleteLead(uid: _lead.uid ?? '');
+
+                  if (!mounted) return;
+
+                  FlushBar.show(
+                    context,
+                    'Lead deleted successfully',
+                    actionLabel: 'UNDO',
+                    onActionPressed: () async {
+                      isUndoPressed.value = true;
+                      await LeadService.restoreLead(deletedLead);
+
+                      // refresh list
+                      context.read<LeadBloc>().add(StreamLead());
+
+                      Navigator.of(context).pop('restored');
+                    },
+                  );
+                  // Future.delayed(const Duration(seconds: 4), () {
+                  // if (!isUndoPressed.value && mounted) {
+                  //   Navigator.of(context).pop('deleted');
+                  // }
+                  // });
+                } catch (e, st) {
+                  await ErrorService.recordError(e, st);
+                  if (mounted) {
+                    FlushBar.show(context, e.toString(), isSuccess: false);
+                  }
                 }
-              }
-            }, isDanger: true),
+              }, isDanger: true),
           ],
           const SizedBox(width: 16),
         ],
@@ -1013,7 +1014,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
     final date = comment.timestamp;
 
     var userId = comment.createdBy.uid;
-    var user = CacheService.adminByUid(userId);
+    var user = CacheService.getUserByUid(userId);
 
     UserDataModel userDataModel = UserDataModel.fromEmptyMap();
     if (user is AdminModel) {
@@ -1249,9 +1250,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: BlocBuilder<LeadBloc, LeadState>(
         builder: (context, state) {
@@ -1259,7 +1258,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
             if (state.history.isEmpty) {
               return _emptyState(Iconsax.activity, "No activity logs yet");
             }
-    
+
             return SizedBox(
               height: MediaQuery.of(context).size.height * 0.55,
               child: ListView.builder(
@@ -1271,7 +1270,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               ),
             );
           }
-    
+
           return const WaitingLoading();
         },
       ),
@@ -1325,7 +1324,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    CacheService.adminByUid(history.userId)?.name ?? 'System',
+                    CacheService.getUserByUid(history.userId)?.name ?? 'System',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -1618,6 +1617,15 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   }
 
   Future<void> _confirmDeleteActivity(LeadActivityModel activity) async {
+    if (!_isAdmin) {
+      FlushBar.show(
+        context,
+        'Only admins can delete activities',
+        isSuccess: false,
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -1971,6 +1979,15 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   }
 
   void _deleteComment(LeadCommentModel comment) async {
+    if (!_isAdmin) {
+      FlushBar.show(
+        context,
+        'Only admins can delete comments',
+        isSuccess: false,
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

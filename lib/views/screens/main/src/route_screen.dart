@@ -46,30 +46,30 @@ class _RouteScreenState extends State<RouteScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> crmWidgets = [
-      // {
-      //   'icon': Iconsax.message,
-      //   'title': 'Messages',
-      //   'route': 'Chats',
-      //   'color': Colors.blueAccent,
-      // },
-      // {
-      //   'icon': Iconsax.activity,
-      //   'title': 'Feed',
-      //   'route': 'Feed',
-      //   'color': Colors.orangeAccent,
-      // },
+      {
+        'icon': Iconsax.message,
+        'title': 'Messages',
+        'route': 'Chats',
+        'color': Colors.blueAccent,
+      },
+      {
+        'icon': Iconsax.activity,
+        'title': 'Feed',
+        'route': 'Feed',
+        'color': Colors.orangeAccent,
+      },
       {
         'icon': Iconsax.calendar,
         'title': 'Calendar',
         'route': 'Calendar',
         'color': Colors.purpleAccent,
       },
-      // {
-      //   'icon': Iconsax.check,
-      //   'title': 'Tasks',
-      //   'route': 'Tasks',
-      //   'color': Colors.greenAccent,
-      // },
+      {
+        'icon': Iconsax.check,
+        'title': 'Tasks',
+        'route': 'Tasks',
+        'color': Colors.greenAccent,
+      },
       {
         'icon': Iconsax.graph,
         'title': 'CRM',

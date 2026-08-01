@@ -28,6 +28,7 @@ class CustomerTicketModel {
   final UserDataModel ticketCreatedBy;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? project;
   final String? task;
 
   CustomerTicketModel({
@@ -53,10 +54,11 @@ class CustomerTicketModel {
     required this.ticketCreatedBy,
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.project,
     this.task,
-  })  : uid = uid ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : uid = uid ?? const Uuid().v4(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   static DateTime? _toDateTime(dynamic value) {
     if (value == null) return null;
@@ -67,7 +69,6 @@ class CustomerTicketModel {
     return null;
   }
 
-  
   CustomerTicketModel copyWith({
     String? uid,
     int? ticketNumber,
@@ -91,6 +92,7 @@ class CustomerTicketModel {
     UserDataModel? ticketCreatedBy,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? project,
     String? task,
   }) {
     return CustomerTicketModel(
@@ -116,6 +118,7 @@ class CustomerTicketModel {
       ticketCreatedBy: ticketCreatedBy ?? this.ticketCreatedBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      project: project ?? this.project,
       task: task ?? this.task,
     );
   }
@@ -157,21 +160,28 @@ class CustomerTicketModel {
       ),
       comments: map['comments'] != null
           ? List<TicketCommentModel>.from(
-              (map['comments'] as List).map((c) => TicketCommentModel.fromMap(c)),
+              (map['comments'] as List).map(
+                (c) => TicketCommentModel.fromMap(c),
+              ),
             )
           : [],
       history: map['history'] != null
           ? List<TicketHistoryModel>.from(
-              (map['history'] as List).map((h) => TicketHistoryModel.fromMap(h)),
+              (map['history'] as List).map(
+                (h) => TicketHistoryModel.fromMap(h),
+              ),
             )
           : [],
       ticketCreatedBy:
           map['ticketCreatedBy'] != null &&
               map['ticketCreatedBy'] is Map<String, dynamic>
-          ? UserDataModel.fromMap(map['ticketCreatedBy'] as Map<String, dynamic>)
+          ? UserDataModel.fromMap(
+              map['ticketCreatedBy'] as Map<String, dynamic>,
+            )
           : UserDataModel.fromEmptyMap(),
       createdAt: _toDateTime(map['createdAt']) ?? DateTime.now(),
       updatedAt: _toDateTime(map['updatedAt']) ?? DateTime.now(),
+      project: map['project'] as String?,
       task: map['task'] as String?,
     );
   }
@@ -200,6 +210,7 @@ class CustomerTicketModel {
       'ticketCreatedBy': ticketCreatedBy.toMap(),
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'project': project,
       'task': task,
     };
   }
@@ -225,6 +236,7 @@ class CustomerTicketModel {
       'history': history.map((h) => h.toMap()).toList(),
       'ticketCreatedBy': ticketCreatedBy.toMap(),
       'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'project': project,
       'task': task,
     };
   }
@@ -232,11 +244,14 @@ class CustomerTicketModel {
   String toJson() => json.encode(toMap());
 
   factory CustomerTicketModel.fromJson(String uid, String source) =>
-      CustomerTicketModel.fromMap(uid, json.decode(source) as Map<String, dynamic>);
+      CustomerTicketModel.fromMap(
+        uid,
+        json.decode(source) as Map<String, dynamic>,
+      );
 
   @override
   String toString() {
-    return 'CustomerTicketModel(uid: $uid, ticketNumber: $ticketNumber, clientName: $clientName, clientCompanyName: $clientCompanyName, modeOfContact: $modeOfContact, ticketTitle: $ticketTitle, ticketDescription: $ticketDescription, assignTo: $assignTo, participants: $participants, observers: $observers, createdBy: $createdBy, priorityLevel: $priorityLevel, deadline: $deadline, reminder: $reminder, category: $category, status: $status, task: $task, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'CustomerTicketModel(uid: $uid, ticketNumber: $ticketNumber, clientName: $clientName, clientCompanyName: $clientCompanyName, modeOfContact: $modeOfContact, ticketTitle: $ticketTitle, ticketDescription: $ticketDescription, assignTo: $assignTo, participants: $participants, observers: $observers, createdBy: $createdBy, priorityLevel: $priorityLevel, deadline: $deadline, reminder: $reminder, category: $category, status: $status,project: $project, task: $task, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -265,6 +280,7 @@ class CustomerTicketModel {
         other.ticketCreatedBy == ticketCreatedBy &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt &&
+        other.project == project &&
         other.task == task;
   }
 
@@ -292,6 +308,7 @@ class CustomerTicketModel {
         ticketCreatedBy.hashCode ^
         createdAt.hashCode ^
         updatedAt.hashCode ^
+        project.hashCode ^
         task.hashCode;
   }
 }

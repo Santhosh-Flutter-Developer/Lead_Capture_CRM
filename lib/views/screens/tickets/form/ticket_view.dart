@@ -291,7 +291,10 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   }
 
   Widget _buildInfoGrid() {
-    // Get task name
+    // Get project and task names
+    final projectName = _ticketModel.project != null
+        ? CacheService.getProjectByUid(_ticketModel.project!)?.projectName
+        : null;
     final taskName = _ticketModel.task != null
         ? CacheService.getTaskByUid(_ticketModel.task!)?.taskName
         : null;
@@ -307,6 +310,8 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
             "Company",
             _ticketModel.clientCompanyName!,
           ),
+        if (projectName != null)
+          _infoBox(Iconsax.folder, "Project", projectName),
         if (taskName != null) _infoBox(Iconsax.task, "Task", taskName),
         if (_ticketModel.deadline != null)
           _infoBox(
@@ -530,23 +535,30 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   }
 
   Widget _buildCommentItem(TicketCommentModel comment) {
-    final user = CacheService.adminByUid(comment.userId);
+    final user = CacheService.getUserByUid(comment.userId);
+    var userData = UserDataModel.fromEmptyMap();
 
-    UserDataModel userDataModel = UserDataModel.fromEmptyMap();
-
-    if (user is AdminModel) {
-      userDataModel = UserDataModel(
-        uid: comment.userId,
+    if (user is EmployeeModel) {
+      userData = UserDataModel(
         name: user.name,
-        desc: user.email,
+        uid: user.uid ?? '',
         profilePic: user.profileImageUrl,
+        desc: CacheService.designationByUid(user.designation)?.name,
+        userType: UserType.employee,
+      );
+    } else if (user is AdminModel) {
+      userData = UserDataModel(
+        name: user.name,
+        uid: user.uid ?? '',
+        profilePic: user.profileImageUrl,
+        desc: user.email,
         userType: UserType.admin,
       );
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        UserAvatar(userData: userDataModel, size: 32),
+        UserAvatar(userData: userData, size: 32),
         const SizedBox(width: 12),
         Expanded(
           child: Container(
@@ -700,7 +712,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
                     ),
                   ),
                   Text(
-                    "By ${CacheService.adminByUid(item.userId)?.name ?? 'User'} • ${item.timestamp.listingDateTime}",
+                    "By ${CacheService.getUserByUid(item.userId)?.name ?? 'User'} • ${item.timestamp.listingDateTime}",
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -757,16 +769,23 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   }
 
   Widget _buildProfileTile(String uid, String role) {
-    final user = CacheService.adminByUid(uid);
+    final user = CacheService.getUserByUid(uid);
+    var userData = UserDataModel.fromEmptyMap();
 
-    UserDataModel userDataModel = UserDataModel.fromEmptyMap();
-
-    if (user is AdminModel) {
-      userDataModel = UserDataModel(
-        uid: uid,
+    if (user is EmployeeModel) {
+      userData = UserDataModel(
         name: user.name,
-        desc: user.email,
+        uid: user.uid ?? '',
         profilePic: user.profileImageUrl,
+        desc: CacheService.designationByUid(user.designation)?.name,
+        userType: UserType.employee,
+      );
+    } else if (user is AdminModel) {
+      userData = UserDataModel(
+        name: user.name,
+        uid: user.uid ?? '',
+        profilePic: user.profileImageUrl,
+        desc: user.email,
         userType: UserType.admin,
       );
     }
@@ -775,7 +794,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          UserAvatar(userData: userDataModel, size: 36),
+          UserAvatar(userData: userData, size: 36),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -17,7 +17,7 @@ Future<void> setupDesktopNotifier() async {
   // uses windowManager.focus()/.show() in its notification click handler,
   // and calling those without this first throws.
   await windowManager.ensureInitialized();
-  await localNotifier.setup(appName: 'Mini CRM');
+  await localNotifier.setup(appName: 'LeadcaptureCRM');
   FirestoreNotificationListener.listenForNotifications();
 
   // Auto-launch on system startup, so the app (and its Firestore
@@ -30,7 +30,7 @@ Future<void> setupDesktopNotifier() async {
   // clicking X once sends it to the tray, same as any other launch.
   try {
     launchAtStartup.setup(
-      appName: 'Mini CRM',
+      appName: 'LeadcaptureCRM',
       appPath: Platform.resolvedExecutable,
     );
     await launchAtStartup.enable();

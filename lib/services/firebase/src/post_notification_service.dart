@@ -68,7 +68,7 @@ class PostNotificationService {
       // Try to send push notification if server key is available
       if (serverKey != null && model.toFcms.isNotEmpty) {
         String endpointFirebaseCloudMessaging =
-            "https://fcm.googleapis.com/v1/projects/minicrm-8575d/messages:send";
+            "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
         
         for (var element in model.toFcms) {
           // Deliberately data-only (no top-level "notification" field) — a

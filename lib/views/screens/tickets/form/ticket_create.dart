@@ -11,9 +11,9 @@ import '/views/views.dart';
 import '/theme/theme.dart';
 
 class TicketCreate extends StatefulWidget {
-  final List<AdminModel>? admins;
+  final List<EmployeeModel>? employees;
 
-  const TicketCreate({super.key, this.admins});
+  const TicketCreate({super.key, this.employees});
 
   @override
   State<TicketCreate> createState() => _TicketCreateState();
@@ -37,7 +37,9 @@ class _TicketCreateState extends State<TicketCreate> {
   final List<String> _selectedObservers = [];
   final List<String> _selectedParticipants = [];
 
+  List<ProjectModel> _projectList = [];
   List<TaskModel> _taskList = [];
+  String? _selectedProject;
   String? _selectedTask;
 
   List<ClientModel> _clientList = [];
@@ -57,9 +59,9 @@ class _TicketCreateState extends State<TicketCreate> {
     super.initState();
     _future = _init();
 
-    if (widget.admins != null && widget.admins!.isNotEmpty) {
+    if (widget.employees != null && widget.employees!.isNotEmpty) {
       _selectedAssignTo.addAll(
-        widget.admins!
+        widget.employees!
             .where((e) => e.uid != null)
             .map((e) => e.uid!)
             .toList(),
@@ -69,6 +71,7 @@ class _TicketCreateState extends State<TicketCreate> {
 
   Future<void> _init() async {
     try {
+      _projectList = await ProjectService.getAllProjects();
       _taskList = await TaskService.getAllTasks();
       _clientList = await ClientService.getAllClients();
       _companyList = await CompanyService.getAllCompanies();
@@ -183,6 +186,28 @@ class _TicketCreateState extends State<TicketCreate> {
                   child: Column(
                     children: [
                       _buildDropdownField(
+                        "Project",
+                        _selectedClientUid != null
+                            ? _projectList
+                                  .where((p) => p.client == _selectedClientUid)
+                                  .map((e) => e.projectName)
+                                  .toList()
+                            : _projectList.map((e) => e.projectName).toList(),
+                        (val) {
+                          var filteredProjects = _selectedClientUid != null
+                              ? _projectList
+                                    .where(
+                                      (p) => p.client == _selectedClientUid,
+                                    )
+                                    .toList()
+                              : _projectList;
+                          _selectedProject = filteredProjects
+                              .firstWhere((e) => e.projectName == val)
+                              .uid;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildDropdownField(
                         "Task",
                         _taskList.map((e) => e.taskName).toList(),
                         (val) {
@@ -257,6 +282,26 @@ class _TicketCreateState extends State<TicketCreate> {
             icon: Iconsax.hierarchy,
             child: Column(
               children: [
+                _buildDropdownField(
+                  "Project",
+                  _selectedClientUid != null
+                      ? _projectList
+                            .where((p) => p.client == _selectedClientUid)
+                            .map((e) => e.projectName)
+                            .toList()
+                      : _projectList.map((e) => e.projectName).toList(),
+                  (val) {
+                    var filteredProjects = _selectedClientUid != null
+                        ? _projectList
+                              .where((p) => p.client == _selectedClientUid)
+                              .toList()
+                        : _projectList;
+                    _selectedProject = filteredProjects
+                        .firstWhere((e) => e.projectName == val)
+                        .uid;
+                  },
+                ),
+                const SizedBox(height: 16),
                 _buildDropdownField(
                   "Task",
                   _taskList.map((e) => e.taskName).toList(),
@@ -510,7 +555,7 @@ class _TicketCreateState extends State<TicketCreate> {
       children: [
         UsersListDropdown(
           label: 'Assign To',
-          initialValues: widget.admins ?? [],
+          initialValues: widget.employees ?? [],
           onChangedList: (list) {
             _selectedAssignTo.clear();
             _selectedAssignTo.addAll(list.map((e) => e.uid!));
@@ -596,6 +641,8 @@ class _TicketCreateState extends State<TicketCreate> {
                 _selectedCompany = selectedClientModel.companyName;
                 _clientCompanyName.text = selectedClientModel.companyName!;
               }
+              // Reset project selection when client changes
+              _selectedProject = null;
             });
           },
         ),
@@ -696,7 +743,9 @@ class _TicketCreateState extends State<TicketCreate> {
             onTap: () async {
               var files = await FilePick.pickFiles(context);
               if (files != null) {
-                setState(() => _selectedAttachments.addAll(files as Iterable<File>));
+                setState(
+                  () => _selectedAttachments.addAll(files as Iterable<File>),
+                );
               }
             },
             child: Container(
@@ -840,6 +889,7 @@ class _TicketCreateState extends State<TicketCreate> {
           status: _status,
           attachments: attachments,
           ticketCreatedBy: await Spdb.getUser(),
+          project: _selectedProject,
           task: _selectedTask,
         );
 

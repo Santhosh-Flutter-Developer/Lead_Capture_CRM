@@ -37,7 +37,7 @@ exports.sendEmail = functions.https.onRequest(async (req, res) => {
         });
 
         await transporter.sendMail({
-            from: `"${from_name || "Mini CRM"}" <${from || smtp_user}>`,
+            from: `"${from_name || "Leadcapture"}" <${from || smtp_user}>`,
             to: to,
             replyTo: from || smtp_user,
             subject: subject,
@@ -160,11 +160,11 @@ exports.removeoldNotifications = onSchedule(
 
 // Splits an array into chunks of at most `size` (FCM multicast max is 500).
 function chunk(array, size) {
-  const out = [];
-  for (let i = 0; i < array.length; i += size) {
-    out.push(array.slice(i, i + size));
-  }
-  return out;
+    const out = [];
+    for (let i = 0; i < array.length; i += size) {
+        out.push(array.slice(i, i + size));
+    }
+    return out;
 }
 
 exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
@@ -197,7 +197,7 @@ exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
                 for (const batch of chunk(notif.toFcms, 500)) {
                     await getMessaging().sendEachForMulticast({
                         tokens: batch,
-                         data: {
+                        data: {
                             ...(notif.payload || {}),
                             title: String(notif.title || ""),
                             body: String(notif.body || ""),
@@ -355,11 +355,20 @@ exports.sendEventStartNotifications = onSchedule(
             if (!claimed) continue;
 
             try {
-                await sendEventStartedBroadcast(claimed);
-                await doc.ref.update({
-                    status: "sent",
-                    sentAt: FieldValue.serverTimestamp(),
-                });
+                const wasSent = await sendEventStartedBroadcast(claimed);
+                if (wasSent) {
+                    await doc.ref.update({
+                        status: "sent",
+                        sentAt: FieldValue.serverTimestamp(),
+                    });
+                } else {
+                    // No valid FCM tokens found - mark as failed with appropriate message
+                    await doc.ref.update({
+                        status: "failed",
+                        lastError: "No valid FCM tokens found for company admins",
+                        updatedAt: FieldValue.serverTimestamp(),
+                    });
+                }
             } catch (error) {
                 console.error(`sendEventStartNotifications: failed for ${doc.id}:`, error);
                 await doc.ref.update({
@@ -376,6 +385,7 @@ exports.sendEventStartNotifications = onSchedule(
  * Sends the "Event Started" push to every admin/user in the event's
  * company, cleans up invalid FCM tokens it discovers along the way, and
  * writes a notification record every user can see in-app.
+ * Returns true if at least one FCM message was sent successfully, false otherwise.
  */
 async function sendEventStartedBroadcast(eventNotif) {
     const db = getFirestore();
@@ -404,9 +414,10 @@ async function sendEventStartedBroadcast(eventNotif) {
 
     const tokens = Array.from(tokenOwners.keys());
     const invalidTokens = [];
+    let successfulSends = 0;
 
     if (tokens.length > 0) {
-         const eventTitle = "Event Started";
+        const eventTitle = "Event Started";
         const eventBody = `${eventNotif.eventName || "An event"} has started now.`;
         const payload = {
             data: {
@@ -429,7 +440,9 @@ async function sendEventStartedBroadcast(eventNotif) {
                 ...payload,
             });
             response.responses.forEach((res, i) => {
-                if (!res.success) {
+                if (res.success) {
+                    successfulSends++;
+                } else {
                     const code = res.error && res.error.code;
                     if (
                         code === "messaging/invalid-registration-token" ||
@@ -476,4 +489,7 @@ async function sendEventStartedBroadcast(eventNotif) {
                 createdAt: Date.now(),
             });
     }
+
+    // Return true only if at least one FCM message was sent successfully
+    return successfulSends > 0;
 }

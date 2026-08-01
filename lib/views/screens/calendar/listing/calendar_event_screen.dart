@@ -187,6 +187,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                             state.tasks,
                             state.leads,
                             state.deals,
+                            state.tickets,
                           ),
                         ),
                       ],
@@ -316,14 +317,15 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     List<TaskModel> tasks,
     List<LeadModel> leads,
     List<DealModel> deals,
+    List<CustomerTicketModel> tickets,
   ) {
     switch (_currentView) {
       case Calendar.day:
-        return _buildDayView(events, tasks, leads, deals);
+        return _buildDayView(events, tasks, leads, deals, tickets);
       case Calendar.week:
-        return _buildWeekView(events, tasks, leads, deals);
+        return _buildWeekView(events, tasks, leads, deals, tickets);
       case Calendar.month:
-        return _buildMonthView(events, tasks, leads, deals);
+        return _buildMonthView(events, tasks, leads, deals, tickets);
     }
   }
 
@@ -332,6 +334,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     List<TaskModel> tasks,
     List<LeadModel> leads,
     List<DealModel> deals,
+    List<CustomerTicketModel> tickets,
   ) {
     final dayEvents = events
         .where((e) => _isSameDay(e.eventDateTime, _selectedDate))
@@ -349,19 +352,30 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
         .where((e) => _isSameDay(e.createdAt, _selectedDate))
         .toList();
 
+    final dayTickets = tickets
+        .where((e) => _isSameDay(e.createdAt, _selectedDate))
+        .toList();
+
     if (dayEvents.isEmpty &&
         dayTasks.isEmpty &&
         dayLeads.isEmpty &&
-        dayDeals.isEmpty) {
+        dayDeals.isEmpty &&
+        dayTickets.isEmpty) {
       return Center(
         child: Text(
-          "No events, tasks, leads, or deals for today",
+          "No events, tasks, leads, deals, or tickets for today",
           style: Theme.of(context).textTheme.bodySmall,
         ),
       );
     }
 
-    var totalIndexes = [...dayEvents, ...dayTasks, ...dayLeads, ...dayDeals];
+    var totalIndexes = [
+      ...dayEvents,
+      ...dayTasks,
+      ...dayLeads,
+      ...dayDeals,
+      ...dayTickets,
+    ];
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -452,6 +466,30 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             },
             completed: false,
           );
+        } else if (e is CustomerTicketModel) {
+          return EventCard(
+            title: '#${e.ticketNumber} ${e.ticketTitle}',
+            category: e.category.label,
+            categoryColor: Theme.of(context).colorScheme.primaryContainer,
+            textColor: Theme.of(context).colorScheme.primary,
+            time: e.createdAt.formatDateTime,
+            onTap: () {
+              if (kIsDesktop) {
+                GeneralDialog.showRTLSheet(
+                  context,
+                  TicketView(uid: e.uid ?? ''),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TicketView(uid: e.uid ?? ''),
+                  ),
+                );
+              }
+            },
+            completed: e.status == TicketStatus.closed,
+          );
         }
         return null;
       },
@@ -463,6 +501,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     List<TaskModel> tasks,
     List<LeadModel> leads,
     List<DealModel> deals,
+    List<CustomerTicketModel> tickets,
   ) {
     DateTime firstDayOfWeek = _selectedDate.subtract(
       Duration(days: _selectedDate.weekday - 1),
@@ -485,7 +524,12 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
 
         var dealCount = deals.where((e) => _isSameDay(e.createdAt, day)).length;
 
-        var totalCount = count + taskCount + leadCount + dealCount;
+        var ticketCount = tickets
+            .where((e) => _isSameDay(e.createdAt, day))
+            .length;
+
+        var totalCount =
+            count + taskCount + leadCount + dealCount + ticketCount;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
@@ -517,7 +561,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                   context,
                   title: 'Items on ${day.day}/${day.month}/${day.year}',
                   description:
-                      'You have $count event(s), $leadCount lead(s), & $dealCount deal(s) scheduled for this day.',
+                      'You have $count event(s), $taskCount task(s), $leadCount lead(s), $dealCount deal(s), & $ticketCount ticket(s) scheduled for this day.',
                   items: events
                       .where((e) => _isSameDay(e.eventDateTime, day))
                       .toList(),
@@ -530,6 +574,9 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                       .where((e) => _isSameDay(e.createdAt, day))
                       .toList(),
                   deals: deals
+                      .where((e) => _isSameDay(e.createdAt, day))
+                      .toList(),
+                  tickets: tickets
                       .where((e) => _isSameDay(e.createdAt, day))
                       .toList(),
                   selectedDate: day,
@@ -580,6 +627,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     List<TaskModel> tasks,
     List<LeadModel> leads,
     List<DealModel> deals,
+    List<CustomerTicketModel> tickets,
   ) {
     int daysInMonth = _getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
 
@@ -657,12 +705,19 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                   .toList();
               bool hasDeals = dayDeals.isNotEmpty;
 
-              bool hasItems = hasEvents || hasTasks || hasLeads || hasDeals;
+              final dayTickets = tickets
+                  .where((e) => _isSameDay(e.createdAt, date))
+                  .toList();
+              bool hasTickets = dayTickets.isNotEmpty;
+
+              bool hasItems =
+                  hasEvents || hasTasks || hasLeads || hasDeals || hasTickets;
               var totalItemsCount =
                   dayEvents.length +
                   dayTasks.length +
                   dayLeads.length +
-                  dayDeals.length;
+                  dayDeals.length +
+                  dayTickets.length;
 
               return InkWell(
                 onTap: () async {
@@ -671,7 +726,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                       context,
                       title: 'Items on ${date.day}/${date.month}/${date.year}',
                       description:
-                          'You have ${dayEvents.length} event(s), ${dayTasks.length} task(s), ${dayLeads.length} lead(s), & ${dayDeals.length} deal(s) scheduled for this day.',
+                          'You have ${dayEvents.length} event(s), ${dayTasks.length} task(s), ${dayLeads.length} lead(s), ${dayDeals.length} deal(s), & ${dayTickets.length} ticket(s) scheduled for this day.',
                       items: events
                           .where((e) => _isSameDay(e.eventDateTime, date))
                           .toList(),
@@ -685,6 +740,9 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                           .where((e) => _isSameDay(e.createdAt, date))
                           .toList(),
                       deals: deals
+                          .where((e) => _isSameDay(e.createdAt, date))
+                          .toList(),
+                      tickets: tickets
                           .where((e) => _isSameDay(e.createdAt, date))
                           .toList(),
                       selectedDate: date,
@@ -872,6 +930,29 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                     ),
                                   );
                                 }),
+                                ...dayTickets.map((e) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Text(
+                                      '#${e.ticketNumber} ${e.ticketTitle}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            height: 1.1,
+                                            color: isToday
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.9,
+                                                  )
+                                                : Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                          ),
+                                    ),
+                                  );
+                                }),
                               ],
                             ),
                           ),
@@ -895,9 +976,10 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
     required List<TaskModel> tasks,
     required List<LeadModel> leads,
     required List<DealModel> deals,
+    required List<CustomerTicketModel> tickets,
     DateTime? selectedDate,
   }) {
-    final totalItems = [...items, ...tasks, ...leads, ...deals];
+    final totalItems = [...items, ...tasks, ...leads, ...deals, ...tickets];
 
     showGeneralDialog(
       context: context,
@@ -1193,6 +1275,75 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                         Sheet.showSheet(
                                           context,
                                           widget: DealEdit(uid: item.uid ?? ''),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                  Column(
+                                    children: [
+                                      Text(
+                                        "Created",
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        item.createdAt.formatTime,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else if (item is CustomerTicketModel) {
+                            return ListTile(
+                              onTap: () {
+                                Navigator.pop(context);
+                                if (kIsDesktop) {
+                                  GeneralDialog.showRTLSheet(
+                                    context,
+                                    TicketView(uid: item.uid ?? ''),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          TicketView(uid: item.uid ?? ''),
+                                    ),
+                                  );
+                                }
+                              },
+                              title: Text(
+                                '#${item.ticketNumber} ${item.ticketTitle}',
+                              ),
+                              subtitle: Text(
+                                item.ticketDescription.isNotEmpty
+                                    ? item.ticketDescription
+                                    : "No description",
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, size: 20),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      if (kIsDesktop) {
+                                        GeneralDialog.showRTLSheet(
+                                          context,
+                                          TicketEdit(uid: item.uid ?? ''),
+                                        );
+                                      } else {
+                                        Sheet.showSheet(
+                                          context,
+                                          widget: TicketEdit(
+                                            uid: item.uid ?? '',
+                                          ),
                                         );
                                       }
                                     },

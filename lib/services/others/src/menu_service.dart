@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:leadcapture/constants/src/enum.dart';
+import '/services/services.dart';
 
 /// Menu item configuration with role-based access control
 class MenuItem {
@@ -9,6 +11,7 @@ class MenuItem {
   final String? route;
   final List<MenuItem>? children;
   final bool isAdminOnly;
+  final bool requiresPayroll;
   final List<String> requiredPermissions;
   final bool isDivider;
   final bool isStatic;
@@ -20,6 +23,7 @@ class MenuItem {
     this.route,
     this.children,
     this.isAdminOnly = false,
+    this.requiresPayroll = false,
     this.requiredPermissions = const [],
     this.isDivider = false,
     this.isStatic = false,
@@ -28,11 +32,13 @@ class MenuItem {
   /// Check if menu item is accessible based on user role and permissions
   Future<bool> isAccessible({
     required bool isAdmin,
+    // required bool payrollEnabled,
     required List<String> userPermissions,
   }) async {
     if (isStatic) return true;
     if (isDivider) return true;
     if (isAdminOnly && !isAdmin) return false;
+    // if (requiresPayroll && !payrollEnabled) return false;
 
     if (requiredPermissions.isNotEmpty) {
       final hasPermission = requiredPermissions.any(
@@ -57,21 +63,73 @@ class MenuService {
         icon: Iconsax.home_2,
         route: '/dashboard',
       ),
-      // MenuItem(
-      //   id: 'feed',
-      //   title: 'Feed',
-      //   icon: Iconsax.activity,
-      //   route: '/feed',
-      // ),
+      MenuItem(
+        id: 'feed',
+        title: 'Feed',
+        icon: Iconsax.activity,
+        route: '/feed',
+      ),
 
-      // // Chats
-      // MenuItem(
-      //   id: 'chats',
-      //   title: 'Chats',
-      //   icon: Iconsax.message,
-      //   route: '/chats',
-      //   requiredPermissions: ['Chats'],
-      // ),
+      // Creation Section
+      MenuItem(
+        id: 'creation',
+        title: 'Creation',
+        icon: Iconsax.element_plus,
+        children: [
+          MenuItem(
+            id: 'role',
+            title: 'Role',
+            icon: Iconsax.user_square,
+            route: '/role',
+            requiredPermissions: ['Role'],
+          ),
+          MenuItem(
+            id: 'designation',
+            title: 'Designation',
+            icon: Iconsax.tick_circle,
+            route: '/designation',
+            requiredPermissions: ['Designation'],
+          ),
+          MenuItem(
+            id: 'department',
+            title: 'Department',
+            icon: Iconsax.building,
+            route: '/department',
+            requiredPermissions: ['Department'],
+          ),
+          MenuItem(
+            id: 'sub_department',
+            title: 'Sub Department',
+            icon: Iconsax.building_3,
+            route: '/sub-department',
+            requiredPermissions: ['Sub Department'],
+          ),
+
+          // MenuItem(
+          //   id: 'employee_status',
+          //   title: 'Employee Status',
+          //   icon: Iconsax.tag,
+          //   route: '/employee-status',
+          //   requiredPermissions: ['Employee Status'],
+          // ),
+          MenuItem(
+            id: 'employees',
+            title: 'Employees',
+            icon: Iconsax.security_user,
+            route: '/employees',
+            requiredPermissions: ['Employees'],
+          ),
+        ],
+      ),
+
+      // Chats
+      MenuItem(
+        id: 'chats',
+        title: 'Chats',
+        icon: Iconsax.message,
+        route: '/chats',
+        requiredPermissions: ['Chats'],
+      ),
 
       // CRM Section
       MenuItem(
@@ -152,6 +210,15 @@ class MenuService {
         ],
       ),
 
+      // Companies
+      // MenuItem(
+      //   id: 'companies',
+      //   title: 'Companies',
+      //   icon: Iconsax.building,
+      //   route: '/companies',
+      //   requiredPermissions: ['Company'],
+      // ),
+
       // Calendar
       MenuItem(
         id: 'calendar',
@@ -161,23 +228,31 @@ class MenuService {
         requiredPermissions: ['Calendar'],
       ),
 
-      // Tasks
-      // MenuItem(
-      //   id: 'tasks',
-      //   title: 'Tasks',
-      //   icon: Iconsax.check,
-      //   route: '/tasks',
-      //   requiredPermissions: ['Tasks'],
-      // ),
+      // Projects
+      MenuItem(
+        id: 'projects',
+        title: 'Projects',
+        icon: Iconsax.airdrop,
+        route: '/projects',
+        requiredPermissions: ['Projects'],
+      ),
 
+      // Tasks
+      MenuItem(
+        id: 'tasks',
+        title: 'Tasks',
+        icon: Iconsax.check,
+        route: '/tasks',
+        requiredPermissions: ['Tasks'],
+      ),
       // Customer Tickets
-      // MenuItem(
-      //   id: 'tickets',
-      //   title: 'Tickets',
-      //   icon: Iconsax.ticket,
-      //   route: '/tickets',
-      //   requiredPermissions: ['Tickets'],
-      // ),
+      MenuItem(
+        id: 'tickets',
+        title: 'Tickets',
+        icon: Iconsax.ticket,
+        route: '/tickets',
+        requiredPermissions: ['Tickets'],
+      ),
 
       // Settings
       MenuItem(
@@ -242,6 +317,7 @@ class MenuService {
   /// Filter menu items based on user role and permissions (handles nested children recursively)
   static Future<List<MenuItem>> filterMenuItems({
     required bool isAdmin,
+    // required bool payrollEnabled,
     required List<String> userPermissions,
   }) async {
     final allItems = getAllMenuItems();
@@ -252,6 +328,7 @@ class MenuService {
       for (final child in children) {
         final childAccessible = await child.isAccessible(
           isAdmin: isAdmin,
+          // payrollEnabled: payrollEnabled,
           userPermissions: userPermissions,
         );
 
@@ -266,6 +343,7 @@ class MenuService {
                 route: child.route,
                 children: grandChildren,
                 isAdminOnly: child.isAdminOnly,
+                requiresPayroll: child.requiresPayroll,
                 requiredPermissions: child.requiredPermissions,
                 isDivider: child.isDivider,
                 isStatic: child.isStatic,
@@ -282,6 +360,7 @@ class MenuService {
     for (final item in allItems) {
       final accessible = await item.isAccessible(
         isAdmin: isAdmin,
+        // payrollEnabled: payrollEnabled,
         userPermissions: userPermissions,
       );
 
@@ -296,6 +375,7 @@ class MenuService {
               route: item.route,
               children: filteredChildren,
               isAdminOnly: item.isAdminOnly,
+              requiresPayroll: item.requiresPayroll,
               requiredPermissions: item.requiredPermissions,
               isDivider: item.isDivider,
               isStatic: item.isStatic,
@@ -310,9 +390,33 @@ class MenuService {
     return filteredItems;
   }
 
+  /// Get user permissions from role
+  static Future<List<String>> getUserPermissions() async {
+    final user = await Spdb.getUser();
+
+    if (user.userType == UserType.admin) {
+      // Admin has all permissions
+      return getAllPermissions();
+    }
+
+    // Get employee role
+    final employee = await EmployeeService.getEmployee(uid: user.uid);
+    if (employee?.role == null) return [];
+
+    final role = await RoleService.getRole(uid: employee!.role);
+
+    // Extract permission names from role permissions
+    return role.permissions.map((p) => p.page).toList();
+  }
+
   /// Get all available permissions
   static List<String> getAllPermissions() {
     return [
+      'Role',
+      'Designation',
+      'Department',
+      'Sub Department',
+      'Employees',
       'Chats',
       'Lead Category',
       'Lead Source',
@@ -324,6 +428,7 @@ class MenuService {
       'Company',
       'Contact',
       'Calendar',
+      'Projects',
       'Tasks',
       'Tickets',
       'Downloads',

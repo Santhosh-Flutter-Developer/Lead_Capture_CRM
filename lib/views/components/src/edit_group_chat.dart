@@ -41,10 +41,10 @@ class _EditGroupChatState extends State<EditGroupChat> {
       _members.clear();
       _selectedMembers.clear();
 
-      // final employees = await EmployeeService.getAllEmployees();
+      final employees = await EmployeeService.getAllEmployees();
       final admins = await AdminService.getAllAdmins();
 
-      // _members.addAll(employees);
+      _members.addAll(employees);
       _members.addAll(admins);
 
       // 2️⃣ Prefill group name & description

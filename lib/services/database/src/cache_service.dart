@@ -304,26 +304,6 @@ class CacheService {
     });
   }
 
-  static ValueListenable<List<AdminModel>> getAllListenableAdmins() {
-    final conf = _config['admin']!;
-    final box = Hive.box<Map<dynamic, dynamic>>(conf.boxName);
-
-    return box.listenable().map((boxRef) {
-      return boxRef.keys
-          .map((key) {
-            final raw = boxRef.get(key);
-            if (raw == null) return null;
-            final normalized = _normalizeCacheValue(raw);
-            return AdminModel.fromMap(
-              key.toString(),
-              Map<String, dynamic>.from(normalized as Map),
-            );
-          })
-          .whereType<AdminModel>()
-          .toList();
-    });
-  }
-
   // ---------------- BULK SYNC FUNCTIONS ----------------
 
   /// Syncs specific collections based on the keys passed (e.g. ['employee', 'department'])

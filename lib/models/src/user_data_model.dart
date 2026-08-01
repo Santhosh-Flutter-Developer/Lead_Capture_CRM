@@ -43,23 +43,23 @@ class UserDataModel {
   }
 
   factory UserDataModel.fromMap(Map<String, dynamic> map) {
-  return UserDataModel(
-    uid: map['uid']?.toString() ?? '',
-    name: map['name']?.toString() ?? '',
-    profilePic: map['profilePic']?.toString(),
-    desc: map['desc']?.toString(),
-    userType: UserType.values.firstWhere(
-      (e) => e.name == map['userType']?.toString(),
-      orElse: () => UserType.admin, // Changed fallback to admin
-    ),
-  );
-}
+    return UserDataModel(
+      uid: map['uid']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      profilePic: map['profilePic']?.toString(),
+      desc: map['desc']?.toString(),
+      userType: UserType.values.firstWhere(
+        (e) => e.name == map['userType']?.toString(),
+        orElse: () => UserType.employee,
+      ),
+    );
+  }
 
   factory UserDataModel.fromEmptyMap() {
     return UserDataModel(
       uid: '',
       name: 'User',
-      userType: UserType.admin, // Changed from employee
+      userType: UserType.employee,
       profilePic: AppStrings.emptyProfilePhotoUrl,
     );
   }

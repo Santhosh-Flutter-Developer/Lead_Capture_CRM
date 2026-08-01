@@ -33,7 +33,7 @@ class TicketListView extends StatelessWidget {
       create: (_) => PaginatedDataController<CustomerTicketModel>(
         initialSortColumnIndex: 1,
         filterLogic: (ticket, query) {
-         final q = query.toLowerCase();
+          final q = query.toLowerCase();
           return ticket.ticketTitle.toLowerCase().contains(q) ||
               ticket.clientName.toLowerCase().contains(q) ||
               ticket.ticketNumber?.toString().contains(q) == true;
@@ -233,6 +233,12 @@ class _TicketListingViewState extends State<TicketListingView> {
                         DataColumn(
                           label: Text(
                             "Category",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            "Project",
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
@@ -642,6 +648,17 @@ class _TicketListingViewState extends State<TicketListingView> {
         dataCell(
           context,
           Text(
+            ticket.project != null
+                ? CacheService.getProjectByUid(ticket.project!)?.projectName ??
+                      '-'
+                : '-',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          ticket.uid ?? '',
+        ),
+        dataCell(
+          context,
+          Text(
             ticket.task != null
                 ? CacheService.getTaskByUid(ticket.task!)?.taskName ?? '-'
                 : '-',
@@ -657,9 +674,9 @@ class _TicketListingViewState extends State<TicketListingView> {
                   spacing: 6,
                   runSpacing: 6,
                   children: ticket.createdBy
-                      .map((uid) => CacheService.adminByUid(uid))
+                      .map((uid) => CacheService.getUserByUid(uid))
                       .where((user) => user != null)
-                      .map((user) => CreatedByWidget(userData: UserDataModel(uid: user!.uid ?? '', name: user.name, userType: UserType.admin, profilePic: user.profileImageUrl)))
+                      .map((user) => CreatedByWidget(userData: user!))
                       .toList(),
                 ),
           ticket.uid ?? '',

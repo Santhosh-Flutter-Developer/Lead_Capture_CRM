@@ -18,6 +18,8 @@ class ChatModel {
   final List<String>? deletedFor;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final Map<String, String>? roles;
+  final bool isAnnouncementChannel;
 
   ChatModel({
     this.uid,
@@ -35,6 +37,8 @@ class ChatModel {
     this.deletedFor,
     this.createdAt,
     this.updatedAt,
+    this.roles,
+    this.isAnnouncementChannel = false,
   });
 
   ChatModel copyWith({
@@ -54,6 +58,8 @@ class ChatModel {
     List<String>? deletedFor,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Map<String, String>? roles,
+    bool? isAnnouncementChannel,
   }) {
     return ChatModel(
       uid: uid ?? this.uid,
@@ -71,6 +77,9 @@ class ChatModel {
       deletedFor: deletedFor ?? this.deletedFor,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      roles: roles ?? this.roles,
+      isAnnouncementChannel:
+          isAnnouncementChannel ?? this.isAnnouncementChannel,
     );
   }
 
@@ -91,6 +100,8 @@ class ChatModel {
       'deletedFor': deletedFor,
       'createdAt': createdAt?.millisecondsSinceEpoch,
       'updatedAt': updatedAt?.millisecondsSinceEpoch,
+      'roles': roles,
+      'isAnnouncementChannel': isAnnouncementChannel,
     };
   }
 
@@ -138,7 +149,30 @@ class ChatModel {
       updatedAt: map['updatedAt'] is int
           ? DateTime.fromMillisecondsSinceEpoch(map['updatedAt'] as int)
           : null,
+      roles: map['roles'] != null
+          ? Map<String, String>.from(
+              (map['roles'] as Map).map(
+                (k, v) => MapEntry(k.toString(), v.toString()),
+              ),
+            )
+          : null,
+      isAnnouncementChannel: map['isAnnouncementChannel'] is bool
+          ? map['isAnnouncementChannel'] as bool
+          : false,
     );
+  }
+
+  String getUserRole(String userId) {
+    if (roles != null && roles!.containsKey(userId)) {
+      return roles![userId]!;
+    }
+    return userId == createdBy ? 'owner' : 'member';
+  }
+
+  bool canPostMessage(String userId) {
+    if (!isAnnouncementChannel) return true;
+    final role = getUserRole(userId);
+    return role == 'owner' || role == 'admin';
   }
 
   String toJson() => json.encode(toMap());
@@ -187,6 +221,7 @@ class MessagesModel {
   final List<MentionModel>? mentions;
   final DateTime timestamp;
   final List<String> searchKeywords;
+  final String? threadId;
 
   MessagesModel({
     this.uid,
@@ -211,6 +246,7 @@ class MessagesModel {
     this.mentions,
     DateTime? timestamp,
     this.searchKeywords = const [],
+    this.threadId,
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
@@ -239,6 +275,7 @@ class MessagesModel {
         ...buildSearchKeywords(message),
         ...attachments.expand((f) => buildSearchKeywords(f.name)),
       ],
+      'threadId': threadId,
     };
   }
 
@@ -278,6 +315,7 @@ class MessagesModel {
       timestamp: DateTime.fromMillisecondsSinceEpoch(
         map['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
       ),
+      threadId: map['threadId'],
     );
   }
 

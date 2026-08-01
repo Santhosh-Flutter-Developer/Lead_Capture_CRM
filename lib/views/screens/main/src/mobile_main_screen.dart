@@ -12,7 +12,8 @@ class MobileMainScreen extends StatefulWidget {
 class _MobileMainScreenState extends State<MobileMainScreen> {
   late Future _future;
   late String _currentUserUid;
-  UserDataModel? _userDataModel;
+  EmployeeModel? _employeeModel;
+  AdminModel? _adminModel;
   int _currentIndex = 0;
   String? _companyLogoUrl;
 
@@ -34,8 +35,14 @@ class _MobileMainScreenState extends State<MobileMainScreen> {
       if (mounted) {
         _currentUserUid = await Spdb.getUid() ?? '';
         var user = await Spdb.getUser();
+
         _companyLogoUrl = await Spdb.getCompanyLogo();
-        _userDataModel = user;
+
+        if (user.userType == UserType.admin) {
+          _adminModel = await Spdb.getAdmin();
+        } else {
+          _employeeModel = await Spdb.getEmployee();
+        }
         setState(() {});
       }
     } catch (e, st) {
@@ -125,8 +132,10 @@ class _MobileMainScreenState extends State<MobileMainScreen> {
                     // 2. Fallback child if backgroundImage is null or loading
                     child: (_companyLogoUrl == null || _companyLogoUrl!.isEmpty)
                         ? Text(
-                            _userDataModel?.name.isNotEmpty == true
-                                ? _userDataModel!.name[0].toUpperCase()
+                            _employeeModel?.name.isNotEmpty == true
+                                ? _employeeModel!.name[0].toUpperCase()
+                                : _adminModel?.name.isNotEmpty == true
+                                ? _adminModel!.name[0].toUpperCase()
                                 : 'U',
                             style: Theme.of(context).textTheme.bodySmall,
                           )

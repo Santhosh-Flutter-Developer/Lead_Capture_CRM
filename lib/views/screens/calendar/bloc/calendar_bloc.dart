@@ -14,6 +14,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
   List<TaskModel> allTasks = [];
   List<LeadModel> allLeads = [];
   List<DealModel> allDeals = [];
+  List<CustomerTicketModel> allTickets = [];
 
   CalendarBloc() : super(CalendarLoading()) {
     on<StreamCalendar>(_streamCalendar);
@@ -77,19 +78,33 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
               .toList(),
         );
 
+    final ticketsStream = firestore
+        .collection(Collections.users.name)
+        .doc(cid)
+        .collection(Collections.customerTickets.name)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((d) => CustomerTicketModel.fromMap(d.id, d.data()))
+              .toList(),
+        );
+
     await emit.forEach(
-      Rx.combineLatest4<
+      Rx.combineLatest5<
         List<EventModel>,
         List<TaskModel>,
         List<LeadModel>,
         List<DealModel>,
+        List<CustomerTicketModel>,
         Map<String, dynamic>
       >(
         eventsStream,
         tasksStream,
         leadsStream,
         dealsStream,
-        (events, tasks, leads, deals) => {'events': events, 'tasks': tasks, 'leads': leads, 'deals': deals},
+        ticketsStream,
+        (events, tasks, leads, deals, tickets) => {'events': events, 'tasks': tasks, 'leads': leads, 'deals': deals, 'tickets': tickets},
       ),
       onData: (data) {
         return CalendarLoaded(
@@ -97,6 +112,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
           data['tasks'] as List<TaskModel>,
           data['leads'] as List<LeadModel>,
           data['deals'] as List<DealModel>,
+          data['tickets'] as List<CustomerTicketModel>,
         );
       },
       onError: (error, stackTrace) {

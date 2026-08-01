@@ -31,7 +31,8 @@ class _TicketEditState extends State<TicketEdit> {
   final TextEditingController _deadline = TextEditingController();
   final TextEditingController _reminder = TextEditingController();
 
-  List<AdminModel> _adminList = [];
+  List<EmployeeModel> _employeeList = [];
+  List<ProjectModel> _projectList = [];
   List<TaskModel> _taskList = [];
   List<ClientModel> _clientList = [];
   List<CompanyModel> _companyList = [];
@@ -44,6 +45,7 @@ class _TicketEditState extends State<TicketEdit> {
   List<String> _selectedParticipants = [];
   final List<dynamic> _initialParticipants = [];
 
+  String? _selectedProject;
   String? _selectedTask;
   String? _selectedClient;
   String? _selectedClientUid;
@@ -84,12 +86,15 @@ class _TicketEditState extends State<TicketEdit> {
       _selectedObservers = _ticketModel!.observers;
       _selectedParticipants = _ticketModel!.participants;
       _existingAttachments = List<FileModel>.from(_ticketModel!.attachments);
+      _selectedProject = _ticketModel!.project;
       _selectedTask = _ticketModel!.task;
       _selectedClient = _ticketModel!.clientName;
       _selectedCompany = _ticketModel!.clientCompanyName;
 
-      _adminList.clear();
-      _adminList = await AdminService.getAllAdmins();
+      _employeeList.clear();
+      _employeeList = await EmployeeService.getAllEmployees();
+      _projectList.clear();
+      _projectList = await ProjectService.getAllProjects();
       _taskList.clear();
       _taskList = await TaskService.getAllTasks();
       _clientList.clear();
@@ -115,30 +120,50 @@ class _TicketEditState extends State<TicketEdit> {
 
       _initialAssignTo.clear();
       for (var i in _selectedAssignTo) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialAssignTo.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialAssignTo.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialAssignTo.add(admin);
+          }
         }
       }
       _initialParticipants.clear();
       for (var i in _selectedParticipants) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialParticipants.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialParticipants.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialParticipants.add(admin);
+          }
         }
       }
       _initialObservers.clear();
       for (var i in _selectedObservers) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialObservers.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialObservers.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialObservers.add(admin);
+          }
         }
       }
       _initialCreatedBy.clear();
       for (var i in _selectedCreatedBy) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialCreatedBy.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialCreatedBy.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialCreatedBy.add(admin);
+          }
         }
       }
     } catch (e) {
@@ -252,6 +277,34 @@ class _TicketEditState extends State<TicketEdit> {
                   child: Column(
                     children: [
                       _buildDropdownField(
+                        "Project",
+                        _selectedClientUid != null
+                            ? _projectList
+                                  .where((p) => p.client == _selectedClientUid)
+                                  .map((e) => e.projectName)
+                                  .toList()
+                            : _projectList.map((e) => e.projectName).toList(),
+                        initialItem: _selectedProject != null
+                            ? _projectList
+                                  .where((e) => e.uid == _selectedProject)
+                                  .map((e) => e.projectName)
+                                  .firstOrNull
+                            : null,
+                        (val) {
+                          var filteredProjects = _selectedClientUid != null
+                              ? _projectList
+                                    .where(
+                                      (p) => p.client == _selectedClientUid,
+                                    )
+                                    .toList()
+                              : _projectList;
+                          _selectedProject = filteredProjects
+                              .firstWhere((e) => e.projectName == val)
+                              .uid;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _buildDropdownField(
                         "Task",
                         _taskList.map((e) => e.taskName).toList(),
                         initialItem: _selectedTask != null
@@ -332,6 +385,32 @@ class _TicketEditState extends State<TicketEdit> {
             icon: Iconsax.hierarchy,
             child: Column(
               children: [
+                _buildDropdownField(
+                  "Project",
+                  _selectedClientUid != null
+                      ? _projectList
+                            .where((p) => p.client == _selectedClientUid)
+                            .map((e) => e.projectName)
+                            .toList()
+                      : _projectList.map((e) => e.projectName).toList(),
+                  initialItem: _selectedProject != null
+                      ? _projectList
+                            .where((e) => e.uid == _selectedProject)
+                            .map((e) => e.projectName)
+                            .firstOrNull
+                      : null,
+                  (val) {
+                    var filteredProjects = _selectedClientUid != null
+                        ? _projectList
+                              .where((p) => p.client == _selectedClientUid)
+                              .toList()
+                        : _projectList;
+                    _selectedProject = filteredProjects
+                        .firstWhere((e) => e.projectName == val)
+                        .uid;
+                  },
+                ),
+                const SizedBox(height: 16),
                 _buildDropdownField(
                   "Task",
                   _taskList.map((e) => e.taskName).toList(),
@@ -692,6 +771,8 @@ class _TicketEditState extends State<TicketEdit> {
                 _clientCompanyName.text = selectedClientModel.companyName!;
               }
               _clientName.text = val;
+              // Reset project selection when client changes
+              _selectedProject = null;
             });
           },
         ),
@@ -979,7 +1060,7 @@ class _TicketEditState extends State<TicketEdit> {
           ticketCreatedBy: await Spdb.getUser(),
           createdAt: _ticketModel!.createdAt,
           updatedAt: DateTime.now(),
-          // project: _selectedProject,
+          project: _selectedProject,
           task: _selectedTask,
         );
 

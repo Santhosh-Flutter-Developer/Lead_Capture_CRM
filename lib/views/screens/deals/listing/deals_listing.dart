@@ -112,7 +112,7 @@ class _DealsListingViewState extends State<DealsListingView> {
   }
 
   List<String> employeeItems(CacheService cache) {
-    return CacheService.getAllListenableAdmins().value.map((e) => e.name).toList();
+    return cache.getAllListenableEmployees().value.map((e) => e.name).toList();
   }
 
   Future<void> _refreshDeals(BuildContext context) async {
@@ -164,7 +164,10 @@ class _DealsListingViewState extends State<DealsListingView> {
                 child: ListView(
                   padding: const EdgeInsets.all(24.0),
                   children: [
-                    _buildFilterRow(onSearchChanged: controllerRead.setSearch, width: width),
+                    _buildFilterRow(
+                      onSearchChanged: controllerRead.setSearch,
+                      width: width,
+                    ),
                     const SizedBox(height: 10),
                     _buildActionRow(context),
                     const SizedBox(height: 20),
@@ -322,7 +325,10 @@ class _DealsListingViewState extends State<DealsListingView> {
     );
   }
 
-  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged, required double width}) {
+  Widget _buildFilterRow({
+    required ValueChanged<String> onSearchChanged,
+    required double width,
+  }) {
     if (!Hive.isBoxOpen('dealStatus') || !Hive.isBoxOpen('employees')) {
       return _buildSearchField(onSearchChanged);
     }
@@ -392,16 +398,16 @@ class _DealsListingViewState extends State<DealsListingView> {
       _filterDropdown(
         label: "Created By",
         value: _selectedCreatedBy != null
-            ? CacheService
-                  .getAllListenableAdmins()
+            ? cache
+                  .getAllListenableEmployees()
                   .value
                   .firstWhere((e) => e.uid == _selectedCreatedBy)
                   .name
             : null,
         items: employeeItems(cache),
         onChanged: (v) {
-          final selectedEmployee = CacheService
-              .getAllListenableAdmins()
+          final selectedEmployee = cache
+              .getAllListenableEmployees()
               .value
               .firstWhereOrNull((e) => e.name == v);
 
@@ -822,92 +828,6 @@ class _DealsListingViewState extends State<DealsListingView> {
                 ),
               ),
             ],
-            if (permissions?.canDelete ?? false) ...[
-              if (_selectedDeals.isNotEmpty)
-                ElevatedButton.icon(
-                  label: Text(
-                    "Delete",
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  icon: const Icon(Iconsax.trash),
-                  onPressed: () async {
-                    var result = await showDialog(
-                      context: context,
-                      builder: (context) => ConfirmDialog(
-                        title: 'Delete',
-                        content:
-                            'Are you sure want to delete this $_pageTitle?',
-                      ),
-                      barrierDismissible: false,
-                    );
-
-                    if (result != true) return;
-
-                    try {
-                      // ✅ STEP 1: backup
-                      final deletedDeals = List<DealModel>.from(_selectedDeals);
-
-                      futureLoading(context);
-
-                      // ✅ STEP 2: delete
-                      for (var deal in deletedDeals) {
-                        await DealService.deleteDeal(uid: deal.uid ?? '');
-                      }
-
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-
-                      // ✅ STEP 3: clear selection
-                      _selectedDeals.clear();
-                      setState(() {});
-
-                      // ✅ STEP 4: UNDO
-                      FlushBar.show(
-                        context,
-                        '$_pageTitle deleted successfully',
-                        actionLabel: 'UNDO',
-                        onActionPressed: () async {
-                          for (var deal in deletedDeals) {
-                            await DealService.restoreDeal(
-                              deal,
-                            ); // 👈 implement this
-                          }
-
-                          // 🔥 refresh after undo
-                          context.read<DealBloc>().add(StreamDeals());
-                        },
-                        // onDismissed: () {
-                        //   // 🔥 refresh if no undo
-                        //   context.read<DealBloc>().add(StreamDeals());
-                        // },
-                      );
-                    } catch (e) {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                      FlushBar.show(context, e.toString(), isSuccess: false);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.danger,
-                    foregroundColor: AppColors.white,
-                  ),
-                ),
-            ] else ...[
-              ElevatedButton.icon(
-                label: Text(
-                  "Delete",
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                icon: Icon(Iconsax.trash),
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.grey400,
-                  foregroundColor: AppColors.white,
-                ),
-              ),
-            ],
           ],
         );
 
@@ -1113,7 +1033,7 @@ class _DealsListingViewState extends State<DealsListingView> {
                   color: AppColors.info,
                   splashRadius: 20,
                   onPressed: () {
-                    if (kIsMobile || width < 1000 ) {
+                    if (kIsMobile || width < 1000) {
                       Sheet.showSheet(
                         context,
                         widget: DealEdit(uid: deal.uid ?? ''),
@@ -1129,58 +1049,6 @@ class _DealsListingViewState extends State<DealsListingView> {
               ] else ...[
                 IconButton(
                   icon: Icon(Iconsax.edit, color: AppColors.grey400),
-                  onPressed: null,
-                ),
-              ],
-
-              if ((permissions?.canDelete ?? false) &&
-                  (_isAdmin || deal.createdBy.uid == _currentUid)) ...[
-                IconButton(
-                  icon: const Icon(Iconsax.trash),
-                  color: AppColors.danger,
-                  splashRadius: 20,
-                  onPressed: () async {
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => ConfirmDialog(
-                        title: 'Delete $_pageTitle',
-                        content:
-                            'Are you sure you want to delete this $_pageTitle?',
-                      ),
-                    );
-
-                    if (result == true) {
-                      try {
-                        await DealService.deleteDeal(uid: deal.uid ?? '');
-
-                        if (context.mounted) {
-                          FlushBar.show(
-                            context,
-                            '$_pageTitle deleted successfully',
-                            actionLabel: 'UNDO',
-                            onActionPressed: () async {
-                              await DealService.restoreDeal(deal);
-
-                              context.read<DealBloc>().add(StreamDeals());
-                            },
-                          );
-                        }
-                      } catch (e, st) {
-                        await ErrorService.recordError(e, st);
-                        if (context.mounted) {
-                          FlushBar.show(
-                            context,
-                            'Failed to delete $_pageTitle: $e',
-                            isSuccess: false,
-                          );
-                        }
-                      }
-                    }
-                  },
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(Iconsax.trash, color: AppColors.grey400),
                   onPressed: null,
                 ),
               ],

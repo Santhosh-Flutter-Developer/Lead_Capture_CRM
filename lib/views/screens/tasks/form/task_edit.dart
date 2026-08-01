@@ -6,6 +6,7 @@ import 'package:path/path.dart' as path;
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
+import '/theme/theme.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 
@@ -26,7 +27,8 @@ class _TaskEditState extends State<TaskEdit> {
   final TextEditingController _deadLine = TextEditingController();
   final TextEditingController _tags = TextEditingController();
   final TextEditingController _reminder = TextEditingController();
-  List<AdminModel> _adminList = [];
+  List<EmployeeModel> _employeeList = [];
+  List<ProjectModel> _projectList = [];
   List<LeadModel> _leadList = [];
   List<TaskModel> _taskList = [];
   List<String> _selectedAssignees = [];
@@ -38,6 +40,7 @@ class _TaskEditState extends State<TaskEdit> {
   List<String> _selectedParticipants = [];
   final List<dynamic> _initialParticipants = [];
 
+  String? _selectedProject;
   String? _selectedLead;
   String? _selectedSubTaskOf;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -72,14 +75,17 @@ class _TaskEditState extends State<TaskEdit> {
       _selectedCreatedBy = _taskModel!.createdBy;
       _selectedObservers = _taskModel!.observers;
       _selectedParticipants = _taskModel!.participants;
+      _selectedProject = _taskModel!.project;
       _selectedLead = _taskModel!.lead;
       _selectedSubTaskOf = _taskModel!.subTaskOf;
       _selectedReminder = _taskModel!.reminder;
       _deadlineRequired = _taskModel?.deadlineRequired ?? false;
       _existingAttachments = List<FileModel>.from(_taskModel!.attachments);
 
-      _adminList.clear();
-      _adminList = await AdminService.getAllAdmins();
+      _employeeList.clear();
+      _employeeList = await EmployeeService.getAllEmployees();
+      _projectList.clear();
+      _projectList = await ProjectService.getAllProjects();
       _leadList.clear();
       _leadList = await LeadService.getAllLeads();
       _taskList.clear();
@@ -87,30 +93,50 @@ class _TaskEditState extends State<TaskEdit> {
 
       _initialAssignees.clear();
       for (var i in _selectedAssignees) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialAssignees.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialAssignees.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialAssignees.add(admin);
+          }
         }
       }
       _initialParticipants.clear();
       for (var i in _selectedParticipants) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialParticipants.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialParticipants.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialParticipants.add(admin);
+          }
         }
       }
       _initialObservers.clear();
       for (var i in _selectedObservers) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialObservers.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialObservers.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialObservers.add(admin);
+          }
         }
       }
       _initialCreatedBy.clear();
       for (var i in _selectedCreatedBy) {
-        var admin = await AdminService.getAdmin(uid: i);
-        if (admin != null) {
-          _initialCreatedBy.add(admin);
+        var employee = await EmployeeService.getEmployee(uid: i);
+        if (employee != null) {
+          _initialCreatedBy.add(employee);
+        } else {
+          var admin = await AdminService.getAdmin(uid: i);
+          if (admin != null) {
+            _initialCreatedBy.add(admin);
+          }
         }
       }
     } catch (e) {
@@ -219,6 +245,22 @@ class _TaskEditState extends State<TaskEdit> {
                   icon: Iconsax.hierarchy,
                   child: Column(
                     children: [
+                      _buildDropdownField(
+                        "Project",
+                        _projectList.map((e) => e.projectName).toList(),
+                        initialItem: _selectedProject != null
+                            ? _projectList
+                                  .where((e) => e.uid == _selectedProject)
+                                  .map((e) => e.projectName)
+                                  .firstOrNull
+                            : null,
+                        (val) {
+                          _selectedProject = _projectList
+                              .firstWhere((e) => e.projectName == val)
+                              .uid;
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       _buildDropdownField(
                         "Subtask of",
                         _taskList.map((e) => e.taskName).toList(),
@@ -743,6 +785,7 @@ class _TaskEditState extends State<TaskEdit> {
         final task = TaskModel(
           taskName: _taskName.text,
           description: _description.text,
+          project: _selectedProject,
           subTaskOf: _selectedSubTaskOf,
           lead: _selectedLead,
           deadline: _selectedDeadLine,

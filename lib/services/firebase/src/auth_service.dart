@@ -11,12 +11,77 @@ class AuthService {
   static final FirebaseConfig firebase = FirebaseConfig();
 
   static Future<Map<String, dynamic>> checkLogin({
+    String? employeeId,
     String? email,
     required String password,
   }) async {
     try {
+      if (employeeId != null && employeeId.isNotEmpty) {
+        var employeeQuery = await FirebaseFirestore.instance
+            .collectionGroup(Collections.employees.name)
+            .where('employeeId', isEqualTo: employeeId.trim())
+            .get();
+
+        if (employeeQuery.docs.isNotEmpty) {
+          var doc = employeeQuery.docs.first;
+          var userData = doc.data();
+          String cid = doc.reference.parent.parent!.id;
+          // Verify Password
+          if (userData['password'].toString().decrypt != password) {
+            return {"status": false, "error": "Invalid password"};
+          }
+
+          if (userData['loginAllowed'] == false) {
+            return {"status": false, "error": "Your login is disabled!"};
+          }
+
+          await _trackDevice(cid: cid, uid: doc.id, isAdmin: false);
+          return {
+            "status": true,
+            "collectionId": cid,
+            "uid": doc.id,
+            "userData": userData,
+          };
+        }
+      }
+
       if (email != null && email.isNotEmpty) {
-        // Check admin by email
+        // First check employee by email (which is stored encrypted)
+        var employeeQuery = await FirebaseFirestore.instance
+            .collectionGroup(Collections.employees.name)
+            .where('email', isEqualTo: email.trim().encrypt)
+            .get();
+
+        if (employeeQuery.docs.isEmpty) {
+          employeeQuery = await FirebaseFirestore.instance
+              .collectionGroup(Collections.employees.name)
+              .where('email', isEqualTo: email.trim().toLowerCase().encrypt)
+              .get();
+        }
+
+        if (employeeQuery.docs.isNotEmpty) {
+          var doc = employeeQuery.docs.first;
+          var userData = doc.data();
+          String cid = doc.reference.parent.parent!.id;
+          // Verify Password
+          if (userData['password'].toString().decrypt != password) {
+            return {"status": false, "error": "Invalid password"};
+          }
+
+          if (userData['loginAllowed'] == false) {
+            return {"status": false, "error": "Your login is disabled!"};
+          }
+
+          await _trackDevice(cid: cid, uid: doc.id, isAdmin: false);
+          return {
+            "status": true,
+            "collectionId": cid,
+            "uid": doc.id,
+            "userData": userData,
+          };
+        }
+
+        // Then check admin by email
         var adminQuery = await FirebaseFirestore.instance
             .collectionGroup(Collections.admins.name)
             .where('email', isEqualTo: email.trim().toLowerCase())
@@ -36,7 +101,7 @@ class AuthService {
             return {"status": false, "error": "Your login is disabled!"};
           }
 
-          await _trackDevice(cid: cid, uid: doc.id);
+          await _trackDevice(cid: cid, uid: doc.id, isAdmin: true);
 
           var companyDoc = await FirebaseFirestore.instance
               .collection(Collections.users.name)
@@ -85,15 +150,14 @@ class AuthService {
 
       // 2. Upload logo
       String? logoUrl;
-       if (kIsWeb && logoBytes != null) {
-      // Web: upload bytes
-      logoUrl = await StorageService.uploadImageBytes(
-        bytes: logoBytes,
-        folder: StorageFolder.companyLogo,
-        collectionId: companyId,
-      );
-    } 
-      else if (logo != null) {
+      if (kIsWeb && logoBytes != null) {
+        // Web: upload bytes
+        logoUrl = await StorageService.uploadImageBytes(
+          bytes: logoBytes,
+          folder: StorageFolder.companyLogo,
+          collectionId: companyId,
+        );
+      } else if (logo != null) {
         logoUrl = await StorageService.uploadImage(
           file: logo,
           folder: StorageFolder.companyLogo,
@@ -162,6 +226,7 @@ class AuthService {
   static Future<void> _trackDevice({
     required String cid,
     required String uid,
+    required bool isAdmin,
   }) async {
     try {
       if (kIsWeb) return;
@@ -169,7 +234,9 @@ class AuthService {
       var deviceInfo = await DeviceInfo.getDeviceInfo();
       var deviceMap = deviceInfo.toMap();
 
-      final collection = Collections.admins.name;
+      final collection = isAdmin
+          ? Collections.admins.name
+          : Collections.employees.name;
 
       var userDoc = await firebase.users
           .doc(cid)
@@ -224,7 +291,7 @@ class AuthService {
       var deviceInfo = await DeviceInfo.getDeviceInfo();
       var userRef = firebase.users
           .doc(cid)
-          .collection(Collections.admins.name)
+          .collection(Collections.employees.name)
           .doc(uid);
 
       var userDoc = await userRef.get();
@@ -266,7 +333,24 @@ class AuthService {
 
       var companies = await query.get();
 
-      for (var _ in companies.docs) {
+      for (var i in companies.docs) {
+        if (i.exists) {
+          var user = await firebase.users
+              .doc(i.id)
+              .collection(Collections.employees.name)
+              .where('email', isEqualTo: email.trim().encrypt)
+              .get();
+          if (user.docs.isEmpty) {
+            user = await firebase.users
+                .doc(i.id)
+                .collection(Collections.employees.name)
+                .where('email', isEqualTo: email.trim().toLowerCase().encrypt)
+                .get();
+          }
+          if (user.docs.isNotEmpty) {
+            return true;
+          }
+        }
       }
 
       return false;
@@ -288,6 +372,15 @@ class AuthService {
             .collection(Collections.admins.name)
             .doc(emailData['adminId'])
             .update({'password': newPassword.encrypt});
+      } else if (emailData['employeeId'] != null) {
+        await firebase.users
+            .doc(emailData['companyId'])
+            .collection(Collections.employees.name)
+            .doc(emailData['employeeId'])
+            .update({
+              'password': newPassword.encrypt,
+              'isInitialPasswordChanged': true,
+            });
       }
     } catch (e, st) {
       debugPrint("Error resetting password: $e, $st");
@@ -301,7 +394,7 @@ class AuthService {
 
       var userRef = firebase.users
           .doc(cid)
-          .collection(Collections.admins.name)
+          .collection(Collections.employees.name)
           .doc(uid);
 
       var userDoc = await userRef.get();
@@ -347,8 +440,32 @@ class AuthService {
               return {
                 'companyId': company.id,
                 'adminId': i.id,
-                'name': (nameValue != null && nameValue is String) 
-                    ? nameValue.decrypt 
+                'name': (nameValue != null && nameValue is String)
+                    ? nameValue.decrypt
+                    : '',
+                'email': email,
+              };
+            }
+          }
+        }
+
+        var employeeQuery = await firebase.users
+            .doc(company.id)
+            .collection(Collections.employees.name)
+            .get();
+
+        if (employeeQuery.docs.isNotEmpty) {
+          for (var i in employeeQuery.docs) {
+            var data = i.data();
+            String decryptedEmail = (data['email'] ?? '').toString().decrypt;
+            if (decryptedEmail.trim().toLowerCase() ==
+                email.trim().toLowerCase()) {
+              final nameValue = data['name'];
+              return {
+                'companyId': company.id,
+                'employeeId': i.id,
+                'name': (nameValue != null && nameValue is String)
+                    ? nameValue.decrypt
                     : '',
                 'email': email,
               };
@@ -368,6 +485,23 @@ class AuthService {
     try {
       var cid = await Spdb.getCid();
       var uid = await Spdb.getUid();
+
+      var employee = await firebase.users
+          .doc(cid)
+          .collection(Collections.employees.name)
+          .doc(uid)
+          .get();
+
+      if (employee.exists) {
+        var uData = employee.data() ?? {};
+
+        return {
+          "status": true,
+          "collectionId": cid,
+          "uid": uid,
+          "userData": uData,
+        };
+      }
 
       var admin = await firebase.users
           .doc(cid)

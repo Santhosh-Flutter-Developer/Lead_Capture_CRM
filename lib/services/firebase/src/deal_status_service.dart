@@ -206,4 +206,60 @@ class DealStatusService {
         .doc(uid)
         .set(status.toMap());
   }
+
+  static Future<DealStatusModel> getByNameOrCreate({
+    required String name,
+  }) async {
+    try {
+      var cid = await Spdb.getCid();
+
+      final query = await firebase.users
+          .doc(cid)
+          .collection(Collections.dealStatus.name)
+          .where('name', isEqualTo: name.encrypt)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        final doc = query.docs.first;
+        return DealStatusModel.fromMap(doc.id, doc.data());
+      }
+
+      // Get the next order number
+      var lastOrderNumber = 0;
+      var lastDoc = await firebase.users
+          .doc(cid)
+          .collection(Collections.dealStatus.name)
+          .orderBy('orderNumber', descending: true)
+          .limit(1)
+          .get();
+
+      if (lastDoc.docs.isNotEmpty) {
+        lastOrderNumber = lastDoc.docs.first.data()['orderNumber'] ?? 0;
+      }
+
+      lastOrderNumber = lastOrderNumber + 1;
+
+      final newModel = DealStatusModel(
+        name: name,
+        createdBy: await Spdb.getUser(),
+        description: '',
+        orderNumber: lastOrderNumber,
+        color: Colors.blue.toARGB32(),
+      );
+
+      final docRef = await firebase.users
+          .doc(cid)
+          .collection(Collections.dealStatus.name)
+          .add(newModel.toMap());
+
+      final createdDoc = await docRef.get();
+
+      return DealStatusModel.fromMap(createdDoc.id, createdDoc.data()!);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("Error in getByNameOrCreate DealStatus: $e\n$st");
+      rethrow;
+    }
+  }
 }

@@ -69,6 +69,7 @@ class ProjectsListingView extends StatefulWidget {
 class _ProjectsListingViewState extends State<ProjectsListingView> {
   final List<ProjectModel> _selectedProjects = [];
   PermissionModel? permissions;
+  bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
   @override
@@ -79,6 +80,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
+    _isAdmin = await Spdb.isAdminLoggedIn();
     setState(() {});
   }
 

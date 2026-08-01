@@ -63,11 +63,11 @@ Future<void> setupTray() async {
   );
 
   await trayManager.setIcon(iconPath);
-  await trayManager.setToolTip('Mini CRM');
+  await trayManager.setToolTip('LeadcaptureCRM');
   await trayManager.setContextMenu(
     Menu(
       items: [
-        MenuItem(key: 'open', label: 'Open Mini CRM'),
+        MenuItem(key: 'open', label: 'Open LeadcaptureCRM'),
         MenuItem.separator(),
         MenuItem(key: 'exit', label: 'Exit'),
       ],

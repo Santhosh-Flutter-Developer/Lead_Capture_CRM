@@ -81,6 +81,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
   final List<UserRowModel> _employeesList = [];
   PermissionModel? permissions;
   PermissionModel? tasksPermissions;
+  bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
   final TextEditingController _chatMessage = TextEditingController();
@@ -94,6 +95,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
     tasksPermissions = await PermissionService.getPermissions('Tasks');
+    _isAdmin = await Spdb.isAdminLoggedIn();
     setState(() {});
   }
 
@@ -120,7 +122,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
         .read<PaginatedDataController<UserRowModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<UserRowModel>>();
-  final width = MediaQuery.of(context).size.width;
+    final width = MediaQuery.of(context).size.width;
     return Scaffold(
       appBar: kIsMobile || width < 1000
           ? AppBar(leading: Back(), title: Text(_pageTitle))
@@ -702,6 +704,46 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
           );
         }
 
+        buttons.add(const SizedBox(width: 10));
+
+        buttons.add(
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Download.downloadFromAsset(
+                context,
+                "assets/templates/employee_upload_template.xlsx",
+                "Employee_Template.xlsx",
+              );
+            },
+            icon: const Icon(Icons.file_download_outlined, size: 18),
+            label: const Text("Template"),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(color: Theme.of(context).colorScheme.primary),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        );
+
+        buttons.add(
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Download.downloadFromAsset(
+                context,
+                "assets/templates/employee_upload_template_with_data.xlsx",
+                "Employee_Sample_Data.xlsx",
+              );
+            },
+            icon: const Icon(Icons.contact_page_outlined, size: 18),
+            label: const Text("Sample Data"),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.secondary,
+              side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        );
+
         buttons.add(
           ElevatedButton.icon(
             label: Text(
@@ -711,7 +753,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               ),
             ),
             icon: Icon(Iconsax.export_3),
-            onPressed: (permissions?.canExport ?? false) == false || _employeesList.isEmpty
+            onPressed:
+                (permissions?.canExport ?? false) == false ||
+                    _employeesList.isEmpty
                 ? null
                 : () async {
                     try {
@@ -867,7 +911,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
 
         if (_selectedEmployees.isNotEmpty) {
           buttons.add(
-            (permissions?.canDelete ?? false)
+            (permissions?.canDelete ?? false && _isAdmin)
                 ? ElevatedButton.icon(
                     label: Text(
                       "Delete",
@@ -1231,7 +1275,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                         MaterialPageRoute(
                           builder: (_) => TaskCreate(
                             employees: _selectedEmployees
-                                .map((e) => e.toAdminModel())
+                                .map((e) => e.toEmployeeModel())
                                 .toList(),
                           ),
                         ),

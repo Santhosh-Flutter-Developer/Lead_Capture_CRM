@@ -44,25 +44,25 @@ class DefaultFirebaseOptions {
     apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
     appId: '1:884184513529:web:46707c8332034373995b28',
     messagingSenderId: '884184513529',
-    projectId: 'minicrm-8575d',
-    authDomain: 'minicrm-8575d.firebaseapp.com',
-    storageBucket: 'minicrm-8575d.firebasestorage.app',
+    projectId: 'leadcapture-79a43',
+    authDomain: 'leadcapture-79a43.firebaseapp.com',
+    storageBucket: 'leadcapture-79a43.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAjVPl1vneMq-KO2selNvn0Ecg318sukZw',
-    appId: '1:884184513529:android:54066778be973917995b28',
-    messagingSenderId: '884184513529',
-    projectId: 'minicrm-8575d',
-    storageBucket: 'minicrm-8575d.firebasestorage.app',
+    apiKey: 'AIzaSyCfQhvOiQ2e_ChtI2e5d8Lc68kQviqssCk',
+    appId: '1:204207195810:android:d139ef31717581910339fb',
+    messagingSenderId: '204207195810',
+    projectId: 'leadcapture-79a43',
+    storageBucket: 'leadcapture-79a43.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA-0HCeMWGmBndG1-zrkXFTmElShQuHxKE',
+    apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
     appId: '1:884184513529:ios:267ce2465c45dea6995b28',
     messagingSenderId: '884184513529',
-    projectId: 'minicrm-8575d',
-    storageBucket: 'minicrm-8575d.firebasestorage.app',
+    projectId: 'leadcapture-79a43',
+    storageBucket: 'leadcapture-79a43.firebasestorage.app',
     iosBundleId: 'com.srisoftwarez.leadcapture',
   );
 
@@ -70,8 +70,8 @@ class DefaultFirebaseOptions {
     apiKey: 'AIzaSyA-0HCeMWGmBndG1-zrkXFTmElShQuHxKE',
     appId: '1:884184513529:ios:2ca4f423ce3d10cf995b28',
     messagingSenderId: '884184513529',
-    projectId: 'minicrm-8575d',
-    storageBucket: 'minicrm-8575d.firebasestorage.app',
+    projectId: 'leadcapture-79a43',
+    storageBucket: 'leadcapture-79a43.firebasestorage.app',
     iosBundleId: 'com.srisoftwarez.leadcapture.macos',
   );
 
@@ -79,8 +79,8 @@ class DefaultFirebaseOptions {
     apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
     appId: '1:884184513529:web:4c6b449427e46eaa995b28',
     messagingSenderId: '884184513529',
-    projectId: 'minicrm-8575d',
-    authDomain: 'minicrm-8575d.firebaseapp.com',
-    storageBucket: 'minicrm-8575d.firebasestorage.app',
+    projectId: 'leadcapture-79a43',
+    authDomain: 'leadcapture-79a43.firebaseapp.com',
+    storageBucket: 'leadcapture-79a43.firebasestorage.app',
   );
 }

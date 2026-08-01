@@ -38,12 +38,63 @@ class ProjectService {
   static Future<void> createProject({required ProjectModel project}) async {
     try {
       var cid = await Spdb.getCid();
+      var uid = await Spdb.getUid();
 
-      await CommonService.add(
-        '${Collections.users.name}/$cid/${Collections.projects.name}',
-        project.toMap(),
-        activity: '${project.projectName} has been added as a project',
+      var projectDoc = await firebase.users
+          .doc(cid)
+          .collection(Collections.projects.name)
+          .add(project.toMap());
+
+      // Collect Users
+      List<String> users = [
+        ...project.members,
+        project.projectOwner,
+        project.teamLead,
+      ];
+
+      if (project.client != null && project.client!.isNotEmpty) {
+        users.add(project.client!);
+      }
+
+      users = users.toSet().toList();
+
+      List<String> toUids = List<String>.from(users);
+      List<String> fcmIds = [];
+
+      for (var i in users) {
+        fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
+      }
+
+      var user = await Spdb.getUser();
+
+      var notif = NotificationModel(
+        collectionId: await Spdb.getCid() ?? '',
+        title: 'Project : ${project.projectName}',
+        body: 'New project created by ${user.name}',
+        toFcms: fcmIds,
+        toUids: toUids,
+        senderId: await Spdb.getUid(),
+        type: NotificationType.project,
+        payload: {'projectId': projectDoc.id},
       );
+
+      PostNotificationService.sendNotification(model: notif);
+
+      if (project.deadline != null) {
+        ReminderService.createReminder(
+          docId: projectDoc.id,
+          scheduledAt: project.deadline!,
+          notification: NotificationModel(
+            collectionId: cid ?? '',
+            title: 'Project Deadline Reminder',
+            body: 'Project "${project.projectName}" is due soon',
+            toFcms: fcmIds,
+            toUids: users,
+            type: NotificationType.project,
+            payload: {'projectId': projectDoc.id},
+          ),
+        );
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
@@ -64,6 +115,57 @@ class ProjectService {
         project.toUpdateMap(),
         activity: '${project.projectName} has been updated',
       );
+
+      // Collect Users
+      List<String> users = [
+        ...project.members,
+        project.projectOwner,
+        project.teamLead,
+      ];
+
+      if (project.client != null && project.client!.isNotEmpty) {
+        users.add(project.client!);
+      }
+
+      users = users.toSet().toList();
+
+      List<String> toUids = List<String>.from(users);
+      List<String> fcmIds = [];
+
+      for (var i in users) {
+        fcmIds.addAll(await AuthService.getUserFcmIds(uid: i));
+      }
+
+      var user = await Spdb.getUser();
+
+      var notif = NotificationModel(
+        collectionId: await Spdb.getCid() ?? '',
+        title: 'Project : ${project.projectName}',
+        body: 'Project has updated by ${user.name}',
+        toFcms: fcmIds,
+        toUids: toUids,
+        senderId: await Spdb.getUid(),
+        type: NotificationType.project,
+        payload: {'projectId': uid},
+      );
+
+      PostNotificationService.sendNotification(model: notif);
+
+      if (project.deadline != null) {
+        ReminderService.createReminder(
+          docId: uid,
+          scheduledAt: project.deadline!,
+          notification: NotificationModel(
+            collectionId: cid ?? '',
+            title: 'Project Deadline Reminder',
+            body: 'Project "${project.projectName}" is due soon',
+            toFcms: fcmIds,
+            toUids: users,
+            type: NotificationType.project,
+            payload: {'projectId': uid},
+          ),
+        );
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");

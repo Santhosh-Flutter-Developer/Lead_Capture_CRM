@@ -7,7 +7,6 @@ import '/theme/theme.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/services/services.dart';
-import '/constants/constants.dart';
 import 'bloc/tasks_bloc.dart';
 
 const String _pageTitle = "Tasks";
@@ -664,9 +663,9 @@ class _TaskListingViewState extends State<TaskListingView> {
                   spacing: 6,
                   runSpacing: 6,
                   children: task.createdBy
-                      .map((uid) => CacheService.adminByUid(uid))
+                      .map((uid) => CacheService.getUserByUid(uid))
                       .where((user) => user != null)
-                      .map((user) => CreatedByWidget(userData: UserDataModel(uid: user!.uid ?? '', name: user.name, userType: UserType.admin, profilePic: user.profileImageUrl)))
+                      .map((user) => CreatedByWidget(userData: user!))
                       .toList(),
                 ),
           task.uid ?? '',
@@ -677,7 +676,7 @@ class _TaskListingViewState extends State<TaskListingView> {
             width: 120,
             child: Text(
               task.assignees
-                  .map((e) => CacheService.adminByUid(e)?.name ?? '')
+                  .map((e) => CacheService.getUserByUid(e)?.name ?? '')
                   .where((name) => name.isNotEmpty)
                   .join(',\n'),
               softWrap: true,

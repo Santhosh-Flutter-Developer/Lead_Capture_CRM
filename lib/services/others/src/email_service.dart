@@ -21,7 +21,7 @@ class EmailService {
           "smtp_user": "systemadmin@srisoftwarez.com",
           "smtp_pass": "mxlfsavbqgrbhmrq",
           "from": "systemadmin@srisoftwarez.com",
-          "from_name": "Mini CRM",
+          "from_name": "LeadcaptureCRM",
           "to": to.map((e) => e.trim()).toList().join(','),
           "to_name": toName.map((e) => e.trim()).toList().join(','),
           "reply_to": "systemadmin@srisoftwarez.com",

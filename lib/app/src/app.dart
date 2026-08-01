@@ -7,9 +7,13 @@
 //   • Replaced `Platform.isWindows` with `kIsWindows` (from platform.dart)
 //   • Web now also gets PopScope (back-button guard), just like mobile
 // ─────────────────────────────────────────────────────────────────────────────
+import 'dart:io' show exit; // `exit()` is still needed on Windows — safe
+// because it is only called inside !kIsWeb branch.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:leadcapture/views/components/src/show_dialog.dart';
 import 'package:provider/provider.dart';
+import '../../utils/src/tray_stub.dart';
 import '/views/views.dart';
 import '/utils/utils.dart';
 import '/theme/theme.dart';
@@ -19,15 +23,6 @@ import '/app/app.dart';
 // On native the real flutter_window_close wrapper is used.
 import '/utils/src/window_close_stub.dart'
     if (dart.library.io) '/utils/src/window_close_native.dart';
-
-// Conditional import for the system tray (Windows/macOS/Linux only).
-// setupTray() puts Mini CRM in the tray; minimizeToTrayOnClose() is what the
-// close (X) handler below calls so the app keeps running — and keeps
-// receiving reminder / "Event Started" notifications via the Firestore
-// listener in windows_notification_service.dart — after the window is
-// closed. Actually quitting only happens from the tray's "Exit" item.
-import '/utils/src/tray_stub.dart'
-    if (dart.library.io) '/utils/src/tray_native.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> messengerKey =
@@ -47,18 +42,21 @@ class _AppState extends State<App> {
   void initState() {
     super.initState();
 
-    // Register Windows close handler + system tray only on native Windows.
-    // setupWindowClose()/setupTray() are no-ops on web / other platforms.
-    //
-    // Clicking X now hides the window to the tray instead of exiting the
-    // process outright — this is what keeps the Firestore notification
-    // listener (windows_notification_service.dart) alive so reminder /
-    // "Event Started" pushes still arrive after the window is closed.
-    // Actually quitting is only available from the tray icon's "Exit" item
-    // (see tray_native.dart), which calls exit(0) directly.
+    // Register Windows close handler only on native Windows.
+    // The setupWindowClose() call is a no-op on web / other platforms.
     if (!kIsWeb && kIsWindows) {
-      setupTray();
-      setupWindowClose(() => minimizeToTrayOnClose());
+      setupWindowClose(() async {
+        final ctx = navigatorKey.currentContext;
+        if (ctx == null) return true;
+
+        bool? shouldExit = await showDialogs.showExitConfirmationDialog(ctx);
+
+        if (shouldExit == true) {
+          exit(0);
+        }
+        minimizeToTrayOnClose();
+        return shouldExit;
+      });
     }
   }
 
@@ -96,7 +94,7 @@ class _AppState extends State<App> {
             navigatorKey: navigatorKey,
             scaffoldMessengerKey: messengerKey,
             debugShowCheckedModeBanner: false,
-            title: "Mini CRM",
+            title: "Lead Capture",
             theme: lightTheme,
             darkTheme: darkTheme,
             themeMode: themeProvider.themeMode,

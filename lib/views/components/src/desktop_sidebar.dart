@@ -153,7 +153,8 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
       if (item.isStatic) {
         menus.add({
           'icon': item.icon,
-          'title': 'App Version : ${AppPackageInfo.version}',
+          'title':
+              'App Version : ${AppPackageInfo.version}+${AppPackageInfo.buildNumber}',
           'onTap': false,
         });
         continue;

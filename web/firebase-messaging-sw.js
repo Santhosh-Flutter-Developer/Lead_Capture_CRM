@@ -40,7 +40,7 @@ messaging.onBackgroundMessage(function (payload) {
   const notificationTitle =
     payload.notification?.title ||
     payload.data?.title ||
-    'Mini CRM ';
+    'LeadcaptureCRM';
 
   const notificationOptions = {
     body: payload.notification?.body || payload.data?.body || 'New notification',

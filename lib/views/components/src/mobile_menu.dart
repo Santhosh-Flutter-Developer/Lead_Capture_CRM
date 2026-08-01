@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:leadcapture/views/screens/chat/listing/bloc/chat_bloc.dart';
+import 'package:leadcapture/views/screens/companies/listing/companies_listing.dart';
+import 'package:leadcapture/views/screens/download/download_history.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -20,11 +22,15 @@ class MobileMenu extends StatefulWidget {
 }
 
 class _MobileMenuState extends State<MobileMenu> {
+  EmployeeModel? _employeeModel;
+  AdminModel? _adminModel;
+  RoleModel? _roleModel;
   UserDataModel? _userDataModel;
   late Future _future;
   VersionModel? _versionModel;
   List<MenuItem> _menuItems = [];
   bool _isAdmin = false;
+  String? _companyLogo;
 
   @override
   void initState() {
@@ -37,16 +43,23 @@ class _MobileMenuState extends State<MobileMenu> {
     final (user) = await Spdb.getUser();
 
     if (mounted) {
-
+      if (user.userType == UserType.employee) {
+        _employeeModel = await EmployeeService.getEmployee(uid: user.uid);
+      } else {
+        _adminModel = await AdminService.getAdmin(uid: user.uid);
+      }
 
       _userDataModel = user;
       _isAdmin = await Spdb.isAdminLoggedIn();
+      _companyLogo = await Spdb.getCompanyLogo();
 
       setState(() {});
     }
 
     // Load menu items using MenuService
-    final userPermissions = MenuService.getAllPermissions();
+    final settings = await SettingsService().fetchSettings();
+    final payrollEnabled = settings.payrollEnabled;
+    final userPermissions = await MenuService.getUserPermissions();
 
     _menuItems = await MenuService.filterMenuItems(
       isAdmin: _isAdmin,
@@ -69,30 +82,32 @@ class _MobileMenuState extends State<MobileMenu> {
             children: [
               // Only show Contacts if user has Contact permission
               if (_hasPermission('Contact'))
-              ListTile(
-                leading: const Icon(Iconsax.user),
-                title: const Text("Contacts"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigate.route(
-                    context,
-                    const ClientsListing(section: ClientSection.contacts),
-                  );
-                },
-              ),
-               // Only show Company if user has Company permission
+                ListTile(
+                  leading: const Icon(Iconsax.user),
+                  title: const Text("Contacts"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigate.route(
+                      context,
+                      const ClientsListing(section: ClientSection.contacts),
+                    );
+                  },
+                ),
+              // Only show Company if user has Company permission
               if (_hasPermission('Company'))
-              ListTile(
-                leading: const Icon(Iconsax.building),
-                title: const Text("Company"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigate.route(
-                    context,
-                    const ClientCompanyListing(section: ClientSection.company),
-                  );
-                },
-              ),
+                ListTile(
+                  leading: const Icon(Iconsax.building),
+                  title: const Text("Company"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigate.route(
+                      context,
+                      const ClientCompanyListing(
+                        section: ClientSection.company,
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         );
@@ -151,7 +166,7 @@ class _MobileMenuState extends State<MobileMenu> {
           _buildListTile(
             icon: item.icon,
             title: 'App Version',
-            subtitle: AppPackageInfo.version,
+            subtitle: '${AppPackageInfo.version}+${AppPackageInfo.buildNumber}',
             onTap: () {},
             showTrailing: false,
           ),
@@ -222,7 +237,18 @@ class _MobileMenuState extends State<MobileMenu> {
           await CacheService.syncAllCollections();
           var result = await AuthService.refreshLogin();
           if (result['userData'] != null) {
-            // Updated user data from server
+            var data = result["userData"];
+            var uid = result["uid"];
+
+            EmployeeModel emp = EmployeeModel.fromMap(uid, data);
+            await Spdb.setEmployeeLogin(
+              model: emp,
+              cid: result["collectionId"],
+              logoUrl: result["companyLogo"],
+            );
+
+            RoleModel role = await RoleService.getRole(uid: emp.role);
+            await PermissionService.savePermissions(role.permissions);
           }
           FlushBar.show(context, 'Synced Successfully');
         },
@@ -286,7 +312,25 @@ class _MobileMenuState extends State<MobileMenu> {
       case 'developer_area':
         Navigate.route(context, const Developer());
         break;
-
+      // Creation section
+      case 'role':
+        Navigate.route(context, const RolesListing());
+        break;
+      case 'designation':
+        Navigate.route(context, const DesignationListing());
+        break;
+      case 'department':
+        Navigate.route(context, const DepartmentListing());
+        break;
+      case 'sub_department':
+        Navigate.route(context, const SubDepartmentListing());
+        break;
+      case 'employee_status':
+        FlushBar.show(context, '${item.title} - Coming soon', isSuccess: false);
+        break;
+      case 'employees':
+        Navigate.route(context, const EmployeeListing());
+        break;
       // CRM section
       case 'lead_category':
         Navigate.route(context, const LeadCategoryListing());
@@ -324,15 +368,15 @@ class _MobileMenuState extends State<MobileMenu> {
       case 'companies':
         Navigate.route(context, const CompaniesListing());
         break;
-      // case 'projects':
-      //   Navigate.route(context, const ProjectsListing());
-      //   break;
+      case 'projects':
+        Navigate.route(context, const ProjectsListing());
+        break;
       case 'tasks':
         Navigate.route(context, const TasksListing());
         break;
       case 'tickets':
         Navigate.route(context, const TicketsListing());
-        break;  
+        break;
       case 'login_logs':
         Navigate.route(context, LoginLogsListing(showAppbar: true));
         break;
@@ -404,7 +448,9 @@ class _MobileMenuState extends State<MobileMenu> {
   }
 
   Widget _buildHeader() {
-
+    // Use the non-null _employeeModel
+    final employee = _employeeModel;
+    final admin = _adminModel;
 
     return
     // Column(
@@ -457,7 +503,7 @@ class _MobileMenuState extends State<MobileMenu> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _userDataModel?.name ?? 'User',
+                    employee?.name ?? admin?.name ?? 'User',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
@@ -465,7 +511,12 @@ class _MobileMenuState extends State<MobileMenu> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    "User",
+                    employee != null
+                        ? (CacheService.designationByUid(
+                                employee.designation,
+                              )?.name) ??
+                              ''
+                        : "Administartor",
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -481,6 +532,12 @@ class _MobileMenuState extends State<MobileMenu> {
     // );
   }
 
+  Widget _buildDefaultLogo() {
+    return SizedBox(
+      height: 60,
+      child: Image.asset(ImageAssets.logoTransparent, fit: BoxFit.contain),
+    );
+  }
 
   Widget _buildAppUpdateContainer() {
     return Container(

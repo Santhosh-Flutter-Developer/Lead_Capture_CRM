@@ -74,6 +74,22 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
       _currentUserUid = await Spdb.getUid() ?? '';
       _companyLogo = await Spdb.getCompanyLogo();
 
+      var employees = await EmployeeService.getAllEmployees(
+        excludeCurrentUser: true,
+      );
+      _users.addAll(
+        employees
+            .map(
+              (e) => UserDataModel(
+                name: e.name,
+                uid: e.uid ?? '',
+                userType: UserType.employee,
+                profilePic: e.profileImageUrl,
+              ),
+            )
+            .toList(),
+      );
+
       var admins = await AdminService.getAllAdmins(excludeCurrentUser: true);
       _users.addAll(
         admins
@@ -116,7 +132,16 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
         );
       case 'Admin':
         return const AdminListing();
-
+      case 'Role':
+        return const RolesListing();
+      case 'Designation':
+        return const DesignationListing();
+      case 'Department':
+        return const DepartmentListing();
+      case 'Sub Department':
+        return const SubDepartmentListing();
+      case 'Employees':
+        return const EmployeeListing();
       case 'Lead Category':
         return const LeadCategoryListing();
       case 'Lead Status':
@@ -137,8 +162,8 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
         return const ClientCompanyListing(section: ClientSection.company);
       // case 'Companies':
       //   return const CompaniesListing();
-      // case 'Projects':
-      //   return const ProjectsListing();
+      case 'Projects':
+        return const ProjectsListing();
       case 'Tasks':
         return const TasksListing();
       case 'Tickets':
@@ -268,7 +293,7 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
                       ],
                     ),
                   ),
-                  // if (_selectedMenu != 'Chats') _buildGlassNavigationRail(),
+                  if (_selectedMenu != 'Chats') _buildGlassNavigationRail(),
                 ],
               );
             },
@@ -278,87 +303,87 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
     );
   }
 
-  // Widget _buildGlassNavigationRail() {
-  //   return ValueListenableBuilder<bool>(
-  //     valueListenable: PanelSettingsNotifier.hidePanel,
-  //     builder: (context, hidePanel, _) {
-  //       if (hidePanel) {
-  //         return const SizedBox.shrink();
-  //       }
-  //       return Container(
-  //         width: 50, // Comfortable modern width
-  //         decoration: BoxDecoration(
-  //           color: Theme.of(context).colorScheme.surface,
-  //           border: Border(
-  //             left: BorderSide(
-  //               color: Colors.grey.withValues(alpha: 0.1),
-  //               width: 1,
-  //             ),
-  //           ),
-  //           boxShadow: [
-  //             BoxShadow(
-  //               color: Colors.black.withValues(alpha: 0.02),
-  //               blurRadius: 20,
-  //               offset: const Offset(-5, 0),
-  //             ),
-  //           ],
-  //         ),
-  //         child: Column(
-  //           children: [
-  //             const SizedBox(height: 20),
-  //             // User count badge / Action
-  //             // _buildRailTopAction(),
-  //             const SizedBox(height: 12),
-  //             const Divider(indent: 16, endIndent: 16, thickness: 0.5),
-  //             const SizedBox(height: 12),
-  //             Expanded(
-  //               child: ScrollConfiguration(
-  //                 behavior: ScrollConfiguration.of(
-  //                   context,
-  //                 ).copyWith(scrollbars: false),
-  //                 child: ListView.separated(
-  //                   padding: const EdgeInsets.symmetric(vertical: 4),
-  //                   itemCount: _users.length,
-  //                   separatorBuilder: (context, index) =>
-  //                       const SizedBox(height: 8),
-  //                   itemBuilder: (context, index) {
-  //                     final userData = _users[index];
+  Widget _buildGlassNavigationRail() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: PanelSettingsNotifier.hidePanel,
+      builder: (context, hidePanel, _) {
+        if (hidePanel) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          width: 50, // Comfortable modern width
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              left: BorderSide(
+                color: Colors.grey.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 20,
+                offset: const Offset(-5, 0),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              // User count badge / Action
+              _buildRailTopAction(),
+              const SizedBox(height: 12),
+              const Divider(indent: 16, endIndent: 16, thickness: 0.5),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: _users.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final userData = _users[index];
 
-  //                     return StreamBuilder<UserStatusModel?>(
-  //                       stream: UserStatusService.streamStatus(userData.uid),
-  //                       builder: (context, snapshot) {
-  //                         return _buildRailAvatar(userData, snapshot.data);
-  //                       },
-  //                     );
-  //                   },
-  //                 ),
-  //               ),
-  //             ),
-  //             // _buildRailBottomActions(),
-  //           ],
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
+                      return StreamBuilder<UserStatusModel?>(
+                        stream: UserStatusService.streamStatus(userData.uid),
+                        builder: (context, snapshot) {
+                          return _buildRailAvatar(userData, snapshot.data);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+              // _buildRailBottomActions(),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-  // Widget _buildRailTopAction() {
-  //   return Tooltip(
-  //     message: "Direct Messages",
-  //     child: Container(
-  //       padding: const EdgeInsets.all(10),
-  //       decoration: BoxDecoration(
-  //         color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-  //         shape: BoxShape.circle,
-  //       ),
-  //       child: const Icon(
-  //         Iconsax.messages_1,
-  //         color: Color(0xFF2563EB),
-  //         size: 20,
-  //       ),
-  //     ),
-  //   );
-  // }
+  Widget _buildRailTopAction() {
+    return Tooltip(
+      message: "Direct Messages",
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Iconsax.messages_1,
+          color: Color(0xFF2563EB),
+          size: 20,
+        ),
+      ),
+    );
+  }
 
   Widget _buildRailAvatar(UserDataModel userData, UserStatusModel? status) {
     final bool isOnline = status?.isOnline == true;

@@ -234,7 +234,11 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                           width: 380,
                           decoration: BoxDecoration(
                             border: Border(
-                              left: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                              left: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                             ),
                             color: Theme.of(context).colorScheme.surface,
                           ),
@@ -267,7 +271,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: Text(
             _taskModel.description.isNotEmpty
@@ -304,13 +310,16 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: _taskModel.highPriority
                     ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
-                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    : Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: (_taskModel.highPriority
-                          ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.primary)
-                      .withValues(alpha: 0.2),
+                  color:
+                      (_taskModel.highPriority
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).colorScheme.primary)
+                          .withValues(alpha: 0.2),
                 ),
               ),
               child: Row(
@@ -364,7 +373,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                     child: Text(
                       "#$tag",
@@ -420,7 +431,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
           Iconsax.calendar_1,
           "Deadline",
           _taskModel.deadline?.formatDate ?? "No date",
-          daysLeft < 0 ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+          daysLeft < 0
+              ? Theme.of(context).colorScheme.error
+              : Theme.of(context).colorScheme.primary,
         ),
         const SizedBox(width: 16),
         _infoBox(
@@ -440,7 +453,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
         child: Row(
           children: [
@@ -515,7 +530,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             child: Row(
               children: [
@@ -571,13 +588,17 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
         Container(
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+              bottom: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
           ),
           child: TabBar(
             controller: _tabController,
             labelColor: Theme.of(context).colorScheme.primary,
-            unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            unselectedLabelColor: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant,
             indicatorColor: Theme.of(context).colorScheme.primary,
             indicatorWeight: 3,
             labelStyle: const TextStyle(
@@ -639,16 +660,23 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildCommentItem(TaskCommentModel comment) {
-    final user = CacheService.adminByUid(comment.userId);
+    final user = CacheService.getUserByUid(comment.userId);
+    var userData = UserDataModel.fromEmptyMap();
 
-    UserDataModel userData = UserDataModel.fromEmptyMap();
-
-    if (user is AdminModel) {
+    if (user is EmployeeModel) {
       userData = UserDataModel(
-        uid: comment.userId,
         name: user.name,
-        desc: user.email,
+        uid: user.uid ?? '',
         profilePic: user.profileImageUrl,
+        desc: CacheService.designationByUid(user.designation)?.name,
+        userType: UserType.employee,
+      );
+    } else if (user is AdminModel) {
+      userData = UserDataModel(
+        name: user.name,
+        uid: user.uid ?? '',
+        profilePic: user.profileImageUrl,
+        desc: user.email,
         userType: UserType.admin,
       );
     }
@@ -663,7 +691,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -716,11 +746,15 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               fillColor: Theme.of(context).colorScheme.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ),
             ),
           ),
@@ -730,7 +764,10 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
             ? const CircularProgressIndicator()
             : IconButton(
                 onPressed: () => _addComment(_taskModel.uid!),
-                icon: Icon(Iconsax.send_1, color: Theme.of(context).colorScheme.primary),
+                icon: Icon(
+                  Iconsax.send_1,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
       ],
     );
@@ -778,7 +815,10 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               ),
               if (!isLast)
                 Expanded(
-                  child: Container(width: 2, color: Theme.of(context).colorScheme.outlineVariant),
+                  child: Container(
+                    width: 2,
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
             ],
           ),
@@ -797,7 +837,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                     ),
                   ),
                   Text(
-                    "By ${CacheService.adminByUid(item.userId)?.name ?? 'User'} • ${item.timestamp.listingDateTime}",
+                    "By ${CacheService.getUserByUid(item.userId)?.name ?? 'User'} • ${item.timestamp.listingDateTime}",
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -847,7 +887,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
         child: Row(
           children: [
@@ -918,14 +960,18 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -983,8 +1029,10 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               show: true,
               drawVerticalLine: false,
               horizontalInterval: 30,
-              getDrawingHorizontalLine: (value) =>
-                  FlLine(color: Colors.grey.withValues(alpha: 0.12), strokeWidth: 1),
+              getDrawingHorizontalLine: (value) => FlLine(
+                color: Colors.grey.withValues(alpha: 0.12),
+                strokeWidth: 1,
+              ),
             ),
 
             /// BORDER
@@ -1056,8 +1104,12 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                   show: true,
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.0),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.25),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.0),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1089,7 +1141,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                 return spotIndexes.map((index) {
                   return TouchedSpotIndicatorData(
                     FlLine(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                       strokeWidth: 2,
                     ),
                     FlDotData(
@@ -1143,10 +1197,18 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildProfileTile(String uid, String role) {
-    final user = CacheService.adminByUid(uid);
+    final user = CacheService.getUserByUid(uid);
     var userData = UserDataModel.fromEmptyMap();
 
-    if (user is AdminModel) {
+    if (user is EmployeeModel) {
+      userData = UserDataModel(
+        name: user.name,
+        uid: user.uid ?? '',
+        profilePic: user.profileImageUrl,
+        desc: CacheService.designationByUid(user.designation)?.name,
+        userType: UserType.employee,
+      );
+    } else if (user is AdminModel) {
       userData = UserDataModel(
         name: user.name,
         uid: user.uid ?? '',
@@ -1233,9 +1295,18 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 40, color: Theme.of(context).colorScheme.outlineVariant),
+        Icon(
+          icon,
+          size: 40,
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
         const SizedBox(height: 12),
-        Text(msg, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          msg,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     ),
   );

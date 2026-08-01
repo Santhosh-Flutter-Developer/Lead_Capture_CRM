@@ -1021,7 +1021,7 @@ class _LeadCreateState extends State<LeadCreate> {
           }
         }
 
-        final workflow = [await Spdb.getUid() ?? ''];
+        final workflow = await EmployeeService.getUserWorkflow();
 
         // ClientModel clientModel = ClientModel(
         //   clientName: '',

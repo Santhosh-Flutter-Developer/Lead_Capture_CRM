@@ -244,6 +244,7 @@ enum NotificationType {
   error,
   feed,
   ticket,
+  project,
 }
 
 /// Lifecycle of the server-scheduled "event started" push notification for

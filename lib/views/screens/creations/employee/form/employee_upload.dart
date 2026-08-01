@@ -689,29 +689,29 @@ class _CustomMenuCard extends StatelessWidget {
           children: [
             _menuItem(
               context,
-              icon: Icons.downloading_rounded,
+              icon: Icons.file_download_outlined,
               iconColor: Theme.of(context).colorScheme.primary,
-              label: "Template",
+              label: "Employee Template",
               onTap: () async {
                 if (Navigator.canPop(context)) Navigator.pop(context);
                 await Download.downloadFromAsset(
                   context,
                   "assets/templates/employee_upload_template.xlsx",
-                  "Employee Template.xlsx",
+                  "Employee_Template.xlsx",
                 );
               },
             ),
             _menuItem(
               context,
-              icon: Icons.downloading_rounded,
-              iconColor: Theme.of(context).colorScheme.primary,
-              label: "Template Data",
+              icon: Icons.contact_page_outlined,
+              iconColor: Theme.of(context).colorScheme.secondary,
+              label: "Sample Employee Data",
               onTap: () async {
                 if (Navigator.canPop(context)) Navigator.pop(context);
                 await Download.downloadFromAsset(
                   context,
                   "assets/templates/employee_upload_template_with_data.xlsx",
-                  "Employee Template With Data.xlsx",
+                  "Employee_Sample_Data.xlsx",
                 );
               },
             ),

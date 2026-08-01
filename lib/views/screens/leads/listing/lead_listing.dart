@@ -124,9 +124,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   }
 
   List<String> employeeItems(CacheService cache) {
-    return CacheService.getAllListenableAdmins().value
-        .map((e) => e.name)
-        .toList();
+    return cache.getAllListenableEmployees().value.map((e) => e.name).toList();
   }
 
   Future<void> _refreshLeads(BuildContext context) async {
@@ -544,13 +542,17 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       _filterDropdown(
         label: "Created By",
         value: _selectedCreatedBy != null
-            ? CacheService.getAllListenableAdmins().value
+            ? cache
+                  .getAllListenableEmployees()
+                  .value
                   .firstWhere((e) => e.uid == _selectedCreatedBy)
                   .name
             : null,
         items: employeeItems(cache),
         onChanged: (v) {
-          final selectedEmployee = CacheService.getAllListenableAdmins().value
+          final selectedEmployee = cache
+              .getAllListenableEmployees()
+              .value
               .firstWhereOrNull((e) => e.name == v);
 
           setState(() => _selectedCreatedBy = selectedEmployee?.uid);
@@ -1004,6 +1006,25 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           ),
         );
 
+        actionButtons.add(
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Download.downloadFromAsset(
+                context,
+                "assets/templates/lead_upload_template_with_data.xlsx",
+                "Lead_Sample_Data.xlsx",
+              );
+            },
+            icon: const Icon(Icons.contact_page_outlined, size: 18),
+            label: const Text("Sample Data"),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.secondary,
+              side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        );
+
         // EXPORT BUTTON
         if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
           actionButtons.add(const SizedBox(width: 10));
@@ -1020,8 +1041,10 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               onPressed: () async {
                 try {
                   // Fetch all categories, priorities, and statuses
-                  final categories = await LeadCategoryService.getAllLeadCategories();
-                  final priorities = await LeadPriorityService.getAllLeadPriority();
+                  final categories =
+                      await LeadCategoryService.getAllLeadCategories();
+                  final priorities =
+                      await LeadPriorityService.getAllLeadPriority();
                   final statuses = await LeadStatusService.getAllLeadStatus();
 
                   List<List<String>> exportData = [];
@@ -1106,7 +1129,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           );
         }
 
-        if ((permissions?.canDelete ?? false) && _selectedLeads.isNotEmpty) {
+        if ((permissions?.canDelete ?? false) &&
+            _isAdmin &&
+            _selectedLeads.isNotEmpty) {
           actionButtons.add(const SizedBox(width: 10));
           actionButtons.add(
             ElevatedButton.icon(

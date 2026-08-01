@@ -10,9 +10,6 @@ import 'package:leadcapture/constants/constants.dart';
 import 'package:leadcapture/services/services.dart';
 import 'package:leadcapture/theme/theme.dart';
 
-
-
-
 part 'comment_sheet.dart';
 
 // --- Unified Dashboard Palette ---
@@ -1721,7 +1718,9 @@ class FeedCardState extends State<FeedCard> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
@@ -1745,51 +1744,59 @@ class FeedCardState extends State<FeedCard> {
             ),
           ),
           const SizedBox(height: 8),
-          ...attachments.take(4).map((file) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+          ...attachments
+              .take(4)
+              .map(
+                (file) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Iconsax.document,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
-                      child: Icon(
-                        Iconsax.document,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            file.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              file.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
-                          ),
-                          Text(
-                            _formatFileSize(file.size),
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            Text(
+                              _formatFileSize(file.size),
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              )),
+              ),
           if (attachments.length > 4)
             Text(
               '+${attachments.length - 4} more files',

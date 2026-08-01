@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/constants/src/enum.dart';
+import '/models/models.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 import '/theme/theme.dart';
@@ -369,7 +370,18 @@ class _HeaderState extends State<Header> {
     var result = await AuthService.refreshLogin();
 
     if (result['userData'] != null) {
-      // User data refreshed from server
+      var data = result["userData"];
+      var uid = result["uid"];
+
+      EmployeeModel emp = EmployeeModel.fromMap(uid, data);
+      await Spdb.setEmployeeLogin(
+        model: emp,
+        cid: result["collectionId"],
+        logoUrl: result["companyLogo"],
+      );
+
+      RoleModel role = await RoleService.getRole(uid: emp.role);
+      await PermissionService.savePermissions(role.permissions);
     }
 
     _lastSyncTime = DateTime.now();
