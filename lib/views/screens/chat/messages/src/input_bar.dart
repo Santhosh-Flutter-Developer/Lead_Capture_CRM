@@ -2,7 +2,8 @@ part of 'chat_messages.dart';
 
 class ChatInputBar extends StatefulWidget {
   final ChatModel chat;
-  const ChatInputBar({super.key, required this.chat});
+  final String? threadId;
+  const ChatInputBar({super.key, required this.chat, this.threadId});
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -16,6 +17,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
   List<MentionModel> _filteredUsers = [];
   bool get hasText => _controller.text.trim().isNotEmpty;
   final List<MentionModel> _mentions = [];
+  // Tracks the text length from the previous change so we can tell whether
+  // the user is typing (inserting) or deleting. The mention dropdown should
+  // only ever open because the user typed "@" — never as a side effect of
+  // backspacing/deleting text.
+  int _previousTextLength = 0;
   String getExt(String path) {
     return path.split('?').first.split('#').first.split('.').last.toLowerCase();
   }
@@ -105,32 +111,47 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   Future<void> _loadUsers() async {
-    if (!widget.chat.isGroupChat) return;
-    final participants = widget.chat.participants;
-    final currentUid = await Spdb.getUid();
+    // Mentions are available in both group chats and one-to-one chats, and
+    // list every active employee/admin in the company — not just the
+    // participants of the current chat — so anyone can be tagged.
+    try {
+      final employees = await EmployeeService.getAllEmployees(
+        excludeCurrentUser: true,
+      );
+      final admins = await AdminService.getAllAdmins(
+        excludeCurrentUser: true,
+      );
 
-    List<MentionModel> users = [];
-
-    for (var uid in participants) {
-      if (uid == currentUid) continue;
-
-      final user = CacheService.adminByUid(uid);
-
-      if (user is AdminModel) {
-        users.add(
-          MentionModel(
+      List<MentionModel> users = [
+        ...employees.map(
+          (user) => MentionModel(
             uid: user.uid ?? '',
             name: user.name,
             image: user.profileImageUrl,
           ),
-        );
-      }
+        ),
+        ...admins.map(
+          (user) => MentionModel(
+            uid: user.uid ?? '',
+            name: user.name,
+            image: user.profileImageUrl,
+          ),
+        ),
+      ];
+
+      users.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _allUsers = users;
+        debugPrint("Mention users: ${_allUsers.map((e) => e.name)}");
+      });
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("Error loading mention users: $e");
     }
-    if (!mounted) return;
-    setState(() {
-      _allUsers = users;
-      debugPrint("Mention users: ${_allUsers.map((e) => e.name)}");
-    });
   }
 
   void _onMessageProviderChange() {
@@ -157,10 +178,47 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
   }
 
+  /// Re-focuses the message field, forces its text caret to actually be
+  /// visible/blinking again, and explicitly asks the platform to show the
+  /// soft keyboard.
+  ///
+  /// Two separate platform quirks show up after we programmatically insert
+  /// a mention (or a mention dropdown closes):
+  /// - On Android, tapping something outside the field can close the
+  ///   on-screen keyboard even though the field still logically holds
+  ///   focus (`focusNode.hasFocus` stays true) — a plain `requestFocus()`
+  ///   is a no-op in that case since focus never actually left.
+  /// - On web/desktop, changing `controller.text`/`selection` while the
+  ///   field already has focus doesn't always restart the caret's blink
+  ///   animation, so the cursor can end up invisible until the user clicks
+  ///   back into the field.
+  ///
+  /// Forcing a real unfocus -> refocus transition (instead of a no-op
+  /// `requestFocus()` on an already-focused node) fixes both: it makes
+  /// Flutter genuinely restart the caret blink, and re-triggers the
+  /// platform text-input connection so the keyboard reliably reappears.
+  void _ensureFocusAndKeyboard() {
+    if (focusNode.hasFocus) {
+      focusNode.unfocus();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      FocusScope.of(context).requestFocus(focusNode);
+      try {
+        await SystemChannels.textInput.invokeMethod('TextInput.show');
+      } catch (_) {
+        // Ignore — not fatal if the platform doesn't support this.
+      }
+    });
+  }
+
   void _onTextChanged() {
-    if (!widget.chat.isGroupChat) return;
+    // Mentions are available in both group chats and one-to-one chats.
     final text = _controller.text;
     final cursorPos = _controller.selection.baseOffset;
+
+    final isDeleting = text.length < _previousTextLength;
+    _previousTextLength = text.length;
 
     if (cursorPos < 0) return;
 
@@ -168,6 +226,19 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final match = RegExp(r'(?:^|\s)@([a-zA-Z0-9_]*)$').firstMatch(subText);
 
     _mentions.removeWhere((m) => !text.contains('@${m.name}'));
+
+    // Never open the dropdown as a result of deleting/backspacing text —
+    // only when the user actively types "@". If they're deleting, simply
+    // make sure any open dropdown is closed and stop there.
+    if (isDeleting) {
+      if (_showMentionList) {
+        setState(() {
+          _showMentionList = false;
+        });
+        _ensureFocusAndKeyboard();
+      }
+      return;
+    }
 
     if (match != null) {
       final query = match.group(1)?.toLowerCase() ?? '';
@@ -179,9 +250,19 @@ class _ChatInputBarState extends State<ChatInputBar> {
         }).toList();
       });
     } else {
+      final wasShowingMentionList = _showMentionList;
+
       setState(() {
         _showMentionList = false;
       });
+
+      // Only nudge focus/keyboard back when the dropdown was actually open
+      // and just closed (e.g. backspacing an "@name" tag away) — not on
+      // every ordinary keystroke, which would otherwise trigger this on
+      // every character typed outside a mention.
+      if (wasShowingMentionList) {
+        _ensureFocusAndKeyboard();
+      }
     }
   }
 
@@ -218,6 +299,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
       setState(() {
         _showMentionList = false;
       });
+
+      // Tapping a mention in the dropdown list can close the on-screen
+      // keyboard on mobile even though the field keeps logical focus.
+      // Re-focus and re-show the keyboard once the tag has been inserted
+      // so the user can keep typing/tagging right away.
+      _ensureFocusAndKeyboard();
     }
   }
 
@@ -316,6 +403,45 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
+    final chatData = ChatData.of(context);
+    final currentUser = chatData.currentUser;
+    final canPost = widget.chat.canPostMessage(currentUser);
+
+    if (!canPost) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 1.0,
+            ),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.announcement_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Only administrators can post in this channel.",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       children: [
           if (_isReply) _replyMessage(_chat, context, _messageProvider),
@@ -358,8 +484,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_showMentionList && widget.chat.isGroupChat)
-                      _mentionList(),
+                    if (_showMentionList) _mentionList(),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -506,9 +631,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
     // Store local copies BEFORE clearing UI
     final pickedFiles = List<PlatformFile>.from(_pickedFiles);
 
-    final updatedMentions = widget.chat.isGroupChat
-        ? _recalculateMentions(message)
-        : <MentionModel>[];
+    // Mentions are recalculated for both group chats and one-to-one chats.
+    final updatedMentions = _recalculateMentions(message);
 
     final replyId = _isReply ? _chat?.uid : null;
 
@@ -545,6 +669,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
           attachments: attachments,
           replyFor: replyId,
           mentions: updatedMentions,
+          threadId: widget.threadId,
         );
       }
 
@@ -759,17 +884,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       Row(
                         children: [
                           // Avatar
-                          ((CacheService.adminByUid(
+                          ((CacheService.getUserByUid(
                                         chat?.senderId ?? '',
                                       )?.profileImageUrl) !=
                                       null &&
-                                  (CacheService.adminByUid(
+                                  (CacheService.getUserByUid(
                                     chat?.senderId ?? '',
                                   )?.profileImageUrl)!.isNotEmpty)
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(100),
                                   child: CachedNetworkImage(
-                                    imageUrl: (CacheService.adminByUid(
+                                    imageUrl: (CacheService.getUserByUid(
                                       chat?.senderId ?? '',
                                     )?.profileImageUrl)!,
                                     placeholder: (context, url) =>
@@ -795,11 +920,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
                                     context,
                                   ).colorScheme.surfaceContainerHighest,
                                   child:
-                                      ((CacheService.adminByUid(
+                                      ((CacheService.getUserByUid(
                                                 chat?.senderId ?? '',
                                               )?.profileImageUrl) ==
                                               null ||
-                                          (CacheService.adminByUid(
+                                          (CacheService.getUserByUid(
                                             chat?.senderId ?? '',
                                           )?.profileImageUrl)!.isEmpty)
                                       ? const Icon(Iconsax.user, size: 12)
@@ -809,7 +934,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           const SizedBox(width: 5),
                           // Name
                           Text(
-                            CacheService.adminByUid(
+                            CacheService.getUserByUid(
                                   chat?.senderId ?? '',
                                 )?.name ??
                                 '',
@@ -902,6 +1027,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
           return InkWell(
             onTap: () => _selectMention(user),
+            // Prevent this tile from ever taking keyboard focus itself,
+            // so tapping it never unfocuses the message text field —
+            // the user can keep tagging or typing without interruption.
+            canRequestFocus: false,
             borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
