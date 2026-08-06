@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '/constants/constants.dart';
@@ -31,22 +32,41 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           .snapshots()
           .map((snapshot) {
             allChats = snapshot.docs
-                .map((doc) => ChatModel.fromMap(doc.id, doc.data()))
+                .map((doc) {
+                  try {
+                    return ChatModel.fromMap(doc.id, doc.data());
+                  } catch (e, st) {
+                    debugPrint('Error parsing chat ${doc.id}: $e');
+                    debugPrint('Stack trace: $st');
+                    return null;
+                  }
+                })
+                .whereType<ChatModel>()
                 .where((chat) {
-                  if (chat.isDeletedForUser(uid)) return false;
+                  if (chat.isDeletedForUser(uid)) {
+                    debugPrint('Chat ${chat.uid} filtered out for user $uid (deletedFor)');
+                    return false;
+                  }
                   final last = chat.lastMessage;
-                  if (last == null) return false;
+                  if (last == null) {
+                    debugPrint('Chat ${chat.uid} filtered out (lastMessage is null)');
+                    return false;
+                  }
 
-                  return (last.message.isNotEmpty) ||
-                      (last.type != null && last.type!.isNotEmpty);
+                  // More permissive filtering - allow chats with any meaningful content
+                  final hasContent = (last.message.trim().isNotEmpty) ||
+                      (last.type != null && last.type!.trim().isNotEmpty) ||
+                      (last.messageId != null && last.messageId!.trim().isNotEmpty);
+                  
+                  if (!hasContent) {
+                    debugPrint('Chat ${chat.uid} filtered out (no content in last message)');
+                  }
+                  
+                  return hasContent;
                 })
                 .toList();
-            // Optional: sort safely
-            // allChats.sort(
-            //   (a, b) =>
-            //       b.lastMessage!.timestamp.compareTo(a.lastMessage!.timestamp),
-            // );
-
+            
+            debugPrint('Loaded ${allChats.length} chats for user $uid');
             return allChats;
           }),
       onData: (users) => ChatLoaded(users),

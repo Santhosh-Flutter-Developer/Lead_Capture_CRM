@@ -58,7 +58,6 @@ class _MobileMenuState extends State<MobileMenu> {
 
     // Load menu items using MenuService
     final settings = await SettingsService().fetchSettings();
-    final payrollEnabled = settings.payrollEnabled;
     final userPermissions = await MenuService.getUserPermissions();
 
     _menuItems = await MenuService.filterMenuItems(

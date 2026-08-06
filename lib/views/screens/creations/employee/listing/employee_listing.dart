@@ -911,7 +911,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
 
         if (_selectedEmployees.isNotEmpty) {
           buttons.add(
-            (permissions?.canDelete ?? false && _isAdmin)
+            (permissions?.canDelete ?? false)
                 ? ElevatedButton.icon(
                     label: Text(
                       "Delete",

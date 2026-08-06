@@ -1130,7 +1130,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         }
 
         if ((permissions?.canDelete ?? false) &&
-            _isAdmin &&
             _selectedLeads.isNotEmpty) {
           actionButtons.add(const SizedBox(width: 10));
           actionButtons.add(
@@ -1437,8 +1436,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 },
               ),
 
-              if ((permissions?.canDelete ?? false) &&
-                  (_isAdmin || lead.createdBy.uid == _currentUid)) ...[
+              if (permissions?.canDelete ?? false) ...[
                 IconButton(
                   icon: const Icon(Iconsax.trash),
                   color: Theme.of(context).colorScheme.error,

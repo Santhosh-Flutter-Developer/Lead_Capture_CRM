@@ -42,7 +42,8 @@ class PermissionService {
 
     final canCreate = prefs.getBool('${_createKey}_$page') ?? false;
     final canEdit = prefs.getBool('${_editKey}_$page') ?? false;
-    final canDelete = prefs.getBool('${_deleteKey}_$page') ?? false;
+    // Delete is admin-only — non-admin users never get delete permission.
+    const canDelete = false;
     final canView = prefs.getBool('${_viewKey}_$page') ?? false;
     final canExport = prefs.getBool('${_exportKey}_$page') ?? true;
     final canImport = prefs.getBool('${_importKey}_$page') ?? true;

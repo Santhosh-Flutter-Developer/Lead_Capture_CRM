@@ -138,7 +138,9 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
   }
 
   Future<List<Map<String, dynamic>>> _getMenus() async {
-    final userPermissions = MenuService.getAllPermissions();
+    final settings = await SettingsService().fetchSettings();
+    final bool payrollEnabled = settings.payrollEnabled;
+    final userPermissions = await MenuService.getUserPermissions();
 
     // Get filtered menu items using MenuService
     final menuItems = await MenuService.filterMenuItems(

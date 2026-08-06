@@ -89,6 +89,12 @@ class DealService {
     try {
       var cid = await Spdb.getCid();
 
+      // Check if the deal is locked
+      final existingDeal = await getDeal(uid: uid);
+      if (existingDeal.isLocked) {
+        throw 'This deal is locked and cannot be modified';
+      }
+
       // Update deal in Firestore
       await CommonService.update(
         '${Collections.users.name}/$cid/${Collections.deals.name}',
@@ -212,25 +218,46 @@ class DealService {
   }) async {
     try {
       var cid = await Spdb.getCid();
-      await firebase.users
-          .doc(cid)
-          .collection(Collections.deals.name)
-          .doc(uid)
-          .update({'dealStatus': dealStatus});
-
-      // Get deal details for notification
+      
+      // Get the current deal to check if it's locked
       final dealDoc = await firebase.users
           .doc(cid)
           .collection(Collections.deals.name)
           .doc(uid)
           .get();
 
-      if (dealDoc.exists) {
-        final dealData = dealDoc.data();
-        final deal = DealModel.fromMap(uid, dealData!);
+      if (!dealDoc.exists) {
+        throw 'Deal not found';
+      }
 
-        // Get the new status name
-        final newStatus = await DealStatusService.getDealStatus(uid: dealStatus);
+      final dealData = dealDoc.data()!;
+      final isLocked = dealData['isLocked'] is bool ? dealData['isLocked'] as bool : false;
+
+      if (isLocked) {
+        throw 'This deal is locked and cannot be modified';
+      }
+
+      // Check if the new status is a Final status
+      final newStatus = await DealStatusService.getDealStatus(uid: dealStatus);
+      final shouldLock = newStatus.isFinal;
+
+      // Update deal status and lock status if needed
+      final updateData = <String, dynamic>{
+        'dealStatus': dealStatus,
+      };
+      
+      if (shouldLock) {
+        updateData['isLocked'] = true;
+      }
+
+      await firebase.users
+          .doc(cid)
+          .collection(Collections.deals.name)
+          .doc(uid)
+          .update(updateData);
+
+      // Get deal details for notification
+      final deal = DealModel.fromMap(uid, dealData);
 
         // Collect workflow users for notifications
         List<String> users = deal.workFlow.toSet().toList();
@@ -265,7 +292,6 @@ class DealService {
         );
 
         await PostNotificationService.sendNotification(model: notif);
-      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("Error updating deal status: $e\n$st");
@@ -283,7 +309,16 @@ class DealService {
           .doc(uid)
           .get();
 
+      if (!docRef.exists) {
+        throw 'Deal not found';
+      }
+
       final data = docRef.data() as Map<String, dynamic>;
+      final isLocked = data['isLocked'] is bool ? data['isLocked'] as bool : false;
+
+      if (isLocked) {
+        throw 'This deal is locked and cannot be deleted';
+      }
       await TrashService.moveToTrash(
         docRef: docRef.reference,
         docData: data,

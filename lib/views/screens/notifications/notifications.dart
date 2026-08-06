@@ -32,15 +32,26 @@ class _NotificationsListingState extends State<NotificationsListing> {
   final TextEditingController _searchController = TextEditingController();
   String _search = '';
   NotificationModel? _selectedNotification;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
+    _checkAdmin();
     _searchController.addListener(() {
       setState(() {
         _search = _searchController.text.trim().toLowerCase();
       });
     });
+  }
+
+  Future<void> _checkAdmin() async {
+    final isAdmin = await Spdb.isAdminLoggedIn();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
   }
 
   @override
@@ -531,9 +542,11 @@ class _NotificationsListingState extends State<NotificationsListing> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Dismissible(
         key: ValueKey(item.uid ?? item.hashCode),
-        direction: DismissDirection.endToStart,
+        direction: _isAdmin ? DismissDirection.endToStart : DismissDirection.none,
 
         confirmDismiss: (_) async {
+          if (!_isAdmin) return false;
+          
           final confirm = await _showDeleteDialog();
           if (confirm != true) return false;
 

@@ -73,6 +73,23 @@ class _DealEditState extends State<DealEdit> {
       }
       _dealModel = await DealService.getDeal(uid: widget.uid);
 
+      // Check if deal is locked
+      if (_dealModel.isLocked) {
+        if (mounted) {
+          FlushBar.show(
+            context,
+            'This deal is locked and cannot be edited',
+            isSuccess: false,
+          );
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          });
+        }
+        return;
+      }
+
       _dealNameController.text = _dealModel.dealName;
       _dealEmailController.text = _dealModel.dealEmail;
       _dealValueController.text = _dealModel.dealValue.toString();

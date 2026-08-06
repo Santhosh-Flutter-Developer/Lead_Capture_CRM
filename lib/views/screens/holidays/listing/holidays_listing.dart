@@ -19,8 +19,30 @@ class HolidaysListing extends StatelessWidget {
   }
 }
 
-class HolidayListView extends StatelessWidget {
+class HolidayListView extends StatefulWidget {
   const HolidayListView({super.key});
+
+  @override
+  State<HolidayListView> createState() => _HolidayListViewState();
+}
+
+class _HolidayListViewState extends State<HolidayListView> {
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await Spdb.isAdminLoggedIn();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,11 +222,12 @@ class HolidayListView extends StatelessWidget {
                 },
                 tooltip: 'Edit',
               ),
-              IconButton(
-                icon: const Icon(Icons.delete, size: 18),
-                onPressed: () => _confirmDelete(context, holiday),
-                tooltip: 'Delete',
-              ),
+              if (_isAdmin)
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 18),
+                  onPressed: () => _confirmDelete(context, holiday),
+                  tooltip: 'Delete',
+                ),
             ],
           ),
         ),

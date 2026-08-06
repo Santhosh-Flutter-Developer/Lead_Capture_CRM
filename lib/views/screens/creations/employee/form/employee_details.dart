@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import '../../../../../services/firebase/src/deal_service.dart';
 import '/services/services.dart';
 import '/models/models.dart';
 import '/views/views.dart';

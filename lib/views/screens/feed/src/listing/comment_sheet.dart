@@ -26,6 +26,7 @@ class CommentSheetState extends State<CommentSheet> {
   AdminModel? _admin;
   bool _isPosting = false;
   CommentModel? _replyingTo;
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -45,8 +46,8 @@ class CommentSheetState extends State<CommentSheet> {
 
   Future<void> _init() async {
     if (widget.currentUserUid == null) return;
-    bool isAdmin = await Spdb.isAdminLoggedIn();
-    if (isAdmin) {
+    _isAdmin = await Spdb.isAdminLoggedIn();
+    if (_isAdmin) {
       _admin = await AdminService.getAdmin(uid: widget.currentUserUid!);
     } else {
       _employee = await EmployeeService.getEmployee(
@@ -281,8 +282,10 @@ class CommentSheetState extends State<CommentSheet> {
   }
 
   Future<void> _deleteComment(CommentModel comment) async {
-    if (widget.currentUserUid == null ||
-        comment.authorId != widget.currentUserUid) {
+    if (widget.currentUserUid == null) return;
+    
+    final isCommentAuthor = comment.authorId == widget.currentUserUid;
+    if (!_isAdmin && !isCommentAuthor) {
       return;
     }
 
@@ -505,7 +508,7 @@ class CommentSheetState extends State<CommentSheet> {
                           _editComment(comment);
                         },
                       ),
-                    if (isOwner)
+                    if (_isAdmin)
                       ListTile(
                         leading: const Icon(Icons.delete, color: Colors.red),
                         title: const Text("Delete"),

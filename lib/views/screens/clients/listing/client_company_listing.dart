@@ -93,6 +93,7 @@ class ClientCompanyListingView extends StatefulWidget {
 class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
   final List<ClientModel> _selectedClientCompany = [];
   PermissionModel? permissions;
+  bool _isAdmin = false;
   String get pageTitle {
     return widget.section == ClientSection.contacts ? 'Contacts' : 'Company';
   }
@@ -105,6 +106,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(pageTitle);
+    _isAdmin = await Spdb.isAdminLoggedIn();
     setState(() {});
   }
 

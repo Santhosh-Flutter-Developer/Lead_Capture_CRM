@@ -193,6 +193,16 @@ class FeedCardState extends State<FeedCard> {
   late int _likeCount;
   late String _postAuthorName;
   late String _postAuthorAvatar;
+  bool _isAdmin = false;
+
+  Future<void> _checkAdmin() async {
+    final isAdmin = await Spdb.isAdminLoggedIn();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
+  }
 
   int get _commentCount {
     final localCount = widget.feed.comments?.length ?? 0;
@@ -925,7 +935,7 @@ class FeedCardState extends State<FeedCard> {
                                               final authorAvatar =
                                                   liveAuthor?.avatar ??
                                                   comment.authorAvatar;
-                                              final canDelete =
+                                              final canDelete = _isAdmin ||
                                                   widget.currentUserUid ==
                                                   comment.authorId;
 
@@ -1381,6 +1391,7 @@ class FeedCardState extends State<FeedCard> {
   @override
   void initState() {
     super.initState();
+    _checkAdmin();
     _postAuthorName = widget.feed.authorName;
     _postAuthorAvatar = widget.feed.authorAvatar;
     _loadPostAuthorDisplay();
@@ -1491,7 +1502,7 @@ class FeedCardState extends State<FeedCard> {
                     ],
                   ),
                 ),
-                if (widget.currentUserUid == widget.feed.authorId)
+                if (_isAdmin)
                   PopupMenuButton<String>(
                     icon: Icon(
                       Iconsax.more,

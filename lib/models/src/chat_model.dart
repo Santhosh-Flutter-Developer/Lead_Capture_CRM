@@ -339,12 +339,14 @@ class LastMessageModel {
   final String message;
   final String? type;
   final DateTime? timestamp;
+  final List<FileModel>? attachments;
   LastMessageModel({
     required this.senderId,
     this.messageId,
     required this.message,
     this.type,
     this.timestamp,
+    this.attachments,
   });
 
   Map<String, dynamic> toMap() {
@@ -354,6 +356,7 @@ class LastMessageModel {
       'message': message,
       'type': type,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'attachments': attachments?.map((x) => x.toMap()).toList(),
     };
   }
 
@@ -365,6 +368,11 @@ class LastMessageModel {
       type: map['type'] as String?,
       timestamp: map['timestamp'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int)
+          : null,
+      attachments: map['attachments'] != null
+          ? (map['attachments'] as List)
+              .map((e) => FileModel.fromMap(e))
+              .toList()
           : null,
     );
   }

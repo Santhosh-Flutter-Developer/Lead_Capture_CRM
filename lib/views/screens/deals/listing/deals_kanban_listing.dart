@@ -141,6 +141,10 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
   Widget _buildKanbanColumn(DealStatusModel list, List<DealModel> deals) {
     return DragTarget<DealModel>(
       onWillAcceptWithDetails: (details) {
+        // Prevent dragging locked deals
+        if (details.data.isLocked) {
+          return false;
+        }
         return details.data.uid != null;
       },
       onAcceptWithDetails: (details) async {
@@ -294,76 +298,130 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
 
   Widget _buildKanbanCard(DealModel task, DealStatusModel list) {
     // Draggable card for unconverted deals
+    final isLocked = task.isLocked;
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Draggable<DealModel>(
-        data: task,
-        onDragStarted: () => _handleDragStarted(task, list),
-        onDragUpdate: (details) {
-          _startEdgeScrolling(details);
-        },
-        onDragEnd: (details) {
-          _scrollTimer?.cancel();
-          _handleDragEnd(details);
-        },
-        feedback: Material(
-          elevation: 8.0,
-          borderRadius: BorderRadius.circular(12.0),
-          color: Colors.transparent,
-          child: Transform.rotate(
-            angle: 0.05,
-            child: Container(
-              width: 244,
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+      child: isLocked
+          ? _buildLockedCard(task, list)
+          : Draggable<DealModel>(
+              data: task,
+              onDragStarted: () => _handleDragStarted(task, list),
+              onDragUpdate: (details) {
+                _startEdgeScrolling(details);
+              },
+              onDragEnd: (details) {
+                _scrollTimer?.cancel();
+                _handleDragEnd(details);
+              },
+              feedback: Material(
+                elevation: 8.0,
                 borderRadius: BorderRadius.circular(12.0),
-                border: Border.all(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.5),
+                color: Colors.transparent,
+                child: Transform.rotate(
+                  angle: 0.05,
+                  child: Container(
+                    width: 244,
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: _buildCardContent(task),
+                  ),
                 ),
               ),
+              childWhenDragging: Opacity(
+                opacity: 0.2,
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              child: InkWell(
+                onTap: () {
+                  if (kIsDesktop) {
+                    GeneralDialog.showRTLSheet(context, DealsViewPage(deal: task));
+                  } else {
+                    Sheet.showSheet(context, widget: DealsViewPage(deal: task));
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.shadow.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12.0),
+                  child: _buildCardContent(task),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildLockedCard(DealModel task, DealStatusModel list) {
+    return InkWell(
+      onTap: () {
+        if (kIsDesktop) {
+          GeneralDialog.showRTLSheet(context, DealsViewPage(deal: task));
+        } else {
+          Sheet.showSheet(context, widget: DealsViewPage(deal: task));
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(
+                context,
+              ).colorScheme.shadow.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12.0),
+        child: Stack(
+          children: [
+            Opacity(
+              opacity: 0.7,
               child: _buildCardContent(task),
             ),
-          ),
-        ),
-        childWhenDragging: Opacity(
-          opacity: 0.2,
-          child: Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Icon(
+                Icons.lock,
+                size: 16,
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
-          ),
-        ),
-        child: InkWell(
-          onTap: () {
-            if (kIsDesktop) {
-              GeneralDialog.showRTLSheet(context, DealsViewPage(deal: task));
-            } else {
-              Sheet.showSheet(context, widget: DealsViewPage(deal: task));
-            }
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.shadow.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(12.0),
-            child: _buildCardContent(task),
-          ),
+          ],
         ),
       ),
     );

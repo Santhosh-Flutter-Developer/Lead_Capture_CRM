@@ -716,11 +716,7 @@ class _TicketListingViewState extends State<TicketListingView> {
                   onPressed: null,
                 ),
               ],
-              if ((permissions?.canDelete ?? false) &&
-                  (_isAdmin ||
-                      ticket.ticketCreatedBy.uid == _currentUid ||
-                      (ticket.ticketCreatedBy.uid.isEmpty &&
-                          ticket.createdBy.contains(_currentUid ?? '')))) ...[
+              if (permissions?.canDelete ?? false) ...[
                 IconButton(
                   icon: const Icon(Iconsax.trash),
                   color: Theme.of(context).colorScheme.error,

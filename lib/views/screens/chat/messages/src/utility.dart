@@ -353,6 +353,8 @@ class AudioPlay extends StatefulWidget {
 class _AudioPlayState extends State<AudioPlay> {
   late AudioPlayer _player;
   bool isPlaying = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
 
   @override
   void initState() {
@@ -361,11 +363,27 @@ class _AudioPlayState extends State<AudioPlay> {
     if (widget.file.mimeType.contains('audio')) {
       _initializePlayer();
     }
+    _player.onPositionChanged.listen((position) {
+      setState(() {
+        _position = position;
+      });
+    });
+    _player.onDurationChanged.listen((duration) {
+      setState(() {
+        _duration = duration;
+      });
+    });
+    _player.onPlayerComplete.listen((_) {
+      setState(() {
+        isPlaying = false;
+        _position = Duration.zero;
+      });
+    });
   }
 
   Future<void> _initializePlayer() async {
     try {
-      await _player.setUrl(widget.file.url);
+      await _player.setSourceUrl(widget.file.url);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
@@ -385,14 +403,14 @@ class _AudioPlayState extends State<AudioPlay> {
     super.dispose();
   }
 
-  void _togglePlayPause() {
+  void _togglePlayPause() async {
     setState(() {
       isPlaying = !isPlaying;
     });
     if (isPlaying) {
-      _player.play();
+      await _player.resume();
     } else {
-      _player.pause();
+      await _player.pause();
     }
   }
 
@@ -416,57 +434,50 @@ class _AudioPlayState extends State<AudioPlay> {
                     onPressed: _togglePlayPause,
                   ),
                   Expanded(
-                    child: StreamBuilder<Duration>(
-                      stream: _player.positionStream,
-                      builder: (context, snapshot) {
-                        final position = snapshot.data ?? Duration.zero;
-                        final total = _player.duration ?? Duration.zero;
-                        final totalSeconds = total.inSeconds > 0
-                            ? total.inSeconds
-                            : 1;
-
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2.5, // thinner track
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 6,
-                                  ), // smaller thumb
-                                  overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 12,
-                                  ), // small touch ripple
-                                ),
-                                child: Slider(
-                                  value: position.inSeconds
-                                      .clamp(0, totalSeconds)
-                                      .toDouble(),
-                                  max: totalSeconds.toDouble(),
-                                  onChanged: (value) {
-                                    _player.seek(
-                                      Duration(seconds: value.toInt()),
-                                    );
-                                  },
-                                  activeColor: AppColors.white,
-                                  inactiveColor: AppColors.grey,
-                                ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 2.5,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "${position.inMinutes}:${(position.inSeconds % 60).toString().padLeft(2, '0')}",
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.white),
+                            child: Slider(
+                              value: _duration.inSeconds > 0
+                                  ? _position.inSeconds
+                                        .clamp(0, _duration.inSeconds)
+                                        .toDouble()
+                                  : 0.0,
+                              max: _duration.inSeconds > 0
+                                  ? _duration.inSeconds.toDouble()
+                                  : 1.0,
+                              onChanged: (value) async {
+                                await _player.seek(
+                                  Duration(seconds: value.toInt()),
+                                );
+                              },
+                              activeColor: AppColors.white,
+                              inactiveColor: AppColors.grey,
                             ),
-                            Text(
-                              " / ${total.inMinutes}:${(total.inSeconds % 60).toString().padLeft(2, '0')}",
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.grey),
-                            ),
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "${_position.inMinutes}:${(_position.inSeconds % 60).toString().padLeft(2, '0')}",
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.white),
+                        ),
+                        Text(
+                          " / ${_duration.inMinutes}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}",
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.grey),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -546,23 +557,64 @@ class VideoPlay extends StatefulWidget {
 
 class _VideoPlayState extends State<VideoPlay> {
   late VideoPlayerController _controller;
+  ChewieController? _chewieController;
   // ignore: unused_field
   bool _isPlaying = false;
+  bool _isInitialized = false;
+  String? _errorMessage;
+  bool _useSystemPlayer = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.file.url))
-      ..initialize().then((_) {
-        setState(() {});
+    // On Windows, use system player by default due to video_player limitations
+    if (Platform.isWindows) {
+      setState(() {
+        _useSystemPlayer = true;
       });
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    } else {
+      _initializeVideo();
+    }
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.file.url),
+      );
+      await _controller.initialize();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+        _chewieController = ChewieController(
+          videoPlayerController: _controller,
+          autoPlay: false,
+          looping: false,
+          showControls: true,
+          aspectRatio: _controller.value.aspectRatio,
+        );
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _openInSystemPlayer() async {
+    final uri = Uri.parse(widget.file.url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
   void dispose() {
+    _chewieController?.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -588,78 +640,87 @@ class _VideoPlayState extends State<VideoPlay> {
       backgroundColor: AppColors.black,
       body: Stack(
         children: [
-          _controller.value.isInitialized
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      AspectRatio(
-                        aspectRatio: _controller.value.aspectRatio,
-                        child: VideoPlayer(_controller),
-                      ),
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              iconSize: 20,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              color: AppColors.white,
-                              icon: Icon(
-                                _controller.value.isPlaying
-                                    ? Icons.pause
-                                    : Icons.play_arrow,
-                              ),
-                              onPressed: _togglePlayPause,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 2.5,
-                                  thumbShape: const RoundSliderThumbShape(
-                                    enabledThumbRadius: 6,
-                                  ),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                    overlayRadius: 12,
-                                  ),
-                                ),
-                                child: Slider(
-                                  value: _controller.value.position.inSeconds
-                                      .toDouble()
-                                      .clamp(
-                                        0.0,
-                                        _controller.value.duration.inSeconds
-                                            .toDouble(),
-                                      ),
-                                  max: _controller.value.duration.inSeconds
-                                      .toDouble(),
-                                  onChanged: (value) {
-                                    _controller.seekTo(
-                                      Duration(seconds: value.toInt()),
-                                    );
-                                  },
-                                  activeColor: AppColors.white,
-                                  inactiveColor: AppColors.grey,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "${_formatTime(_controller.value.position)} / ${_formatTime(_controller.value.duration)}",
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: AppColors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+          if (_useSystemPlayer)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.play_circle_outline,
+                    color: AppColors.white,
+                    size: 64,
                   ),
-                )
-              : const WaitingLoading(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Opening in System Player',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Video will open in your default video player',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _openInSystemPlayer,
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Open Now'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.blue,
+                      foregroundColor: AppColors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (_errorMessage != null)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppColors.white,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load video',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage!,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _openInSystemPlayer,
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Open in System Player'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.blue,
+                      foregroundColor: AppColors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (!_isInitialized)
+            const Center(
+              child: CircularProgressIndicator(color: AppColors.white),
+            )
+          else if (_chewieController != null)
+            Center(child: Chewie(controller: _chewieController!)),
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 0,

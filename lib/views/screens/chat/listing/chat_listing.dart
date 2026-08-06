@@ -11,6 +11,7 @@ import '/models/models.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
 import 'bloc/chat_bloc.dart';
+import '/services/firebase/src/admin_service.dart';
 
 const String _pageTitle = "Chat";
 
@@ -112,6 +113,32 @@ class _ChatListingViewState extends State<ChatListingView> {
                       selectedChatUid: _selectedChatUid,
                       currentUserUid: widget.currentUserUid,
                       onRefresh: () => _refreshChats(context),
+                      onOpenNewChat: (chatId, opponentUid) {
+                        // For mobile, navigate to the new chat
+                        // Try to find the chat in the current state, if not found, create a temporary chat object
+                        final participantsList = List<String>.from([widget.currentUserUid, opponentUid])..sort();
+                        final newChat = state.chats.firstWhere(
+                          (chat) => chat.uid == chatId,
+                          orElse: () => ChatModel(
+                            uid: chatId,
+                            createdBy: widget.currentUserUid,
+                            participants: participantsList,
+                            participantsKey: participantsList.join('_'),
+                            isPinned: false,
+                            isFavorite: false,
+                            lastMessage: null,
+                          ),
+                        );
+                        Navigate.route(
+                          context,
+                          ChatMessages(
+                            chat: newChat,
+                            currentUser: widget.currentUserUid,
+                            opponentUid: opponentUid,
+                            onOpenChat: _openChatFromMention,
+                          ),
+                        );
+                      },
                     );
                   }
                   return _buildNoChatSelected();
@@ -128,6 +155,12 @@ class _ChatListingViewState extends State<ChatListingView> {
                         },
                         currentUserUid: widget.currentUserUid,
                         onRefresh: () => _refreshChats(context),
+                        onOpenNewChat: (chatId, opponentUid) {
+                          // For desktop, select the new chat immediately
+                          setState(() {
+                            _selectedChatUid = chatId;
+                          });
+                        },
                       ),
                       Expanded(
                         child: selectedChat != null
@@ -208,6 +241,7 @@ class ChatListPanel extends StatefulWidget {
   final ValueChanged<int> onSelect;
   final String currentUserUid;
   final Future<void> Function()? onRefresh;
+  final Function(String, String)? onOpenNewChat;
 
   const ChatListPanel({
     super.key,
@@ -216,6 +250,7 @@ class ChatListPanel extends StatefulWidget {
     required this.onSelect,
     required this.currentUserUid,
     this.onRefresh,
+    this.onOpenNewChat,
   });
 
   @override
@@ -226,6 +261,9 @@ class _ChatListPanelState extends State<ChatListPanel> {
   late final TextEditingController _searchController;
   late final ValueListenable<List<EmployeeModel>> _cacheListenable;
   List<ChatModel> _filteredChats = [];
+  List<dynamic> _allUsers = []; // All employees and admins for search
+  List<dynamic> _filteredUsers = []; // Filtered users from search
+  bool _showUserResults = false; // Whether to show user search results
 
   @override
   void initState() {
@@ -236,9 +274,25 @@ class _ChatListPanelState extends State<ChatListPanel> {
     // Initialize the filtered list with all chats
     _filteredChats = widget.chats;
 
+    // Load all users for search
+    _loadAllUsers();
+
     // Add listeners to trigger filtering
     _searchController.addListener(_filterChats);
     _cacheListenable.addListener(_filterChats);
+  }
+
+  Future<void> _loadAllUsers() async {
+    try {
+      final employees = await EmployeeService.getAllEmployees();
+      final admins = await AdminService.getAllAdmins();
+      setState(() {
+        _allUsers = [...employees, ...admins];
+      });
+    } catch (e, st) {
+      debugPrint('Error loading users for search: $e');
+      await ErrorService.recordError(e, st);
+    }
   }
 
   @override
@@ -264,6 +318,7 @@ class _ChatListPanelState extends State<ChatListPanel> {
     final cacheValue = _cacheListenable.value;
 
     setState(() {
+      // Filter existing chats
       _filteredChats = widget.chats.where((chat) {
         if (chat.isDeletedForUser(widget.currentUserUid)) {
           return false;
@@ -297,12 +352,47 @@ class _ChatListPanelState extends State<ChatListPanel> {
 
         return name.contains(q) || message.contains(q);
       }).toList();
+      
       // keep pinned chats on top
       _filteredChats.sort((a, b) {
         final ap = a.isPinnedForUser(widget.currentUserUid) ? 1 : 0;
         final bp = b.isPinnedForUser(widget.currentUserUid) ? 1 : 0;
         return bp.compareTo(ap);
       });
+
+      // Search through all users if there's a query
+      if (query.isNotEmpty) {
+        _filteredUsers = _allUsers.where((user) {
+          final userName = (user.name ?? '').toLowerCase();
+          final userEmail = (user.email ?? '').toLowerCase();
+          final userPhone = (user.mobileNumber ?? '').toLowerCase();
+          final employeeId = (user is EmployeeModel ? user.employeeId : '').toLowerCase();
+          
+          return userName.contains(query) || 
+                 userEmail.contains(query) || 
+                 userPhone.contains(query) ||
+                 employeeId.contains(query);
+        }).toList();
+        
+        // Exclude current user from results
+        _filteredUsers = _filteredUsers.where((user) => user.uid != widget.currentUserUid).toList();
+        
+        // Exclude users that already have a chat
+        final existingChatUids = widget.chats
+            .where((chat) => !chat.isGroupChat)
+            .map((chat) => chat.participants.firstWhere(
+              (id) => id != widget.currentUserUid,
+              orElse: () => '',
+            ))
+            .toSet();
+        
+        _filteredUsers = _filteredUsers.where((user) => !existingChatUids.contains(user.uid)).toList();
+        
+        _showUserResults = _filteredUsers.isNotEmpty;
+      } else {
+        _filteredUsers = [];
+        _showUserResults = false;
+      }
     });
   }
 
@@ -325,7 +415,7 @@ class _ChatListPanelState extends State<ChatListPanel> {
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Find employee or chat',
+                      hintText: 'Search all users or existing chats',
                       prefixIcon: const Icon(Iconsax.search_normal, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -377,15 +467,42 @@ class _ChatListPanelState extends State<ChatListPanel> {
               onRefresh: widget.onRefresh ?? () async {},
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _filteredChats.isEmpty ? 1 : _filteredChats.length,
+                itemCount: _getItemCount(),
                 itemBuilder: (context, index) {
+                  // Show user search results first if available
+                  if (_showUserResults && index < _filteredUsers.length) {
+                    final user = _filteredUsers[index];
+                    return _UserSearchResultItem(
+                      user: user,
+                      onTap: () => _startChatWithUser(user),
+                    );
+                  }
+                  
+                  // Show divider between user results and chat results
+                  if (_showUserResults && _filteredChats.isNotEmpty && index == _filteredUsers.length) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        'Existing Chats',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  // Show chat results
+                  final chatIndex = _showUserResults && _filteredChats.isNotEmpty 
+                      ? index - _filteredUsers.length - 1 
+                      : index;
+                  
                   if (_filteredChats.isEmpty) {
                     return SizedBox(
                       height: 300,
                       child: NoData(text: "No chats available"),
                     );
                   }
-                  final chat = _filteredChats[index];
+                  final chat = _filteredChats[chatIndex];
 
                   final originalIndex = widget.chats.indexOf(chat);
                   final isSelected = chat.uid == widget.selectedChatUid;
@@ -494,9 +611,90 @@ class _ChatListPanelState extends State<ChatListPanel> {
       ),
     );
   }
+
+  int _getItemCount() {
+    if (_showUserResults) {
+      final hasChats = _filteredChats.isNotEmpty;
+      if (hasChats) {
+        return _filteredUsers.length + 1 + _filteredChats.length; // users + header + chats
+      } else {
+        return _filteredUsers.length + 1; // users + no data message
+      }
+    }
+    return _filteredChats.isEmpty ? 1 : _filteredChats.length;
+  }
+
+  Future<void> _startChatWithUser(dynamic user) async {
+    try {
+      // Reset search first
+      _searchController.clear();
+      
+      // Create a new chat with the selected user
+      final chatId = await ChatService.createIndividualChat(
+        userId: user.uid,
+      );
+      
+      // Navigate to the new chat
+      if (chatId.isNotEmpty) {
+        // Navigate immediately with the chat info
+        widget.onOpenNewChat?.call(chatId, user.uid);
+        // Refresh the chat list in the background
+        widget.onRefresh?.call();
+      }
+    } catch (e, st) {
+      debugPrint('Error starting chat: $e');
+      await ErrorService.recordError(e, st);
+      FlushBar.show(
+        context,
+        'Failed to start chat: $e',
+        isSuccess: false,
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
 }
 
-class _ChatListItem extends StatelessWidget {
+class _UserSearchResultItem extends StatelessWidget {
+  final dynamic user;
+  final VoidCallback onTap;
+
+  const _UserSearchResultItem({
+    required this.user,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final userName = user.name ?? 'Unknown';
+    final userEmail = user.email ?? '';
+    final userProfileImage = user.profileImageUrl;
+    final userRole = user is EmployeeModel ? user.employeeId : 'Admin';
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: userProfileImage != null 
+            ? CachedNetworkImageProvider(userProfileImage)
+            : null,
+        child: userProfileImage == null 
+            ? Text(userName[0].toUpperCase())
+            : null,
+      ),
+      title: Text(userName),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(userEmail),
+          Text(userRole, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+      trailing: const Icon(Iconsax.message_add, size: 18),
+      onTap: onTap,
+    );
+  }
+}
+
+class _ChatListItem extends StatefulWidget {
   final ChatModel chat;
   final bool isSelected;
   final VoidCallback onTap;
@@ -510,6 +708,28 @@ class _ChatListItem extends StatelessWidget {
     required this.currentUserUid,
     required this.onAction,
   });
+
+  @override
+  State<_ChatListItem> createState() => _ChatListItemState();
+}
+
+class _ChatListItemState extends State<_ChatListItem> {
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final isAdmin = await Spdb.isAdminLoggedIn();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
+  }
 
   Future<dynamic> _resolveProfileByUid(String uid) async {
     if (uid.trim().isEmpty) return null;
@@ -566,6 +786,9 @@ class _ChatListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ChatModel chat = widget.chat;
+    final String currentUserUid = widget.currentUserUid;
+    
     final bool isSelfChat = chat.participants.every(
       (id) => id == currentUserUid,
     );
@@ -591,11 +814,11 @@ class _ChatListItem extends StatelessWidget {
     final bool avatarValid = imageUrl.isNotEmpty;
 
     return Material(
-      color: isSelected
+      color: widget.isSelected
           ? Theme.of(context).colorScheme.secondaryContainer
           : Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -754,7 +977,7 @@ class _ChatListItem extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    onSelected: onAction,
+                    onSelected: widget.onAction,
                     itemBuilder: (context) => [
                       PopupMenuItem(
                         value: ChatAction.pin,
@@ -818,7 +1041,7 @@ class _ChatListItem extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (!chat.isGroupChat || chat.createdBy == currentUserUid)
+                      if (_isAdmin)
                         PopupMenuItem(
                           value: ChatAction.delete,
                           padding: const EdgeInsets.symmetric(

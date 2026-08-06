@@ -64,12 +64,12 @@ class PostNotificationService {
   }) async {
     try {
       final String? serverKey = await _getAccessToken();
-      
+
       // Try to send push notification if server key is available
       if (serverKey != null && model.toFcms.isNotEmpty) {
         String endpointFirebaseCloudMessaging =
             "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
-        
+
         for (var element in model.toFcms) {
           // Deliberately data-only (no top-level "notification" field) — a
           // "notification" field makes Android/iOS auto-display it in the
@@ -115,7 +115,9 @@ class PostNotificationService {
           }
         }
       } else if (serverKey == null) {
-        debugPrint("Push notification skipped: server key not available (service account missing)");
+        debugPrint(
+          "Push notification skipped: server key not available (service account missing)",
+        );
       }
 
       // Always store notification in database

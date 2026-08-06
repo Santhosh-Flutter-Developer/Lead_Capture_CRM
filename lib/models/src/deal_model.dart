@@ -29,6 +29,7 @@ class DealModel {
   final UserDataModel createdBy;
   final List<String> workFlow;
   final String? clientId;
+  final bool isLocked;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -58,6 +59,7 @@ class DealModel {
     required this.createdBy,
     this.workFlow = const [],
     this.clientId,
+    this.isLocked = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
@@ -89,6 +91,7 @@ class DealModel {
     UserDataModel? createdBy,
     String? clientId,
     List<String>? workFlow,
+    bool? isLocked,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -118,6 +121,7 @@ class DealModel {
       createdBy: createdBy ?? this.createdBy,
       workFlow: workFlow ?? this.workFlow,
       clientId: clientId ?? this.clientId,
+      isLocked: isLocked ?? this.isLocked,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -150,6 +154,7 @@ class DealModel {
       'createdBy': createdBy.toMap(),
       'workFlow': workFlow,
       'clientId': clientId,
+      'isLocked': isLocked,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
@@ -181,6 +186,7 @@ class DealModel {
       'clientGender': clientGender,
       'workFlow': workFlow,
       'clientId': clientId,
+      'isLocked': isLocked,
       'createdBy': createdBy.toMap(),
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
@@ -274,6 +280,9 @@ class DealModel {
       clientId: map['clientId'] != null && map['clientId'] is String
           ? map['clientId'] as String
           : null,
+      isLocked: map['isLocked'] is bool
+          ? map['isLocked'] as bool
+          : false,
       createdAt: map['createdAt'] is int
           ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'] as int)
           : DateTime.now(),
@@ -290,7 +299,7 @@ class DealModel {
 
   @override
   String toString() {
-    return 'DealModel(uid: $uid, dealNumber: $dealNumber, salutation: $salutation, dealName: $dealName, dealEmail: $dealEmail, dealValue: $dealValue, allowFollowUp: $allowFollowUp, dealStatus: $dealStatus, attachments: $attachments, notes: $notes, companyName: $companyName, companyWebsite: $companyWebsite, companyMobile: $companyMobile, companyCountry: $companyCountry, companyState: $companyState, companyCity: $companyCity, companyAddress: $companyAddress, companyZipCode: $companyZipCode,clientName: $clientName, clientEmail: $clientEmail, clientMobile: $clientMobile, clientGender: $clientGender,  createdBy: $createdBy, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'DealModel(uid: $uid, dealNumber: $dealNumber, salutation: $salutation, dealName: $dealName, dealEmail: $dealEmail, dealValue: $dealValue, allowFollowUp: $allowFollowUp, dealStatus: $dealStatus, attachments: $attachments, notes: $notes, companyName: $companyName, companyWebsite: $companyWebsite, companyMobile: $companyMobile, companyCountry: $companyCountry, companyState: $companyState, companyCity: $companyCity, companyAddress: $companyAddress, companyZipCode: $companyZipCode,clientName: $clientName, clientEmail: $clientEmail, clientMobile: $clientMobile, clientGender: $clientGender,  createdBy: $createdBy, isLocked: $isLocked, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -320,6 +329,7 @@ class DealModel {
         other.clientMobile == clientMobile &&
         other.clientGender == clientGender &&
         other.createdBy == createdBy &&
+        other.isLocked == isLocked &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt;
   }

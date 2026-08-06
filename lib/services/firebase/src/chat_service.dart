@@ -29,21 +29,31 @@ class ChatService {
     }
 
     yield* query.snapshots().map((snapshot) {
-      return snapshot.docs
+      final messages = snapshot.docs
           .map((doc) {
-            var data = doc.data();
-            data['uid'] = doc.id;
+            try {
+              var data = doc.data();
+              data['uid'] = doc.id;
 
-            final message = MessagesModel.fromMap(doc.id, data);
+              final message = MessagesModel.fromMap(doc.id, data);
 
-            if (userid != null && message.deletedFor.contains(userid)) {
+              if (userid != null && message.deletedFor.contains(userid)) {
+                debugPrint('Message ${doc.id} filtered out for user $userid (deletedFor)');
+                return null;
+              }
+
+              return message;
+            } catch (e, st) {
+              debugPrint('Error parsing message ${doc.id}: $e');
+              debugPrint('Stack trace: $st');
               return null;
             }
-
-            return message;
           })
           .whereType<MessagesModel>()
           .toList();
+      
+      debugPrint('Loaded ${messages.length} messages for chat $uid (source: ${snapshot.metadata.hasPendingWrites ? "local" : "server"})');
+      return messages;
     });
   }
 

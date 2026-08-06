@@ -18,11 +18,13 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
   final TextEditingController _colorController = TextEditingController();
   Color _selectedColor = const Color(0xFF64748B);
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isFinal = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _colorController.dispose();
     super.dispose();
   }
 
@@ -147,6 +149,31 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
             },
             readOnly: true,
           ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Checkbox(
+                value: _isFinal,
+                onChanged: (value) {
+                  setState(() {
+                    _isFinal = value ?? false;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Mark as Final Status',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Deals with Final status will be locked and cannot be modified or moved.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -161,6 +188,7 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
           description: _descriptionController.text.trim(),
           color: _selectedColor.toARGB32(),
           orderNumber: 0,
+          isFinal: _isFinal,
           createdBy: await Spdb.getUser(),
         );
 

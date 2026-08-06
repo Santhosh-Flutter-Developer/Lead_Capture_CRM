@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
-import '../form/role_create.dart';
-import '../form/role_edit.dart';
 import '/views/views.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
@@ -63,7 +61,6 @@ class RolesListingView extends StatefulWidget {
 class _RolesListingViewState extends State<RolesListingView> {
   final List<RoleModel> _selectedRoles = [];
   PermissionModel? permissions;
-  final ScrollController _hScrollController = ScrollController();
 
   @override
   void initState() {
@@ -104,9 +101,6 @@ class _RolesListingViewState extends State<RolesListingView> {
             }
 
             if (state is RolesLoaded) {
-              if (!(permissions?.canView ?? false)) {
-                return buildNoPermissionView(context);
-              }
               return RefreshIndicator(
                 onRefresh: () => _refreshRoles(),
                 child: ListView(
@@ -138,163 +132,68 @@ class _RolesListingViewState extends State<RolesListingView> {
                                 ),
                               ],
                             ),
-                            child: Column(
-                              children: [
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return Scrollbar(
-                                      controller: _hScrollController,
-                                      thumbVisibility: true,
-                                      trackVisibility: true,
-                                      thickness: 4,
-                                      radius: const Radius.circular(6),
-                                      scrollbarOrientation:
-                                          ScrollbarOrientation.bottom,
-                                      child: SingleChildScrollView(
-                                        controller: _hScrollController,
-                                        scrollDirection: Axis.horizontal,
-                                        child: ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            minWidth: constraints.maxWidth,
-                                          ),
-                                          child: DataTable(
-                                            showCheckboxColumn: true,
-                                            sortColumnIndex:
-                                                controllerWatch.sortColumnIndex,
-                                            sortAscending:
-                                                controllerWatch.sortAscending,
-                                            headingRowColor:
-                                                WidgetStateProperty.all(
-                                                  Theme.of(context)
-                                                      .colorScheme
-                                                      .surfaceContainerHighest,
-                                                ),
-                                            headingTextStyle: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.onSurface,
-                                                ),
-                                            columns: [
-                                              DataColumn(
-                                                label: Row(
-                                                  children: [
-                                                    Text(
-                                                      "Name",
-                                                      style: Theme.of(
-                                                        context,
-                                                      ).textTheme.bodySmall,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Icon(
-                                                      Icons.arrow_upward,
-                                                      size: 14,
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                                  ],
-                                                ),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              DataColumn(
-                                                label: Row(
-                                                  children: [
-                                                    Text(
-                                                      "Description",
-                                                      style: Theme.of(
-                                                        context,
-                                                      ).textTheme.bodySmall,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Icon(
-                                                      Icons.arrow_upward,
-                                                      size: 14,
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                                  ],
-                                                ),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              DataColumn(
-                                                label: Row(
-                                                  children: [
-                                                    Text(
-                                                      "Created",
-                                                      style: Theme.of(
-                                                        context,
-                                                      ).textTheme.bodySmall,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Icon(
-                                                      Icons.arrow_upward,
-                                                      size: 14,
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                                  ],
-                                                ),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              DataColumn(
-                                                label: Text(
-                                                  "Created By",
-                                                  style: Theme.of(
-                                                    context,
-                                                  ).textTheme.bodySmall,
-                                                ),
-                                              ),
-                                              DataColumn(
-                                                label: Text(
-                                                  "Action",
-                                                  style: Theme.of(
-                                                    context,
-                                                  ).textTheme.bodySmall,
-                                                ),
-                                              ),
-                                            ],
-                                            rows: controllerWatch.paginatedItems
-                                                .map(
-                                                  (role) => _buildDataRow(
-                                                    context,
-                                                    role,
-                                                    controllerWatch,
-                                                    controllerRead,
-                                                  ),
-                                                )
-                                                .toList(),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                    vertical: 12.0,
+                            child: DataTable(
+                              showCheckboxColumn: true,
+                              sortColumnIndex: controllerWatch.sortColumnIndex,
+                              sortAscending: controllerWatch.sortAscending,
+                              headingRowColor: WidgetStateProperty.all(
+                                Theme.of(context).colorScheme.surfaceContainerHighest,
+                              ),
+                              headingTextStyle: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
-                                  child: PaginationControls<RoleModel>(),
+                              columns: [
+                                DataColumn(
+                                  label: Row(
+                                    children: [
+                                      Text(
+                                        "Name",
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.arrow_upward,
+                                        size: 14,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    "Description",
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    "Created At",
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: Text(
+                                    "Actions",
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
                                 ),
                               ],
+                              rows: controllerWatch.paginatedItems.map((role) {
+                                return _buildDataRow(
+                                  context,
+                                  role,
+                                  controllerWatch,
+                                  controllerRead,
+                                  width,
+                                );
+                              }).toList(),
                             ),
                           ),
                   ],
-                ),
-              );
-            }
-
-            if (state is RolesError) {
-              return Center(
-                child: Text(
-                  state.message,
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               );
             }
@@ -307,163 +206,80 @@ class _RolesListingViewState extends State<RolesListingView> {
 
   Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [_searchBox(onSearchChanged: onSearchChanged)],
+      children: [
+        Expanded(
+          child: ListingSearchField(
+            onChanged: onSearchChanged,
+            pageTitle: _pageTitle,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildActionRow(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        /// LEFT SIDE (Add + Delete)
-        Row(
-          children: [
-            (permissions?.canCreate ?? false)
-                ? ElevatedButton.icon(
-                    onPressed: () {
-                      if (kIsMobile || width < 1000) {
-                        Sheet.showSheet(context, widget: const RoleCreate());
-                      } else {
-                        GeneralDialog.showRTLSheet(context, const RoleCreate());
-                      }
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(
-                      "Add $_pageTitle",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: null,
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-                    label: Text(
-                      "Add $_pageTitle",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.grey300,
-                      foregroundColor: AppColors.grey600,
-                    ),
-                  ),
-
-            const SizedBox(width: 10),
-
-            if (_selectedRoles.isNotEmpty) ...[
-              (permissions?.canDelete ?? false)
-                  ? ElevatedButton.icon(
-                      label: Text(
-                        "Delete",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimary,
-                        ),
-                      ),
-                      icon: const Icon(Iconsax.trash),
-                      onPressed: () async {
-                        if (_selectedRoles.isEmpty) return;
-
-                        final result = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => ConfirmDialog(
-                            title: 'Delete',
-                            content:
-                                'Are you sure want to delete this $_pageTitle?',
-                          ),
-                          barrierDismissible: false,
-                        );
-
-                        if (result != true) return;
-
-                        try {
-                          // ✅ STEP 1: BACKUP
-                          final deletedRoles = _selectedRoles
-                              .map((e) => e.copyWith())
-                              .toList();
-
-                          // ✅ STEP 2: loader
-                          futureLoading(context);
-
-                          // ✅ STEP 3: DELETE
-                          for (var role in deletedRoles) {
-                            if (role.isSuperAdmin) continue;
-                            await RoleService.deleteRole(uid: role.uid ?? '');
-                          }
-
-                          // ✅ STEP 4: close loader
-                          if (Navigator.canPop(context)) Navigator.pop(context);
-
-                          // ✅ STEP 5: clear selection
-                          _selectedRoles.clear();
-                          setState(() {});
-
-                          // ✅ STEP 6: UNDO
-                          FlushBar.show(
-                            context,
-                            '$_pageTitle deleted successfully',
-                            actionLabel: 'UNDO',
-                            onActionPressed: () async {
-                              for (var role in deletedRoles) {
-                                if (role.uid == null) continue;
-
-                                await RoleService.restoreRole(role);
-                              }
-
-                              if (!context.mounted) return;
-
-                              // 🔥 refresh UI
-                              context.read<RolesBloc>().add(StreamRoles());
-                            },
-                          );
-                        } catch (e, st) {
-                          if (Navigator.canPop(context)) Navigator.pop(context);
-
-                          await ErrorService.recordError(e, st);
-
-                          FlushBar.show(
-                            context,
-                            e.toString(),
-                            isSuccess: false,
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Theme.of(context).colorScheme.onError,
-                      ),
-                    )
-                  : ElevatedButton.icon(
-                      label: Text(
-                        "Delete",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.grey400,
-                        ),
-                      ),
-                      icon: Icon(Iconsax.trash),
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.grey400,
-                        foregroundColor: AppColors.white,
-                      ),
-                    ),
-            ],
-          ],
-        ),
-
-        if (kIsDesktop)
-          IconButton(
-            tooltip: "Refresh",
-            icon: const Icon(Iconsax.refresh),
-            onPressed: _refreshRoles,
-            iconSize: 18,
+        if (permissions?.canCreate ?? false)
+          ElevatedButton.icon(
+            onPressed: () {
+              if (kIsMobile) {
+                Sheet.showSheet(context, widget: const RoleCreate());
+              } else {
+                GeneralDialog.showRTLSheet(context, const RoleCreate());
+              }
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(
+              "Add $_pageTitle",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: AppColors.white,
+            ),
+          ),
+        const SizedBox(width: 10),
+        if ((permissions?.canDelete ?? false) && _selectedRoles.isNotEmpty)
+          ElevatedButton.icon(
+            label: Text(
+              "Delete",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.white),
+            ),
+            icon: const Icon(Iconsax.trash),
+            onPressed: () async {
+              var result = await showDialog(
+                context: context,
+                builder: (context) => ConfirmDialog(
+                  title: 'Delete',
+                  content: 'Are you sure want to delete this $_pageTitle?',
+                ),
+                barrierDismissible: false,
+              );
+              if (result != null && result) {
+                try {
+                  futureLoading(context);
+                  for (var i in _selectedRoles) {
+                    await RoleService.deleteRole(uid: i.uid ?? '');
+                  }
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                  FlushBar.show(context, '$_pageTitle deleted successfully');
+                  _selectedRoles.clear();
+                  setState(() {});
+                } catch (e) {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                  FlushBar.show(context, e.toString(), isSuccess: false);
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.white,
+            ),
           ),
       ],
     );
@@ -474,144 +290,92 @@ class _RolesListingViewState extends State<RolesListingView> {
     RoleModel role,
     PaginatedDataController<RoleModel> controllerWatch,
     PaginatedDataController<RoleModel> controllerRead,
+    double width,
   ) {
-    final width = MediaQuery.of(context).size.width;
-    final isSuperAdmin = role.isSuperAdmin;
-    bool isSelected = controllerWatch.selectedIds.contains(role.uid);
+    bool isSelected = controllerWatch.selectedIds.contains(role.uid ?? '');
     return DataRow(
       selected: isSelected,
-      onSelectChanged: isSuperAdmin
-          ? null
-          : (selected) {
-              controllerRead.onSelected(role.uid ?? '', selected);
-              if (selected ?? false) {
-                _selectedRoles.add(role);
-              } else {
-                _selectedRoles.remove(role);
-              }
-              setState(() {});
-            },
+      onSelectChanged: (selected) {
+        controllerRead.onSelected(role.uid ?? '', selected);
+      },
       cells: [
+        DataCell(Text(role.name)),
+        DataCell(Text(role.description)),
+        DataCell(Text(role.createdAt.listingDateTime)),
         DataCell(
-          Text(
-            role.name,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Iconsax.edit),
+                onPressed: () {
+                  if (kIsMobile || width < 1000) {
+                    Sheet.showSheet(
+                      context,
+                      widget: RoleEdit(uid: role.uid ?? ''),
+                    );
+                  } else {
+                    GeneralDialog.showRTLSheet(
+                      context,
+                      RoleEdit(uid: role.uid ?? ''),
+                    );
+                  }
+                },
+                color: AppColors.info,
+                splashRadius: 20,
+              ),
+              IconButton(
+                icon: const Icon(Iconsax.trash),
+                color: AppColors.danger,
+                splashRadius: 20,
+                onPressed: () async {
+                  final result = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => ConfirmDialog(
+                      title: 'Delete $_pageTitle',
+                      content: 'Are you sure want to delete this $_pageTitle?',
+                    ),
+                  );
+
+                  if (result != true) return;
+
+                  try {
+                    final deletedRole = role.copyWith();
+                    await RoleService.deleteRole(
+                      uid: role.uid ?? '',
+                    );
+
+                    if (!context.mounted) return;
+
+                    FlushBar.show(
+                      context,
+                      '$_pageTitle deleted successfully',
+                      actionLabel: 'UNDO',
+                      onActionPressed: () async {
+                        if (deletedRole.uid == null) return;
+                        await RoleService.restoreRole(deletedRole);
+                        if (!context.mounted) return;
+                        context.read<RolesBloc>().add(
+                          StreamRoles(),
+                        );
+                      },
+                    );
+                  } catch (e, st) {
+                    await ErrorService.recordError(e, st);
+                    debugPrint("${e.toString()}, ${st.toString()}");
+                    FlushBar.show(
+                      context,
+                      e.toString(),
+                      isSuccess: false,
+                      error: e,
+                      stackTrace: st,
+                    );
+                  }
+                },
+              ),
+            ],
           ),
-        ),
-        DataCell(
-          Text(role.description, style: Theme.of(context).textTheme.bodySmall),
-        ),
-        DataCell(
-          Text(
-            role.createdAt.listingDateTime,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        DataCell(CreatedByWidget(userData: role.createdBy)),
-        DataCell(
-          isSuperAdmin
-              ? const SizedBox.shrink()
-              : Row(
-                  children: [
-                    (permissions?.canEdit ?? false)
-                        ? IconButton(
-                            icon: const Icon(Iconsax.edit),
-                            onPressed: () {
-                              if (kIsMobile || width < 1000) {
-                                Sheet.showSheet(
-                                  context,
-                                  widget: RoleEdit(uid: role.uid ?? ''),
-                                );
-                              } else {
-                                GeneralDialog.showRTLSheet(
-                                  context,
-                                  RoleEdit(uid: role.uid ?? ''),
-                                );
-                              }
-                            },
-                            color: AppColors.info,
-                            splashRadius: 20,
-                          )
-                        : IconButton(
-                            icon: Icon(Iconsax.edit, color: AppColors.grey400),
-                            onPressed: null,
-                          ),
-                    (permissions?.canDelete ?? false)
-                        ? IconButton(
-                            icon: const Icon(Iconsax.trash),
-                            color: AppColors.danger,
-                            splashRadius: 20,
-                            onPressed: () async {
-                              final result = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => ConfirmDialog(
-                                  title: 'Delete $_pageTitle',
-                                  content:
-                                      'Are you sure want to delete this $_pageTitle?',
-                                ),
-                              );
-
-                              if (result != true) return;
-
-                              try {
-                                final deletedRole = role.copyWith();
-
-                                await RoleService.deleteRole(
-                                  uid: role.uid ?? '',
-                                );
-
-                                if (!context.mounted) return;
-
-                                FlushBar.show(
-                                  context,
-                                  '$_pageTitle deleted successfully',
-                                  actionLabel: 'UNDO',
-                                  onActionPressed: () async {
-                                    if (deletedRole.uid == null) return;
-
-                                    await RoleService.restoreRole(deletedRole);
-
-                                    if (!context.mounted) return;
-
-                                    context.read<RolesBloc>().add(
-                                      StreamRoles(),
-                                    );
-                                  },
-                                );
-                              } catch (e, st) {
-                                await ErrorService.recordError(e, st);
-                                debugPrint("${e.toString()}, ${st.toString()}");
-
-                                FlushBar.show(
-                                  context,
-                                  e.toString(),
-                                  isSuccess: false,
-                                  error: e,
-                                  stackTrace: st,
-                                );
-                              }
-                            },
-                          )
-                        : IconButton(
-                            icon: Icon(Iconsax.trash, color: AppColors.grey400),
-                            onPressed: null,
-                          ),
-                  ],
-                ),
         ),
       ],
-    );
-  }
-
-  Widget _searchBox({required ValueChanged<String> onSearchChanged}) {
-    return SizedBox(
-      width: 200,
-      child: ListingSearchField(
-        onChanged: onSearchChanged,
-        pageTitle: _pageTitle,
-      ),
     );
   }
 }

@@ -62,6 +62,7 @@ class LeadCategoryListingView extends StatefulWidget {
 class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
   final List<LeadCategoryModel> _selectedLeadCategories = [];
   PermissionModel? permissions;
+  bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
   @override
@@ -72,6 +73,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
+    _isAdmin = await Spdb.isAdminLoggedIn();
     setState(() {});
   }
 

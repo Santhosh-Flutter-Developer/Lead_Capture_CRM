@@ -1,12 +1,23 @@
 part of 'chat_messages.dart';
 
 void openUser(BuildContext context, dynamic user) {
-  if (user == null || user is! AdminModel) return;
+  final width = MediaQuery.of(context).size.width;
+  if (user == null) return;
 
-  if (kIsMobile || MediaQuery.of(context).size.width < 1000) {
-    Sheet.showSheet(context, widget: AdminProfile(admin: user));
+  if (kIsMobile || width < 1000) {
+    Sheet.showSheet(
+      context,
+      widget: user is AdminModel
+          ? AdminProfile(admin: user)
+          : EmployeeDetails(employee: user),
+    );
   } else {
-    GeneralDialog.showRTLSheet(context, AdminProfile(admin: user));
+    GeneralDialog.showRTLSheet(
+      context,
+      user is AdminModel
+          ? AdminProfile(admin: user)
+          : EmployeeDetails(employee: user),
+    );
   }
 }
 
@@ -41,7 +52,7 @@ class ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
         userUid == currentUserUid ||
         userUid.isEmpty ||
         chat.participants.every((id) => id == currentUserUid);
-    final dynamic user = isSelfChat ? null : CacheService.adminByUid(userUid);
+    final dynamic user = isSelfChat ? null : CacheService.getUserByUid(userUid);
 
     String? userName;
     String? userImage;
@@ -52,7 +63,7 @@ class ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
     } else if (user is AdminModel) {
       userName = user.name;
       userImage = user.profileImageUrl;
-    } else if (user is AdminModel) {
+    } else if (user is EmployeeModel) {
       userName = user.name;
       userImage = user.profileImageUrl;
     } else {
@@ -319,7 +330,7 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
         userUid == currentUserUid ||
         userUid.isEmpty ||
         chat.participants.every((id) => id == currentUserUid);
-    final dynamic user = isSelfChat ? null : CacheService.adminByUid(userUid);
+    final dynamic user = isSelfChat ? null : CacheService.getUserByUid(userUid);
 
     String? userName;
     String? userImage;
@@ -330,7 +341,7 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
     } else if (user is AdminModel) {
       userName = user.name;
       userImage = user.profileImageUrl;
-    } else if (user is AdminModel) {
+    } else if (user is EmployeeModel) {
       userName = user.name;
       userImage = user.profileImageUrl;
     } else {

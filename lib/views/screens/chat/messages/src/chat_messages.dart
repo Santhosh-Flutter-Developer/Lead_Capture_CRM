@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:io' show File; // used in non-web branches only
+import 'dart:io' show File, Platform; // used in non-web branches only
 import 'package:flutter/foundation.dart';
 import 'package:any_link_preview/any_link_preview.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
@@ -9,7 +10,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 // import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:line_icons/line_icon.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import '/constants/constants.dart';
 import '/views/views.dart';
 import '/utils/utils.dart';
@@ -82,8 +83,7 @@ class _ChatMessagesState extends State<ChatMessages> {
             chatId: widget.chat.uid ?? '',
             messageId: msg.uid ?? '',
           );
-          // This mutation is local-only to prevent re-triggering
-          msg.seenBy.add(uid);
+          // Don't mutate the message object - let the stream update naturally
         }
       }
     });

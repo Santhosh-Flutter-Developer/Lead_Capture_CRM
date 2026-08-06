@@ -1074,62 +1074,61 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      InkWell(
-                        onTap: () {
-                          showMenu(
-                            context: context,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surface, // popup background
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            position: const RelativeRect.fromLTRB(
-                              100,
-                              100,
-                              0,
-                              0,
-                            ),
-                            items: [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: const [
-                                    Icon(Icons.edit, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Edit'),
-                                  ],
-                                ),
+                      if (_isAdmin)
+                        InkWell(
+                          onTap: () {
+                            showMenu(
+                              context: context,
+                              color: Theme.of(context).colorScheme.surface,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: const [
-                                    Icon(
-                                      Icons.delete,
-                                      size: 18,
-                                      color: Colors.red,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text('Delete'),
-                                  ],
-                                ),
+                              position: const RelativeRect.fromLTRB(
+                                100,
+                                100,
+                                0,
+                                0,
                               ),
-                            ],
-                          ).then((value) {
-                            if (value == 'edit') {
-                              _editComment(comment);
-                            } else if (value == 'delete') {
-                              _deleteComment(comment);
-                            }
-                          });
-                        },
-                        child: Icon(
-                          Iconsax.more,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 16,
+                              items: [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: const [
+                                      Icon(Icons.edit, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Edit'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: const [
+                                      Icon(
+                                        Icons.delete,
+                                        size: 18,
+                                        color: Colors.red,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Delete'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ).then((value) {
+                              if (value == 'edit') {
+                                _editComment(comment);
+                              } else if (value == 'delete') {
+                                _deleteComment(comment);
+                              }
+                            });
+                          },
+                          child: Icon(
+                            Iconsax.more,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 16,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ],
@@ -1574,13 +1573,14 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                 ),
               ),
 
-              PopupMenuItem<String>(
-                value: 'delete',
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
+              if (_isAdmin)
+                PopupMenuItem<String>(
+                  value: 'delete',
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
@@ -1608,7 +1608,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-              ),
+                ),
             ],
           ),
         ],
@@ -1617,15 +1617,6 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   }
 
   Future<void> _confirmDeleteActivity(LeadActivityModel activity) async {
-    if (!_isAdmin) {
-      FlushBar.show(
-        context,
-        'Only admins can delete activities',
-        isSuccess: false,
-      );
-      return;
-    }
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {

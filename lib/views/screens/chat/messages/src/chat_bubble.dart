@@ -38,6 +38,7 @@ class _ChatBubbleState extends State<ChatBubble>
   late bool _isPinned;
   late MessagesModel _msg;
   MessagesModel? _replyChat;
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -45,6 +46,16 @@ class _ChatBubbleState extends State<ChatBubble>
     _msg = widget.message;
     _isPinned = _msg.isPinned;
     _initReplyMessage();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final isAdmin = await Spdb.isAdminLoggedIn();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
   }
 
   @override
@@ -208,7 +219,7 @@ class _ChatBubbleState extends State<ChatBubble>
     FocusManager.instance.primaryFocus?.unfocus();
     final result = await Sheet.showSheet(
       context,
-      widget: ChatOptions(delete: widget.isSender, edit: widget.isSender),
+      widget: ChatOptions(delete: _isAdmin && widget.isSender, edit: widget.isSender),
       size: 0.4,
     );
 

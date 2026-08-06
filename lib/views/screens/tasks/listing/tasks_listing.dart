@@ -722,11 +722,7 @@ class _TaskListingViewState extends State<TaskListingView> {
                   onPressed: null,
                 ),
               ],
-              if ((permissions?.canDelete ?? false) &&
-                  (_isAdmin ||
-                      task.taskCreatedBy.uid == _currentUid ||
-                      (task.taskCreatedBy.uid.isEmpty &&
-                          task.createdBy.contains(_currentUid ?? '')))) ...[
+              if (permissions?.canDelete ?? false) ...[
                 IconButton(
                   icon: const Icon(Iconsax.trash),
                   color: Theme.of(context).colorScheme.error,

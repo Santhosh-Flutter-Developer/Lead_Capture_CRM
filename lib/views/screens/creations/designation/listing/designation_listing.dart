@@ -62,7 +62,7 @@ class DesignationListingView extends StatefulWidget {
 
 class _DesignationListingViewState extends State<DesignationListingView> {
   final List<DesignationModel> _selectedDesignations = [];
-  PermissionModel? permissions;
+  PermissionModel? permissions;`r`n  bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
   @override
@@ -72,7 +72,7 @@ class _DesignationListingViewState extends State<DesignationListingView> {
   }
 
   Future<void> _loadPermissions() async {
-    permissions = await PermissionService.getPermissions(_pageTitle);
+    permissions = await PermissionService.getPermissions(_pageTitle);`r`n    _isAdmin = await Spdb.isAdminLoggedIn();
     setState(() {});
   }
 

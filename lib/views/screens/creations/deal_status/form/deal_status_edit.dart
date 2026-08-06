@@ -22,6 +22,7 @@ class _DealStatusEditState extends State<DealStatusEdit> {
 
   late Future _future;
   DealStatusModel? _dealStatusModel;
+  bool _isFinal = false;
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _DealStatusEditState extends State<DealStatusEdit> {
     _nameController.text = _dealStatusModel?.name ?? '';
     _descriptionController.text = _dealStatusModel?.description ?? '';
     _selectedColor = Color(_dealStatusModel?.color ?? 0);
+    _isFinal = _dealStatusModel?.isFinal ?? false;
     setState(() {});
   }
 
@@ -41,6 +43,7 @@ class _DealStatusEditState extends State<DealStatusEdit> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _colorController.dispose();
     super.dispose();
   }
 
@@ -188,6 +191,31 @@ class _DealStatusEditState extends State<DealStatusEdit> {
             },
             readOnly: true,
           ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Checkbox(
+                value: _isFinal,
+                onChanged: (value) {
+                  setState(() {
+                    _isFinal = value ?? false;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Mark as Final Status',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Deals with Final status will be locked and cannot be modified or moved.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -201,7 +229,8 @@ class _DealStatusEditState extends State<DealStatusEdit> {
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),
           color: _selectedColor.toARGB32(),
-          orderNumber: 0,
+          orderNumber: _dealStatusModel?.orderNumber ?? 0,
+          isFinal: _isFinal,
           createdBy: await Spdb.getUser(),
         );
 

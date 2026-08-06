@@ -59,6 +59,7 @@ class DealStatusListingView extends StatefulWidget {
 class _DealStatusListingViewState extends State<DealStatusListingView> {
   final List<DealStatusModel> _selectedDealStatus = [];
   PermissionModel? permissions;
+  bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
   @override
@@ -69,6 +70,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
+    _isAdmin = await Spdb.isAdminLoggedIn();
     setState(() {});
   }
 
