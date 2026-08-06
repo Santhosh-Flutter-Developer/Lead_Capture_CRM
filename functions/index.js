@@ -414,7 +414,7 @@ async function sendEventStartedBroadcast(eventNotif) {
 
     const tokens = Array.from(tokenOwners.keys());
     const invalidTokens = [];
-    let successfulSends = 0;
+    // let successfulSends = 0;
 
     if (tokens.length > 0) {
         const eventTitle = "Event Started";
@@ -440,9 +440,8 @@ async function sendEventStartedBroadcast(eventNotif) {
                 ...payload,
             });
             response.responses.forEach((res, i) => {
-                if (res.success) {
-                    successfulSends++;
-                } else {
+                if (!res.success) {
+                    
                     const code = res.error && res.error.code;
                     if (
                         code === "messaging/invalid-registration-token" ||
@@ -490,6 +489,5 @@ async function sendEventStartedBroadcast(eventNotif) {
             });
     }
 
-    // Return true only if at least one FCM message was sent successfully
-    return successfulSends > 0;
+    
 }

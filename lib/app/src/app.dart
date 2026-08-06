@@ -7,13 +7,13 @@
 //   • Replaced `Platform.isWindows` with `kIsWindows` (from platform.dart)
 //   • Web now also gets PopScope (back-button guard), just like mobile
 // ─────────────────────────────────────────────────────────────────────────────
-import 'dart:io' show exit; // `exit()` is still needed on Windows — safe
+// import 'dart:io' show exit; // `exit()` is still needed on Windows — safe
 // because it is only called inside !kIsWeb branch.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:leadcapture/views/components/src/show_dialog.dart';
 import 'package:provider/provider.dart';
-import '../../utils/src/tray_stub.dart';
+// import '../../utils/src/tray_stub.dart';
 import '/views/views.dart';
 import '/utils/utils.dart';
 import '/theme/theme.dart';
@@ -23,6 +23,9 @@ import '/app/app.dart';
 // On native the real flutter_window_close wrapper is used.
 import '/utils/src/window_close_stub.dart'
     if (dart.library.io) '/utils/src/window_close_native.dart';
+
+import '/utils/src/tray_stub.dart'
+    if (dart.library.io) '/utils/src/tray_native.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> messengerKey =
@@ -45,6 +48,7 @@ class _AppState extends State<App> {
     // Register Windows close handler only on native Windows.
     // The setupWindowClose() call is a no-op on web / other platforms.
     if (!kIsWeb && kIsWindows) {
+      setupTray();
       setupWindowClose(() async {
         final ctx = navigatorKey.currentContext;
         if (ctx == null) return true;
@@ -52,10 +56,11 @@ class _AppState extends State<App> {
         bool? shouldExit = await showDialogs.showExitConfirmationDialog(ctx);
 
         if (shouldExit == true) {
-          exit(0);
+          // exit(0);
+          minimizeToTrayOnClose();
         }
-        minimizeToTrayOnClose();
-        return shouldExit;
+        
+        return false;
       });
     }
   }
