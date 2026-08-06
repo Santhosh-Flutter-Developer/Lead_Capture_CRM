@@ -37,7 +37,7 @@ import 'notification_service_io.dart'
 // ─────────────────────────────────────────────────────────────────────────────
 // VAPID key — replace with your actual key from Firebase Console.
 // ─────────────────────────────────────────────────────────────────────────────
-const String kVapidKey = 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE';
+const String kVapidKey = 'BElo9iyDmRacZr_hHvqLsXhMjCdn4mE8t6XZve1RD6DlU8g5NUTV1Xl8UiiMXkRmBDklec0WQ8KxPfTAFNSBw5o';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
