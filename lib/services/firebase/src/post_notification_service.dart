@@ -75,7 +75,7 @@ class PostNotificationService {
             "message": {
               "notification": {
                 "title": model.title,
-                "body": model.message,
+                "body": model.body,
               },
               "android": {
                 "priority": "high",
@@ -89,25 +89,12 @@ class PostNotificationService {
                 "payload": {
                   "aps": {
                     "category": "FLUTTER_NOTIFICATION_CATEGORY_DEFAULT",
-                    "alert": {"title": model.title, "body": model.message},
+                    "alert": {"title": model.title, "body": model.body},
                   },
                 },
               },
               "token": element,
-              // NOTE: On Android, when a message has BOTH a "notification" and
-              // a "data" payload and arrives while the app is backgrounded or
-              // killed, the OS intercepts the "notification" block to build
-              // the system tray entry — `message.notification` is often
-              // null/empty by the time it reaches the Dart background
-              // isolate. Only `data` is reliably delivered. So we mirror the
-              // title/body into `data` here to guarantee they're always
-              // available to showNotification(), instead of depending on
-              // `message.notification?.title`.
-              "data": {
-                ...model.payload,
-                "title": model.title,
-                "body": model.message,
-              },
+              "data": model.payload,
             },
           };
 
@@ -123,6 +110,11 @@ class PostNotificationService {
 
             if (response.statusCode == 200) {
               debugPrint(response.body);
+            } else {
+              debugPrint(
+                "Push notification failed for token $element: "
+                "status=${response.statusCode}, body=${response.body}",
+              );
             }
           } catch (e) {
             debugPrint("Push notification failed for token $element: $e");

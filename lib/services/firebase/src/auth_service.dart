@@ -150,14 +150,15 @@ class AuthService {
 
       // 2. Upload logo
       String? logoUrl;
-      if (kIsWeb && logoBytes != null) {
-        // Web: upload bytes
-        logoUrl = await StorageService.uploadImageBytes(
-          bytes: logoBytes,
-          folder: StorageFolder.companyLogo,
-          collectionId: companyId,
-        );
-      } else if (logo != null) {
+       if (kIsWeb && logoBytes != null) {
+      // Web: upload bytes
+      logoUrl = await StorageService.uploadImageBytes(
+        bytes: logoBytes,
+        folder: StorageFolder.companyLogo,
+        collectionId: companyId,
+      );
+    } 
+      else if (logo != null) {
         logoUrl = await StorageService.uploadImage(
           file: logo,
           folder: StorageFolder.companyLogo,
@@ -170,9 +171,9 @@ class AuthService {
         'createdAt': FieldValue.serverTimestamp(),
         'logo': logoUrl,
         'status': 'active',
-        'companyLat': ?companyLat,
-        'companyLng': ?companyLng,
-        'companyRadius': ?companyRadius,
+        if (companyLat != null) 'companyLat': companyLat,
+        if (companyLng != null) 'companyLng': companyLng,
+        if (companyRadius != null) 'companyRadius': companyRadius,
       });
 
       DocumentReference roleRef = companyRef
@@ -392,12 +393,26 @@ class AuthService {
     try {
       var cid = await Spdb.getCid();
 
-      var userRef = firebase.users
+      // A uid can belong to either the employees or the admins collection.
+      // Previously this only checked employees, so any admin recipient
+      // (e.g. an event attendee/creator who is an admin) silently got an
+      // empty fcmIds list and never received an Android push notification,
+      // even though the in-app / Windows Firestore listener still showed it
+      // (that path doesn't depend on FCM tokens at all).
+      var userDoc = await firebase.users
           .doc(cid)
           .collection(Collections.employees.name)
-          .doc(uid);
+          .doc(uid)
+          .get();
 
-      var userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        userDoc = await firebase.users
+            .doc(cid)
+            .collection(Collections.admins.name)
+            .doc(uid)
+            .get();
+      }
+
       if (!userDoc.exists) return [];
 
       var userData = userDoc.data();
@@ -440,8 +455,8 @@ class AuthService {
               return {
                 'companyId': company.id,
                 'adminId': i.id,
-                'name': (nameValue != null && nameValue is String)
-                    ? nameValue.decrypt
+                'name': (nameValue != null && nameValue is String) 
+                    ? nameValue.decrypt 
                     : '',
                 'email': email,
               };
@@ -458,14 +473,13 @@ class AuthService {
           for (var i in employeeQuery.docs) {
             var data = i.data();
             String decryptedEmail = (data['email'] ?? '').toString().decrypt;
-            if (decryptedEmail.trim().toLowerCase() ==
-                email.trim().toLowerCase()) {
+            if (decryptedEmail.trim().toLowerCase() == email.trim().toLowerCase()) {
               final nameValue = data['name'];
               return {
                 'companyId': company.id,
                 'employeeId': i.id,
-                'name': (nameValue != null && nameValue is String)
-                    ? nameValue.decrypt
+                'name': (nameValue != null && nameValue is String) 
+                    ? nameValue.decrypt 
                     : '',
                 'email': email,
               };
