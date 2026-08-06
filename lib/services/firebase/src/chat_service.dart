@@ -28,23 +28,25 @@ class ChatService {
       query = query.limit(limit);
     }
 
-    yield* query.snapshots().map((snapshot) {
-      return snapshot.docs
-          .map((doc) {
-            var data = doc.data();
-            data['uid'] = doc.id;
+    yield* query
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) {
+                var data = doc.data();
+                data['uid'] = doc.id;
 
-            final message = MessagesModel.fromMap(doc.id, data);
+                final message = MessagesModel.fromMap(doc.id, data);
 
-            if (userid != null && message.deletedFor.contains(userid)) {
-              return null;
-            }
+                if (userid != null && message.deletedFor.contains(userid)) {
+                  return null;
+                }
 
-            return message;
-          })
-          .whereType<MessagesModel>()
-          .toList();
-    });
+                return message;
+              })
+              .whereType<MessagesModel>()
+              .toList();
+        });
   }
 
   static Future<List<MessagesModel>> getChatMessagesPage({
@@ -151,17 +153,13 @@ class ChatService {
     required String searchTerm,
   }) async {
     final messages = await getChatMessages(uid: chatId);
-    final terms = searchTerm
-        .toLowerCase()
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final terms = searchTerm.toLowerCase().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
 
     if (terms.isEmpty) return [];
 
     return messages.where((msg) {
       final text = msg.message.toLowerCase();
-
+      
       // Check if all search terms are contained in either the message text or attachment names
       final matchText = terms.every((term) => text.contains(term));
       final matchFiles = msg.attachments.any((file) {
@@ -520,9 +518,8 @@ class ChatService {
                 "type": "chat",
                 "chatId": chat.uid,
                 "chat": json.encode(chat.toMap()),
-                "chatTitle": chat.isGroupChat
-                    ? (chat.title ?? 'Group Chat')
-                    : name,
+                "chatTitle": chat.isGroupChat ? (chat.title ?? 'Group Chat') : name,
+                "senderName": name,
                 "senderImageUrl": user.profilePic,
               }
             : {},
@@ -809,7 +806,7 @@ class ChatService {
     await firebase.users
         .doc(cid)
         .collection(Collections.chats.name)
-        .doc(chat.uid)
+        .doc(chat.uid) 
         .set(chat.toMap());
   }
 

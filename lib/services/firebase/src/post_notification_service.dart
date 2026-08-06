@@ -71,27 +71,42 @@ class PostNotificationService {
             "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
         
         for (var element in model.toFcms) {
-          // Deliberately data-only (no top-level "notification" field) — a
-          // "notification" field makes Android/iOS auto-display it in the
-          // system tray *in addition to* the local notification the app's
-          // own background handler shows, producing two banners for the
-          // same push. showNotification() in notification_service.dart
-          // already falls back to data['title']/data['body'].
           final Map<String, dynamic> message = {
             "message": {
-              "android": {"priority": "high"},
+              "notification": {
+                "title": model.title,
+                "body": model.message,
+              },
+              "android": {
+                "priority": "high",
+                "notification": {
+                  "channel_id": "high_importance_channel",
+                  "click_action": "FLUTTER_NOTIFICATION_CLICK",
+                },
+              },
               "apns": {
                 "headers": {"apns-priority": "10"},
                 "payload": {
-                  "aps": {"content-available": 1},
+                  "aps": {
+                    "category": "FLUTTER_NOTIFICATION_CATEGORY_DEFAULT",
+                    "alert": {"title": model.title, "body": model.message},
+                  },
                 },
               },
               "token": element,
+              // NOTE: On Android, when a message has BOTH a "notification" and
+              // a "data" payload and arrives while the app is backgrounded or
+              // killed, the OS intercepts the "notification" block to build
+              // the system tray entry — `message.notification` is often
+              // null/empty by the time it reaches the Dart background
+              // isolate. Only `data` is reliably delivered. So we mirror the
+              // title/body into `data` here to guarantee they're always
+              // available to showNotification(), instead of depending on
+              // `message.notification?.title`.
               "data": {
-                ...model.payload.map((k, v) => MapEntry(k, v.toString())),
+                ...model.payload,
                 "title": model.title,
-                "body": model.body,
-                "type": model.type?.name,
+                "body": model.message,
               },
             },
           };

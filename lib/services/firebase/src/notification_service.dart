@@ -21,13 +21,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:leadcapture/firebase_options.dart';
-import 'package:leadcapture/views/screens/calendar/form/event_view.dart';
 import '/constants/constants.dart';
+import '/firebase_options.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 import '/app/app.dart';
+import '/views/screens/calendar/form/event_view.dart';
 
 // Only import dart:io + path_provider on non-web platforms.
 // On web these packages either don't exist or have no filesystem access.
@@ -268,8 +268,15 @@ class NotificationService {
       final data = message.data;
       final type = data['type'];
       final chatId = data['chatId'];
-      final senderName = notification?.title ?? 'Unknown';
-      final messageText = notification?.body ?? data['body'] ?? 'New message';
+      // IMPORTANT: prefer `data['title']`/`data['body']` over
+      // `notification?.title`/`notification?.body`. On Android, when this
+      // handler runs from the background isolate, `message.notification` is
+      // frequently null (the OS consumes it to draw the system tray icon
+      // before Flutter ever sees it) while `message.data` is always intact.
+      // Falling back to `notification` first is what caused the sender name
+      // to show as "Unknown".
+      final senderName = data['title'] ?? notification?.title ?? 'Unknown';
+      final messageText = data['body'] ?? notification?.body ?? 'New message';
       final senderImageUrl = data['senderImageUrl'];
 
       if (type == 'chat' && chatId != null) {
@@ -342,8 +349,8 @@ class NotificationService {
 
       await _localNotifications.show(
         message.hashCode,
-        notification?.title ?? data['title'] ?? 'Notification',
-        notification?.body ?? data['body'] ?? 'You have a new message',
+        data['title'] ?? notification?.title ?? 'Notification',
+        data['body'] ?? notification?.body ?? 'You have a new message',
         const NotificationDetails(
           android: AndroidNotificationDetails(
             'high_importance_channel',
@@ -438,7 +445,8 @@ class NotificationService {
       return;
     }
 
-    if (message['type'] == 'eventStarted' || message['type'] == 'eventReminder') {
+    if (message['type'] == 'eventStarted' ||
+        message['type'] == 'eventReminder') {
       final eventId = message['eventId'];
       if (eventId != null && eventId.toString().isNotEmpty) {
         try {
