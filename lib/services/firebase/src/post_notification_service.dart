@@ -71,30 +71,47 @@ class PostNotificationService {
             "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
         
         for (var element in model.toFcms) {
+          // IMPORTANT: This is intentionally a DATA-ONLY message (no
+          // top-level "notification" block).
+          //
+          // Why: if a "notification" block is present, Android (and iOS)
+          // auto-display the notification from the system tray the instant
+          // it's received while the app is backgrounded/killed — BEFORE our
+          // background handler even runs. Our background handler then also
+          // calls showNotification() via flutter_local_notifications,
+          // producing a SECOND notification. That's why duplicates only
+          // showed up when the app wasn't in the foreground.
+          //
+          // With a data-only message, Android never auto-displays anything;
+          // our app (foreground onMessage listener OR background handler)
+          // is the single place that ever calls showNotification(), so
+          // exactly one notification is shown regardless of app state.
           final Map<String, dynamic> message = {
             "message": {
-              "notification": {
-                "title": model.title,
-                "body": model.body,
-              },
               "android": {
                 "priority": "high",
-                "notification": {
-                  "channel_id": "high_importance_channel",
-                  "click_action": "FLUTTER_NOTIFICATION_CLICK",
-                },
               },
               "apns": {
-                "headers": {"apns-priority": "10"},
+                "headers": {
+                  "apns-priority": "10",
+                  // Required so iOS wakes the app to run the background
+                  // handler for data-only messages.
+                  "apns-push-type": "background",
+                },
                 "payload": {
-                  "aps": {
-                    "category": "FLUTTER_NOTIFICATION_CATEGORY_DEFAULT",
-                    "alert": {"title": model.title, "body": model.body},
-                  },
+                  "aps": {"content-available": 1},
                 },
               },
               "token": element,
-              "data": model.payload,
+              "data": {
+                // Ensure title/body are always available in `data`, since
+                // showNotification() reads data['title'] / data['body'].
+                "title": model.title,
+                "body": model.body,
+                ...model.payload.map(
+                  (key, value) => MapEntry(key, value.toString()),
+                ),
+              },
             },
           };
 
