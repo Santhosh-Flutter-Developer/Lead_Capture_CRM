@@ -459,6 +459,38 @@ class NotificationService {
       return;
     }
 
+    if (message['type'] == 'task') {
+      final taskId = message['taskId'];
+      if (taskId != null && taskId.toString().isNotEmpty) {
+        try {
+          navigator.push(
+            CupertinoPageRoute(
+              builder: (context) => TaskView(uid: taskId.toString()),
+            ),
+          );
+        } catch (e, st) {
+          await ErrorService.recordError(e, st);
+        }
+      }
+      return;
+    }
+
+    if (message['type'] == 'ticket') {
+      final ticketId = message['ticketId'];
+      if (ticketId != null && ticketId.toString().isNotEmpty) {
+        try {
+          navigator.push(
+            CupertinoPageRoute(
+              builder: (context) => TicketView(uid: ticketId.toString()),
+            ),
+          );
+        } catch (e, st) {
+          await ErrorService.recordError(e, st);
+        }
+      }
+      return;
+    }
+
     await showDialog(
       context: navigator.context,
       builder: (context) =>

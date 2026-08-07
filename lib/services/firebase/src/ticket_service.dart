@@ -79,18 +79,21 @@ class TicketService {
       PostNotificationService.sendNotification(model: notif);
 
       if (ticket.reminder != null) {
-        ReminderService.createReminder(
-          scheduledAt: ticket.reminder!,
-          notification: NotificationModel(
-            collectionId: cid ?? '',
-            title: 'Ticket Reminder',
-            body: 'Ticket "${ticket.ticketTitle}" reminder',
-            toFcms: fcmIds,
-            toUids: users,
-            type: NotificationType.ticket,
-            payload: {'ticketId': ticketDoc.id},
-          ),
-        );
+        if (ticket.reminder!.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: 'ticket_reminder_${ticketDoc.id}',
+            scheduledAt: ticket.reminder!,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Ticket Reminder',
+              body: 'Ticket "${ticket.ticketTitle}" reminder',
+              toFcms: fcmIds,
+              toUids: users,
+              type: NotificationType.ticket,
+              payload: {'ticketId': ticketDoc.id},
+            ),
+          );
+        }
       }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
@@ -157,18 +160,26 @@ class TicketService {
       PostNotificationService.sendNotification(model: notif);
 
       if (ticket.reminder != null) {
-        ReminderService.createReminder(
-          scheduledAt: ticket.reminder!,
-          notification: NotificationModel(
-            collectionId: cid ?? '',
-            title: 'Ticket Reminder',
-            body: 'Ticket "${ticket.ticketTitle}" reminder',
-            toFcms: fcmIds,
-            toUids: users,
-            type: NotificationType.ticket,
-            payload: {'ticketId': uid},
-          ),
-        );
+        final reminderDocId = 'ticket_reminder_$uid';
+        if (ticket.reminder!.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: reminderDocId,
+            scheduledAt: ticket.reminder!,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Ticket Reminder',
+              body: 'Ticket "${ticket.ticketTitle}" reminder',
+              toFcms: fcmIds,
+              toUids: users,
+              type: NotificationType.ticket,
+              payload: {'ticketId': uid},
+            ),
+          );
+        } else {
+          await ReminderService.cancelReminder(docId: reminderDocId);
+        }
+      } else {
+        await ReminderService.cancelReminder(docId: 'ticket_reminder_$uid');
       }
     } catch (e, st) {
       debugPrint("Error updating ticket: $e\n$st");
@@ -187,6 +198,9 @@ class TicketService {
           .doc(uid)
           .get();
       final data = docRef.data() as Map<String, dynamic>;
+
+      await ReminderService.cancelReminder(docId: 'ticket_reminder_$uid');
+
       await TrashService.moveToTrash(
         docRef: docRef.reference,
         docData: data,

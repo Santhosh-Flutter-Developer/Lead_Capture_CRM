@@ -77,18 +77,39 @@ class TaskService {
       PostNotificationService.sendNotification(model: notif);
 
       if (task.deadlineRequired && task.deadline != null) {
-        ReminderService.createReminder(
-          scheduledAt: task.deadline!,
-          notification: NotificationModel(
-            collectionId: cid ?? '',
-            title: 'Task Deadline Reminder',
-            body: 'Task "${task.taskName}" is due soon',
-            toFcms: fcmIds,
-            toUids: users,
-            type: NotificationType.task,
-            payload: {'taskId': taskDoc.id},
-          ),
-        );
+        if (task.deadline!.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: 'task_deadline_${taskDoc.id}',
+            scheduledAt: task.deadline!,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Task Deadline Reminder',
+              body: 'Task "${task.taskName}" is due soon',
+              toFcms: fcmIds,
+              toUids: users,
+              type: NotificationType.task,
+              payload: {'taskId': taskDoc.id},
+            ),
+          );
+        }
+      }
+
+      if (task.reminder != null) {
+        if (task.reminder!.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: 'task_reminder_${taskDoc.id}',
+            scheduledAt: task.reminder!,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Task Reminder',
+              body: 'Task "${task.taskName}" reminder',
+              toFcms: fcmIds,
+              toUids: users,
+              type: NotificationType.task,
+              payload: {'taskId': taskDoc.id},
+            ),
+          );
+        }
       }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
@@ -153,19 +174,51 @@ class TaskService {
       );
 
       PostNotificationService.sendNotification(model: notif);
+
       if (task.deadlineRequired && task.deadline != null) {
-        ReminderService.createReminder(
-          scheduledAt: task.deadline!,
-          notification: NotificationModel(
-            collectionId: cid ?? '',
-            title: 'Task Deadline Reminder',
-            body: 'Task "${task.taskName}" is due soon',
-            toFcms: fcmIds,
-            toUids: users,
-            type: NotificationType.task,
-            payload: {'taskId': uid},
-          ),
-        );
+        final deadlineDocId = 'task_deadline_$uid';
+        if (task.deadline!.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: deadlineDocId,
+            scheduledAt: task.deadline!,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Task Deadline Reminder',
+              body: 'Task "${task.taskName}" is due soon',
+              toFcms: fcmIds,
+              toUids: users,
+              type: NotificationType.task,
+              payload: {'taskId': uid},
+            ),
+          );
+        } else {
+          await ReminderService.cancelReminder(docId: deadlineDocId);
+        }
+      } else {
+        await ReminderService.cancelReminder(docId: 'task_deadline_$uid');
+      }
+
+      if (task.reminder != null) {
+        final reminderDocId = 'task_reminder_$uid';
+        if (task.reminder!.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: reminderDocId,
+            scheduledAt: task.reminder!,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Task Reminder',
+              body: 'Task "${task.taskName}" reminder',
+              toFcms: fcmIds,
+              toUids: users,
+              type: NotificationType.task,
+              payload: {'taskId': uid},
+            ),
+          );
+        } else {
+          await ReminderService.cancelReminder(docId: reminderDocId);
+        }
+      } else {
+        await ReminderService.cancelReminder(docId: 'task_reminder_$uid');
       }
     } catch (e, st) {
       debugPrint("Error updating task: $e\n$st");
@@ -184,6 +237,10 @@ class TaskService {
           .doc(uid)
           .get();
       final data = docRef.data() as Map<String, dynamic>;
+
+      await ReminderService.cancelReminder(docId: 'task_deadline_$uid');
+      await ReminderService.cancelReminder(docId: 'task_reminder_$uid');
+
       await TrashService.moveToTrash(
         docRef: docRef.reference,
         docData: data,
@@ -344,6 +401,9 @@ class TaskService {
       var uid = await Spdb.getUid();
 
       final endTime = DateTime.now();
+
+      await ReminderService.cancelReminder(docId: 'task_deadline_$taskId');
+      await ReminderService.cancelReminder(docId: 'task_reminder_$taskId');
 
       await CommonService.update(
         '${Collections.users.name}/$cid/${Collections.tasks.name}',
