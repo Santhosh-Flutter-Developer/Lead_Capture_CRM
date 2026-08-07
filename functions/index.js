@@ -8,7 +8,8 @@ const admin = require("firebase-admin");
 const axios = require("axios");
 const nodemailer = require("nodemailer");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { getFirestore, Timestamp } = require("firebase-admin/firestore");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { getFirestore, Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
 admin.initializeApp();
@@ -172,15 +173,29 @@ exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
         const notif = reminder.notification;
 
         try {
-            // Send FCM
+            // Send FCM as a DATA-ONLY message (no `notification` key).
+            // Sending both `notification` and `data` causes Android to
+            // auto-display the `notification` block itself via the OS
+            // while the app's own background handler ALSO shows it via
+            // flutter_local_notifications — one message, two visible
+            // notifications. Data-only avoids the OS auto-display and
+            // leaves rendering entirely to the app (which already falls
+            // back to reading title/body from `data` when
+            // message.notification is null).
             if (notif.toFcms && notif.toFcms.length > 0) {
                 await getMessaging().sendEachForMulticast({
                     tokens: notif.toFcms,
-                    notification: {
-                        title: notif.title,
-                        body: notif.body,
+                    data: {
+                        ...(notif.payload || {}),
+                        title: String(notif.title || ""),
+                        body: String(notif.body || ""),
+                        type: String(notif.type || ""),
                     },
-                    data: notif.payload,
+                    android: { priority: "high" },
+                    apns: {
+                        headers: { "apns-priority": "10" },
+                        payload: { aps: { "content-available": 1 } },
+                    },
                 });
             }
 
@@ -214,3 +229,267 @@ exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
         }
     }
 });
+
+// Splits an array into chunks of at most `size` (FCM multicast max is 500).
+function chunk(array, size) {
+    const out = [];
+    for (let i = 0; i < array.length; i += size) {
+        out.push(array.slice(i, i + size));
+    }
+    return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// EVENT "STARTED" BROADCAST — notify ALL company users at the exact
+// event start time, even if the app is closed/killed.
+//
+// Flow:
+//   Flutter app writes users/{cid}/events/{eventId}
+//     -> onEventWritten (this trigger) upserts
+//        eventStartNotifications/{cid}_{eventId} with status "pending"
+//        and scheduledAt = event start time.
+//     -> sendEventStartNotifications (runs every 1 minute) claims every
+//        "pending" doc whose scheduledAt has passed, fetches every admin's
+//        FCM tokens for that company, and sends the FCM in batches.
+//
+// Note: this is a SEPARATE, independent pipeline from reminderScheduler
+// above (different Firestore collection: eventStartNotifications vs
+// reminders). Both will send an "Event Started" style push around the
+// same time, so re-enabling this alongside reminderScheduler intentionally
+// brings back a duplicate "Event Started" notification.
+// ─────────────────────────────────────────────────────────────────────────
+
+exports.onEventWritten = onDocumentWritten(
+    "users/{cid}/events/{eventId}",
+    async (event) => {
+        const { cid, eventId } = event.params;
+        const db = getFirestore();
+        const notifRef = db.collection("eventStartNotifications").doc(`${cid}_${eventId}`);
+
+        const afterSnap = event.data && event.data.after;
+        const after = afterSnap && afterSnap.exists ? afterSnap.data() : null;
+
+        // Event was deleted -> cancel the scheduled broadcast (requirement:
+        // deleted/cancelled events must not send a notification).
+        if (!after) {
+            await notifRef.set(
+                {
+                    status: "cancelled",
+                    updatedAt: FieldValue.serverTimestamp(),
+                },
+                { merge: true },
+            );
+            return;
+        }
+
+        if (!after.eventDateTime) return; // malformed doc, nothing to schedule
+
+        const newScheduledAt = Timestamp.fromMillis(after.eventDateTime);
+        const existing = await notifRef.get();
+
+        if (existing.exists) {
+            const data = existing.data();
+            const storedMillis = data.scheduledAt ? data.scheduledAt.toMillis() : null;
+            const timeChanged = storedMillis !== newScheduledAt.toMillis();
+
+            // Already sent and the time hasn't changed on this edit -> leave
+            // it alone (prevents re-sending on unrelated field edits, and
+            // prevents duplicate sends from repeated trigger invocations).
+            if (data.status === "sent" && !timeChanged) return;
+
+            // Already pending and nothing relevant changed -> just refresh
+            // the denormalized display fields, keep status as-is.
+            if (data.status === "pending" && !timeChanged) {
+                await notifRef.set(
+                    {
+                        eventName: after.eventName || "",
+                        eventDescription: after.eventDescription || "",
+                        updatedAt: FieldValue.serverTimestamp(),
+                    },
+                    { merge: true },
+                );
+                return;
+            }
+        }
+
+        // New event, edited/rescheduled time, or a previously
+        // sent/cancelled event that is active again -> (re)schedule.
+        await notifRef.set(
+            {
+                cid,
+                eventId,
+                eventName: after.eventName || "",
+                eventDescription: after.eventDescription || "",
+                scheduledAt: newScheduledAt,
+                status: "pending",
+                createdUserId:
+                    (after.createdBy && after.createdBy.uid) || null,
+                createdAt:
+                    (existing.exists && existing.data().createdAt) ||
+                    FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+                sentAt: FieldValue.delete(),
+                lastError: FieldValue.delete(),
+            },
+            { merge: true },
+        );
+    },
+);
+
+exports.sendEventStartNotifications = onSchedule(
+    { schedule: "every 1 minutes", timeZone: "Asia/Kolkata" },
+    async () => {
+        const db = getFirestore();
+        const now = Timestamp.now();
+
+        const snapshot = await db
+            .collection("eventStartNotifications")
+            .where("status", "==", "pending")
+            .where("scheduledAt", "<=", now)
+            .limit(100)
+            .get();
+
+        for (const doc of snapshot.docs) {
+            // Claim it first (transactional compare-and-set) so overlapping
+            // or retried invocations can never send the same event twice.
+            const claimed = await db.runTransaction(async (tx) => {
+                const fresh = await tx.get(doc.ref);
+                if (!fresh.exists || fresh.data().status !== "pending") return null;
+                tx.update(doc.ref, { status: "sending" });
+                return fresh.data();
+            });
+            if (!claimed) continue;
+
+            try {
+                const wasSent = await sendEventStartedBroadcast(claimed);
+                if (wasSent) {
+                    await doc.ref.update({
+                        status: "sent",
+                        sentAt: FieldValue.serverTimestamp(),
+                    });
+                } else {
+                    // No valid FCM tokens found - mark as failed with appropriate message
+                    await doc.ref.update({
+                        status: "failed",
+                        lastError: "No valid FCM tokens found for company admins",
+                        updatedAt: FieldValue.serverTimestamp(),
+                    });
+                }
+            } catch (error) {
+                console.error(`sendEventStartNotifications: failed for ${doc.id}:`, error);
+                await doc.ref.update({
+                    status: "failed",
+                    lastError: String((error && error.message) || error),
+                    updatedAt: FieldValue.serverTimestamp(),
+                });
+            }
+        }
+    },
+);
+
+/**
+ * Sends the "Event Started" push to every admin/user in the event's
+ * company, cleans up invalid FCM tokens it discovers along the way, and
+ * writes a notification record every user can see in-app.
+ * Returns true if at least one FCM message was sent successfully, false otherwise.
+ */
+async function sendEventStartedBroadcast(eventNotif) {
+    const db = getFirestore();
+    const cid = eventNotif.cid;
+
+    const adminsSnap = await db
+        .collection("users")
+        .doc(cid)
+        .collection("admins")
+        .get();
+
+    // token -> { adminDocRef, devices, tokenIndex } so we can prune bad
+    // tokens from the exact device entry that owns them.
+    const tokenOwners = new Map();
+    const allUids = [];
+
+    adminsSnap.docs.forEach((adminDoc) => {
+        allUids.push(adminDoc.id);
+        const devices = adminDoc.data().devices || [];
+        devices.forEach((device) => {
+            if (device && device.fcmId) {
+                tokenOwners.set(device.fcmId, { ref: adminDoc.ref, devices });
+            }
+        });
+    });
+
+    const tokens = Array.from(tokenOwners.keys());
+    const invalidTokens = [];
+
+    if (tokens.length > 0) {
+        const eventTitle = "Event Started";
+        const eventBody = `${eventNotif.eventName || "An event"} has started now.`;
+        const payload = {
+            data: {
+                type: "eventStarted",
+                title: eventTitle,
+                body: eventBody,
+                eventId: String(eventNotif.eventId || ""),
+                cid: String(cid || ""),
+            },
+            android: { priority: "high" },
+            apns: {
+                headers: { "apns-priority": "10" },
+                payload: { aps: { "content-available": 1 } },
+            },
+        };
+
+        for (const batch of chunk(tokens, 500)) {
+            const response = await getMessaging().sendEachForMulticast({
+                tokens: batch,
+                ...payload,
+            });
+            response.responses.forEach((res, i) => {
+                if (!res.success) {
+                    const code = res.error && res.error.code;
+                    if (
+                        code === "messaging/invalid-registration-token" ||
+                        code === "messaging/registration-token-not-registered"
+                    ) {
+                        invalidTokens.push(batch[i]);
+                    }
+                }
+            });
+        }
+    }
+
+    // Remove dead tokens from the owning admin's `devices` array so future
+    // sends don't keep retrying them (requirement: remove invalid/expired
+    // tokens when detected).
+    const byRef = new Map();
+    invalidTokens.forEach((t) => {
+        const owner = tokenOwners.get(t);
+        if (!owner) return;
+        const key = owner.ref.path;
+        if (!byRef.has(key)) byRef.set(key, { ref: owner.ref, devices: [...owner.devices] });
+        const entry = byRef.get(key);
+        entry.devices = entry.devices.map((d) =>
+            d.fcmId === t ? { ...d, fcmId: null } : d,
+        );
+    });
+    await Promise.all(
+        Array.from(byRef.values()).map(({ ref, devices }) => ref.update({ devices })),
+    );
+
+    // One in-app notification record every user in the company can see.
+    if (allUids.length > 0) {
+        await db
+            .collection("users")
+            .doc(cid)
+            .collection("notifications")
+            .add({
+                title: "Event Started",
+                body: `${eventNotif.eventName || "An event"} has started now.`,
+                toUids: allUids,
+                toFcms: tokens,
+                type: "eventStarted",
+                payload: { eventId: String(eventNotif.eventId || "") },
+                createdAt: Date.now(),
+            });
+    }
+}
