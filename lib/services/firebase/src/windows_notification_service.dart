@@ -48,7 +48,9 @@ class FirestoreNotificationListener {
 
                   String title = data?['title'] ?? 'New Notification';
                   String message =
-                      data?['body'] ?? data?['message'] ?? 'You have a new message';
+                      data?['body'] ??
+                      data?['message'] ??
+                      'You have a new message';
 
                   LocalNotification notification = LocalNotification(
                     title: title,

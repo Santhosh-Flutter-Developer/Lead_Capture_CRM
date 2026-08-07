@@ -11,6 +11,24 @@
   -->
   <base href="/shanmugam/leadcapture/">
 
+  <!-- Monkey-patch Service Worker registration for subdirectory FCM support -->
+  <script>
+    (function() {
+      if ('serviceWorker' in navigator) {
+        const originalRegister = navigator.serviceWorker.register;
+        navigator.serviceWorker.register = function(scriptURL, options) {
+          if (typeof scriptURL === 'string' && scriptURL.indexOf('firebase-messaging-sw.js') !== -1) {
+            scriptURL = 'firebase-messaging-sw.js';
+            if (options && options.scope) {
+              options.scope = './';
+            }
+          }
+          return originalRegister.call(navigator.serviceWorker, scriptURL, options);
+        };
+      }
+    })();
+  </script>
+
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="LeadcaptureCRM — manage leads, deals, and teams.">
@@ -83,7 +101,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker
-          .register('/firebase-messaging-sw.js')
+          .register('firebase-messaging-sw.js')
           .then(function (registration) {
             console.log('FCM SW registered:', registration.scope);
           })

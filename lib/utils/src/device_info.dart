@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import 'dart:convert';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -36,7 +37,13 @@ class DeviceInfo {
         brand = webInfo.browserName.name;
         model = 'Web Browser';
         platform = 'Web';
-        // No FCM token for web device tracking (handled separately)
+        try {
+          fcmId = await FirebaseMessaging.instance.getToken(
+            vapidKey: 'BElo9iyDmRacZr_hHvqLsXhMjCdn4mE8t6XZve1RD6DlU8g5NUTV1Xl8UiiMXkRmBDklec0WQ8KxPfTAFNSBw5o',
+          );
+        } catch (e) {
+          debugPrint('❌ FCM Token retrieval failed: $e');
+        }
       } else {
         // Native — delegates to platform-specific function in device_info_io.dart
         final info = await getPlatformDeviceInfo(deviceInfoPlugin);

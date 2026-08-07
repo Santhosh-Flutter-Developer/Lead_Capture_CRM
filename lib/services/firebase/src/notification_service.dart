@@ -37,7 +37,8 @@ import 'notification_service_io.dart'
 // ─────────────────────────────────────────────────────────────────────────────
 // VAPID key — replace with your actual key from Firebase Console.
 // ─────────────────────────────────────────────────────────────────────────────
-const String kVapidKey = 'BElo9iyDmRacZr_hHvqLsXhMjCdn4mE8t6XZve1RD6DlU8g5NUTV1Xl8UiiMXkRmBDklec0WQ8KxPfTAFNSBw5o';
+const String kVapidKey =
+    'BElo9iyDmRacZr_hHvqLsXhMjCdn4mE8t6XZve1RD6DlU8g5NUTV1Xl8UiiMXkRmBDklec0WQ8KxPfTAFNSBw5o';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -67,6 +68,7 @@ Future<String> getToken() async {
     );
     return fcm ?? '';
   } catch (e, st) {
+    debugPrint('❌ FCM getToken error: $e');
     await ErrorService.recordError(e, st);
     return '';
   }
@@ -111,6 +113,7 @@ class NotificationService {
         _handleBackgroundMessage(initialMessage.data);
       }
     } catch (e, st) {
+      debugPrint('❌ FCM initializeForWeb error: $e');
       await ErrorService.recordError(e, st);
     }
   }
@@ -438,7 +441,8 @@ class NotificationService {
       return;
     }
 
-    if (message['type'] == 'eventStarted' || message['type'] == 'eventReminder') {
+    if (message['type'] == 'eventStarted' ||
+        message['type'] == 'eventReminder') {
       final eventId = message['eventId'];
       if (eventId != null && eventId.toString().isNotEmpty) {
         try {

@@ -41,9 +41,9 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
-    appId: '1:884184513529:web:46707c8332034373995b28',
-    messagingSenderId: '884184513529',
+    apiKey: 'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
+    appId: '1:204207195810:web:4f329a51ecefce1f0339fb',
+    messagingSenderId: '204207195810',
     projectId: 'leadcapture-79a43',
     authDomain: 'leadcapture-79a43.firebaseapp.com',
     storageBucket: 'leadcapture-79a43.firebasestorage.app',
@@ -76,9 +76,9 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
-    appId: '1:884184513529:web:4c6b449427e46eaa995b28',
-    messagingSenderId: '884184513529',
+    apiKey: 'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
+    appId: '1:204207195810:web:a2372760280e11a90339fb',
+    messagingSenderId: '204207195810',
     projectId: 'leadcapture-79a43',
     authDomain: 'leadcapture-79a43.firebaseapp.com',
     storageBucket: 'leadcapture-79a43.firebasestorage.app',

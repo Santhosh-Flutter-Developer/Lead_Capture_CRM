@@ -229,8 +229,6 @@ class AuthService {
     required bool isAdmin,
   }) async {
     try {
-      if (kIsWeb) return;
-
       var deviceInfo = await DeviceInfo.getDeviceInfo();
       var deviceMap = deviceInfo.toMap();
 
@@ -259,7 +257,7 @@ class AuthService {
         devices = devices.map((d) {
           if (d.toMatchMap().toString() == deviceInfo.toMatchMap().toString()) {
             var map = d.toMap();
-            if (kIsMobile) map['fcmId'] = deviceMap['fcmId'];
+            if (kIsMobile || kIsWeb) map['fcmId'] = deviceMap['fcmId'];
             map['lastLoginAt'] = DateTime.now().millisecondsSinceEpoch;
             return DeviceModel.fromMap(map);
           }

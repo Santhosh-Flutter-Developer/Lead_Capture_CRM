@@ -21,12 +21,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-com
 
 // ── Firebase config (matches firebase_options.dart web config) ────────────────
 firebase.initializeApp({
-  apiKey: 'AIzaSyCGyZe6crlOPMfMmXvYWiquBCQDfDBmmo8',
+  apiKey: 'AIzaSyDKmsjoWTQS7rk-56HaWQ9FI7KYMocoCKU',
   authDomain: 'leadcapture-79a43.firebaseapp.com',
   projectId: 'leadcapture-79a43',
   storageBucket: 'leadcapture-79a43.firebasestorage.app',
-  messagingSenderId: '204207195810',
-  appId: '1:204207195810:web:4f329a51ecefce1f0339fb',
+  messagingSenderId: '884184513529',
+  appId: '1:884184513529:web:46707c8332034373995b28',
 });
 
 const messaging = firebase.messaging();
