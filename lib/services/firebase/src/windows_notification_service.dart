@@ -33,18 +33,32 @@ class FirestoreNotificationListener {
           .snapshots()
           .listen((querySnapshot) {
             for (var change in querySnapshot.docChanges) {
-              if (change.type == DocumentChangeType.added) {
+              // A reminder that gets rescheduled (e.g. the event's time was
+              // edited) writes to the SAME deterministic notification doc
+              // id it used the first time it fired. That means the second
+              // firing arrives here as `modified`, not `added` — so we
+              // must react to both, or edited-event reminders silently
+              // never show on Windows even though the Android push (which
+              // doesn't depend on Firestore doc-change type) still arrives.
+              if (change.type == DocumentChangeType.added ||
+                  change.type == DocumentChangeType.modified) {
                 var data = change.doc.data();
 
+                final createdAtMillis = data?['createdAt'];
                 DateTime createdAt = DateTime.fromMillisecondsSinceEpoch(
-                  data?['createdAt'],
+                  createdAtMillis,
                 );
 
                 if (DateTime.now().difference(createdAt).inSeconds < 60) {
                   String docId = change.doc.id;
+                  // Dedupe by docId + createdAt (not docId alone) so a
+                  // genuine re-fire after an edit — which carries a fresh
+                  // createdAt — still shows, while duplicate stream
+                  // redeliveries of the exact same version don't.
+                  String dedupeKey = '$docId:$createdAtMillis';
 
-                  if (_shownIds.contains(docId)) continue;
-                  _shownIds.add(docId);
+                  if (_shownIds.contains(dedupeKey)) continue;
+                  _shownIds.add(dedupeKey);
 
                   String title = data?['title'] ?? 'New Notification';
                   String message =

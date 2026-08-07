@@ -71,27 +71,46 @@ class PostNotificationService {
             "https://fcm.googleapis.com/v1/projects/leadcapture-79a43/messages:send";
 
         for (var element in model.toFcms) {
-          // Deliberately data-only (no top-level "notification" field) — a
-          // "notification" field makes Android/iOS auto-display it in the
-          // system tray *in addition to* the local notification the app's
-          // own background handler shows, producing two banners for the
-          // same push. showNotification() in notification_service.dart
-          // already falls back to data['title']/data['body'].
+          // IMPORTANT: This is intentionally a DATA-ONLY message (no
+          // top-level "notification" block).
+          //
+          // Why: if a "notification" block is present, Android (and iOS)
+          // auto-display the notification from the system tray the instant
+          // it's received while the app is backgrounded/killed — BEFORE our
+          // background handler even runs. Our background handler then also
+          // calls showNotification() via flutter_local_notifications,
+          // producing a SECOND notification. That's why duplicates only
+          // showed up when the app wasn't in the foreground.
+          //
+          // With a data-only message, Android never auto-displays anything;
+          // our app (foreground onMessage listener OR background handler)
+          // is the single place that ever calls showNotification(), so
+          // exactly one notification is shown regardless of app state.
           final Map<String, dynamic> message = {
             "message": {
-              "android": {"priority": "high"},
+              "android": {
+                "priority": "high",
+              },
               "apns": {
-                "headers": {"apns-priority": "10"},
+                "headers": {
+                  "apns-priority": "10",
+                  // Required so iOS wakes the app to run the background
+                  // handler for data-only messages.
+                  "apns-push-type": "background",
+                },
                 "payload": {
                   "aps": {"content-available": 1},
                 },
               },
               "token": element,
               "data": {
-                ...model.payload.map((k, v) => MapEntry(k, v.toString())),
+                // Ensure title/body are always available in `data`, since
+                // showNotification() reads data['title'] / data['body'].
                 "title": model.title,
                 "body": model.body,
-                "type": model.type?.name,
+                ...model.payload.map(
+                  (key, value) => MapEntry(key, value.toString()),
+                ),
               },
             },
           };
@@ -108,6 +127,11 @@ class PostNotificationService {
 
             if (response.statusCode == 200) {
               debugPrint(response.body);
+            } else {
+              debugPrint(
+                "Push notification failed for token $element: "
+                "status=${response.statusCode}, body=${response.body}",
+              );
             }
           } catch (e) {
             debugPrint("Push notification failed for token $element: $e");

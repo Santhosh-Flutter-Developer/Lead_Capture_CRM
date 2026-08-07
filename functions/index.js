@@ -37,7 +37,7 @@ exports.sendEmail = functions.https.onRequest(async (req, res) => {
         });
 
         await transporter.sendMail({
-            from: `"${from_name || "Leadcapture"}" <${from || smtp_user}>`,
+            from: `"${from_name || "Lead Capture"}" <${from || smtp_user}>`,
             to: to,
             replyTo: from || smtp_user,
             subject: subject,
@@ -158,18 +158,9 @@ exports.removeoldNotifications = onSchedule(
     }
 );
 
-// Splits an array into chunks of at most `size` (FCM multicast max is 500).
-function chunk(array, size) {
-    const out = [];
-    for (let i = 0; i < array.length; i += size) {
-        out.push(array.slice(i, i + size));
-    }
-    return out;
-}
-
 exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
-    const now = Timestamp.now();
     const db = getFirestore();
+    const now = Timestamp.now();
 
     const snapshot = await db
         .collection("reminders")
@@ -178,62 +169,75 @@ exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
         .get();
 
     for (const doc of snapshot.docs) {
-        // Claim the reminder inside a transaction first, so an overlapping
-        // scheduler run (or a retried invocation) can never send it twice.
-        const claimed = await db.runTransaction(async (tx) => {
-            const fresh = await tx.get(doc.ref);
-            if (!fresh.exists || fresh.data().isSent === true) return false;
-            tx.update(doc.ref, { isSent: true, sentAt: FieldValue.serverTimestamp() });
-            return true;
-        });
-        if (!claimed) continue;
-
         const reminder = doc.data();
-        const notif = reminder.notification || {};
+        const notif = reminder.notification;
 
         try {
-            // Send FCM (batched — sendEachForMulticast caps at 500 tokens/call)
+            // Send FCM as a DATA-ONLY message (no `notification` key).
+            // Sending both `notification` and `data` causes Android to
+            // auto-display the `notification` block itself via the OS
+            // while the app's own background handler ALSO shows it via
+            // flutter_local_notifications — one message, two visible
+            // notifications. Data-only avoids the OS auto-display and
+            // leaves rendering entirely to the app (which already falls
+            // back to reading title/body from `data` when
+            // message.notification is null).
             if (notif.toFcms && notif.toFcms.length > 0) {
-                for (const batch of chunk(notif.toFcms, 500)) {
-                    await getMessaging().sendEachForMulticast({
-                        tokens: batch,
-                        data: {
-                            ...(notif.payload || {}),
-                            title: String(notif.title || ""),
-                            body: String(notif.body || ""),
-                            type: String(notif.type || ""),
-                        },
-                        android: { priority: "high" },
-                        apns: {
-                            headers: { "apns-priority": "10" },
-                            payload: { aps: { "content-available": 1 } },
-                        },
-                    });
-                }
+                await getMessaging().sendEachForMulticast({
+                    tokens: notif.toFcms,
+                    data: {
+                        ...(notif.payload || {}),
+                        title: String(notif.title || ""),
+                        body: String(notif.body || ""),
+                        type: String(notif.type || ""),
+                    },
+                    android: { priority: "high" },
+                    apns: {
+                        headers: { "apns-priority": "10" },
+                        payload: { aps: { "content-available": 1 } },
+                    },
+                });
             }
 
-            // Save notification to sub-collection
-            if (notif.collectionId) {
-                await db
-                    .collection("users")
-                    .doc(notif.collectionId)
-                    .collection("notifications")
-                    .add({
-                        title: notif.title,
-                        body: notif.body,
-                        toFcms: notif.toFcms || [],
-                        toUids: notif.toUids || [],
-                        senderId: notif.senderId || null,
-                        type: notif.type || null,
-                        payload: notif.payload || {},
-                        createdAt: Date.now(),
-                    });
-            }
+            // Save notification to sub-collection. Uses the reminder's own
+            // doc id so re-processing the same reminder (e.g. scheduler
+            // overlap) overwrites instead of duplicating the notification.
+            await db
+                .collection("users")
+                .doc(notif.collectionId)
+                .collection("notifications")
+                .doc(doc.id)
+                .set({
+                    title: notif.title,
+                    body: notif.body,
+                    toFcms: notif.toFcms,
+                    toUids: notif.toUids,
+                    senderId: notif.senderId,
+                    type: notif.type,
+                    payload: notif.payload,
+                    createdAt: Date.now(),
+                });
+
+            // Mark reminder sent
+            await doc.ref.update({ isSent: true });
         } catch (error) {
-            console.error(`reminderScheduler: failed to send reminder ${doc.id}:`, error);
+            console.error(`Error sending reminder ${doc.id}:`, error);
+            await doc.ref.update({
+                lastError: error.message || String(error),
+                lastErrorAt: Date.now(),
+            });
         }
     }
 });
+
+// Splits an array into chunks of at most `size` (FCM multicast max is 500).
+function chunk(array, size) {
+    const out = [];
+    for (let i = 0; i < array.length; i += size) {
+        out.push(array.slice(i, i + size));
+    }
+    return out;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // EVENT "STARTED" BROADCAST — notify ALL company users at the exact
@@ -248,8 +252,11 @@ exports.reminderScheduler = onSchedule("every 1 minutes", async () => {
 //        "pending" doc whose scheduledAt has passed, fetches every admin's
 //        FCM tokens for that company, and sends the FCM in batches.
 //
-// This never relies on the client's app being open — the whole pipeline
-// runs in Cloud Functions / Firestore.
+// Note: this is a SEPARATE, independent pipeline from reminderScheduler
+// above (different Firestore collection: eventStartNotifications vs
+// reminders). Both will send an "Event Started" style push around the
+// same time, so re-enabling this alongside reminderScheduler intentionally
+// brings back a duplicate "Event Started" notification.
 // ─────────────────────────────────────────────────────────────────────────
 
 exports.onEventWritten = onDocumentWritten(
@@ -260,7 +267,6 @@ exports.onEventWritten = onDocumentWritten(
         const notifRef = db.collection("eventStartNotifications").doc(`${cid}_${eventId}`);
 
         const afterSnap = event.data && event.data.after;
-        const beforeSnap = event.data && event.data.before;
         const after = afterSnap && afterSnap.exists ? afterSnap.data() : null;
 
         // Event was deleted -> cancel the scheduled broadcast (requirement:
@@ -405,16 +411,15 @@ async function sendEventStartedBroadcast(eventNotif) {
     adminsSnap.docs.forEach((adminDoc) => {
         allUids.push(adminDoc.id);
         const devices = adminDoc.data().devices || [];
-        devices.forEach((device, idx) => {
+        devices.forEach((device) => {
             if (device && device.fcmId) {
-                tokenOwners.set(device.fcmId, { ref: adminDoc.ref, devices, idx });
+                tokenOwners.set(device.fcmId, { ref: adminDoc.ref, devices });
             }
         });
     });
 
     const tokens = Array.from(tokenOwners.keys());
     const invalidTokens = [];
-    // let successfulSends = 0;
 
     if (tokens.length > 0) {
         const eventTitle = "Event Started";
@@ -441,7 +446,6 @@ async function sendEventStartedBroadcast(eventNotif) {
             });
             response.responses.forEach((res, i) => {
                 if (!res.success) {
-                    
                     const code = res.error && res.error.code;
                     if (
                         code === "messaging/invalid-registration-token" ||
@@ -488,6 +492,4 @@ async function sendEventStartedBroadcast(eventNotif) {
                 createdAt: Date.now(),
             });
     }
-
-    
 }

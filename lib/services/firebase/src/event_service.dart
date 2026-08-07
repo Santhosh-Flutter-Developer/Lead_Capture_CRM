@@ -10,31 +10,59 @@ class EventService {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
-  /// Creates the event document. The server-side "Event Started" broadcast
-  /// to ALL users is intentionally NOT scheduled from here — it is picked
-  /// up by the `onEventWritten` Cloud Function trigger the moment this
-  /// document lands in Firestore. That keeps the exact-time notification
-  /// reliable even if the app is closed/crashes right after this call
-  /// returns (see functions/index.js).
-  static Future<EventModel> createEvent({
+  /// Recipients depend on who created the event:
+  ///   • Admin creates the event  → every admin AND every employee gets
+  ///     notified (an admin's event is company-wide).
+  ///   • Employee creates the event → only that employee + every admin
+  ///     get notified (other employees are not involved).
+  /// Built from a Set, so the creator never receives a duplicate entry
+  /// if they also happen to land in the admin/employee list.
+  static Future<List<String>> _getNotificationRecipients({
+    required String createdByUid,
+    required UserType createdByUserType,
+  }) async {
+    final admins = await AdminService.getAllAdmins();
+    final recipients = <String>{
+      createdByUid,
+      ...admins.map((a) => a.uid ?? ''),
+    };
+
+    if (createdByUserType == UserType.admin) {
+      final employees = await EmployeeService.getAllEmployees();
+      recipients.addAll(employees.map((e) => e.uid ?? ''));
+    }
+
+    recipients.removeWhere((e) => e.isEmpty);
+
+    return recipients.toList();
+  }
+
+  static Future<void> createEvent({
     required EventModel event,
     String? docId,
   }) async {
     try {
       var cid = await Spdb.getCid();
 
-      final ref = await CommonService.add(
+      // event.uid is never populated by callers (e.g. event_create.dart
+      // constructs EventModel without a uid) — it was `null` this whole
+      // time. That meant every reminder docId below collapsed to the
+      // literal string "null_<attendeeId>_started" / "..._before15" for
+      // EVERY event, so reminders from different events for the same
+      // recipient overwrote each other in Firestore before they could
+      // fire. Capture the real generated/used doc id here instead.
+      final eventDocRef = await CommonService.add(
         '${Collections.users.name}/$cid/${Collections.events.name}',
         event.toMap(),
         docId: docId,
         activity: '${event.eventName} has been added as a event',
       );
-      final createdEvent = event.copyWith(uid: ref.id);
+      final eventUid = eventDocRef.id;
 
-      final users = <String>{
-        ...event.eventAttendes,
-        event.createdBy.uid,
-      }.where((e) => e.isNotEmpty).toList();
+      final users = await _getNotificationRecipients(
+        createdByUid: event.createdBy.uid,
+        createdByUserType: event.createdBy.userType,
+      );
 
       final fcmIds = <String>[];
       for (var i in users) {
@@ -54,37 +82,53 @@ class EventService {
           toUids: users,
           senderId: await Spdb.getUid(),
           type: NotificationType.info,
-          payload: {'eventId': ref.id},
+          payload: {'eventId': eventUid},
         ),
       );
 
-      // Personal "15 minutes before" reminder for attendees only. This is
-      // separate from the "Event Started, for everyone" broadcast, which
-      // the Cloud Function handles from the event document itself.
+      // Create reminders for the same recipients as above:
+      //   1) 15 minutes before the event starts
+      //   2) at the moment the event starts
       for (var attendeeId in users) {
         var attendeeFcmIds = await AuthService.getUserFcmIds(uid: attendeeId);
 
-        final reminderTime = event.eventDateTime.subtract(
+        final fifteenMinBefore = event.eventDateTime.subtract(
           const Duration(minutes: 15),
         );
-        if (reminderTime.isBefore(DateTime.now())) continue;
+
+        // Only schedule the 15-min-before reminder if that time hasn't
+        // already passed (e.g. event created less than 15 min out).
+        if (fifteenMinBefore.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: '${eventUid}_${attendeeId}_before15',
+            scheduledAt: fifteenMinBefore,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Event Reminder',
+              body:
+                  '${event.eventName} starts in 15 minutes at ${_formatDateTime(event.eventDateTime)}',
+              toFcms: attendeeFcmIds,
+              toUids: [attendeeId],
+              payload: {'eventId': eventUid},
+              type: NotificationType.eventReminder,
+            ),
+          );
+        }
 
         ReminderService.createReminder(
-          scheduledAt: reminderTime,
-          docId: '${ref.id}_$attendeeId',
+          docId: '${eventUid}_${attendeeId}_started',
+          scheduledAt: event.eventDateTime,
           notification: NotificationModel(
             collectionId: cid ?? '',
-            title: 'Event Reminder',
-            body: 'You have an upcoming event: ${event.eventName} at ${_formatDateTime(event.eventDateTime)}',
+            title: 'Event Started',
+            body: 'Event starting now: ${event.eventName} at ${_formatDateTime(event.eventDateTime)}',
             toFcms: attendeeFcmIds,
             toUids: [attendeeId],
-            payload: {'eventId': ref.id},
+            payload: {'eventId': eventUid},
             type: NotificationType.eventReminder,
           ),
         );
       }
-
-      return createdEvent;
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
@@ -106,39 +150,44 @@ class EventService {
         activity: '${event.eventName} has been updated',
       );
 
-      // Update reminders for all attendees. Using a deterministic doc id
-      // (eventId_attendeeId) means re-saving the event overwrites the
-      // existing reminder in place instead of creating a duplicate that
-      // would fire twice (requirement: no duplicate notifications, and
-      // edited/rescheduled events must reschedule their reminder).
-      final users = <String>{
-        ...event.eventAttendes,
-        event.createdBy.uid,
-      }.where((e) => e.isNotEmpty).toList();
-
-      final reminderTime = event.eventDateTime.subtract(
-        const Duration(minutes: 15),
+      // Update reminders — recipients depend on whether the creator is an
+      // admin (company-wide) or an employee (creator + admins only)
+      final users = await _getNotificationRecipients(
+        createdByUid: event.createdBy.uid,
+        createdByUserType: event.createdBy.userType,
       );
 
       for (var attendeeId in users) {
-        final reminderDocId = '${uid}_$attendeeId';
-
-        if (reminderTime.isBefore(DateTime.now())) {
-          // New time is already past the 15-min-before mark — cancel any
-          // previously scheduled reminder instead of leaving a stale one.
-          await ReminderService.cancelReminder(docId: reminderDocId);
-          continue;
-        }
-
         var attendeeFcmIds = await AuthService.getUserFcmIds(uid: attendeeId);
 
+        final fifteenMinBefore = event.eventDateTime.subtract(
+          const Duration(minutes: 15),
+        );
+
+        if (fifteenMinBefore.isAfter(DateTime.now())) {
+          ReminderService.createReminder(
+            docId: '${uid}_${attendeeId}_before15',
+            scheduledAt: fifteenMinBefore,
+            notification: NotificationModel(
+              collectionId: cid ?? '',
+              title: 'Event Reminder',
+              body:
+                  '${event.eventName} starts in 15 minutes at ${_formatDateTime(event.eventDateTime)}',
+              toFcms: attendeeFcmIds,
+              toUids: [attendeeId],
+              payload: {'eventId': uid},
+              type: NotificationType.eventReminder,
+            ),
+          );
+        }
+
         ReminderService.createReminder(
-          scheduledAt: reminderTime,
-          docId: reminderDocId,
+          docId: '${uid}_${attendeeId}_started',
+          scheduledAt: event.eventDateTime,
           notification: NotificationModel(
             collectionId: cid ?? '',
-            title: 'Event Reminder',
-            body: 'You have an upcoming event: ${event.eventName} at ${_formatDateTime(event.eventDateTime)}',
+            title: 'Event Started',
+            body: 'Event starting now: ${event.eventName} at ${_formatDateTime(event.eventDateTime)}',
             toFcms: attendeeFcmIds,
             toUids: [attendeeId],
             payload: {'eventId': uid},
@@ -221,12 +270,6 @@ class EventService {
     }
   }
 
-  /// Deletes the event. The server-side `onEventWritten` Cloud Function
-  /// trigger fires on this delete and marks the matching
-  /// `eventStartNotifications` document `cancelled` so the "Event Started"
-  /// broadcast to all users is never sent. Here we only need to clean up
-  /// the per-attendee 15-minutes-before reminders, since those live in a
-  /// client-writable collection.
   static Future<void> deleteEvent({required String uid}) async {
     try {
       var cid = await Spdb.getCid();
@@ -238,19 +281,6 @@ class EventService {
           .get();
 
       final data = docRef.data() as Map<String, dynamic>;
-
-      final attendees = <String>{
-        ...(data['eventAttendes'] != null
-            ? List<String>.from(data['eventAttendes'] as List)
-            : <String>[]),
-        if (data['createdBy'] != null &&
-            (data['createdBy'] as Map)['uid'] != null)
-          (data['createdBy'] as Map)['uid'] as String,
-      }.where((e) => e.isNotEmpty);
-
-      for (var attendeeId in attendees) {
-        await ReminderService.cancelReminder(docId: '${uid}_$attendeeId');
-      }
 
       await TrashService.moveToTrash(
         docRef: docRef.reference,

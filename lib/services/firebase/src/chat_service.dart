@@ -28,33 +28,35 @@ class ChatService {
       query = query.limit(limit);
     }
 
-    yield* query.snapshots().map((snapshot) {
-      final messages = snapshot.docs
-          .map((doc) {
-            try {
-              var data = doc.data();
-              data['uid'] = doc.id;
+    yield* query
+        .snapshots()
+        .map((snapshot) {
+          final messages = snapshot.docs
+              .map((doc) {
+                try {
+                  var data = doc.data();
+                  data['uid'] = doc.id;
 
-              final message = MessagesModel.fromMap(doc.id, data);
+                  final message = MessagesModel.fromMap(doc.id, data);
 
-              if (userid != null && message.deletedFor.contains(userid)) {
-                debugPrint('Message ${doc.id} filtered out for user $userid (deletedFor)');
-                return null;
-              }
+                  if (userid != null && message.deletedFor.contains(userid)) {
+                    debugPrint('Message ${doc.id} filtered out for user $userid (deletedFor)');
+                    return null;
+                  }
 
-              return message;
-            } catch (e, st) {
-              debugPrint('Error parsing message ${doc.id}: $e');
-              debugPrint('Stack trace: $st');
-              return null;
-            }
-          })
-          .whereType<MessagesModel>()
-          .toList();
+                  return message;
+                } catch (e, st) {
+                  debugPrint('Error parsing message ${doc.id}: $e');
+                  debugPrint('Stack trace: $st');
+                  return null;
+                }
+              })
+              .whereType<MessagesModel>()
+              .toList();
       
-      debugPrint('Loaded ${messages.length} messages for chat $uid (source: ${snapshot.metadata.hasPendingWrites ? "local" : "server"})');
-      return messages;
-    });
+          debugPrint('Loaded ${messages.length} messages for chat $uid (source: ${snapshot.metadata.hasPendingWrites ? "local" : "server"})');
+          return messages;
+        });
   }
 
   static Future<List<MessagesModel>> getChatMessagesPage({
@@ -161,17 +163,13 @@ class ChatService {
     required String searchTerm,
   }) async {
     final messages = await getChatMessages(uid: chatId);
-    final terms = searchTerm
-        .toLowerCase()
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
+    final terms = searchTerm.toLowerCase().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
 
     if (terms.isEmpty) return [];
 
     return messages.where((msg) {
       final text = msg.message.toLowerCase();
-
+      
       // Check if all search terms are contained in either the message text or attachment names
       final matchText = terms.every((term) => text.contains(term));
       final matchFiles = msg.attachments.any((file) {
@@ -530,9 +528,8 @@ class ChatService {
                 "type": "chat",
                 "chatId": chat.uid,
                 "chat": json.encode(chat.toMap()),
-                "chatTitle": chat.isGroupChat
-                    ? (chat.title ?? 'Group Chat')
-                    : name,
+                "chatTitle": chat.isGroupChat ? (chat.title ?? 'Group Chat') : name,
+                "senderName": name,
                 "senderImageUrl": user.profilePic,
               }
             : {},
@@ -819,7 +816,7 @@ class ChatService {
     await firebase.users
         .doc(cid)
         .collection(Collections.chats.name)
-        .doc(chat.uid)
+        .doc(chat.uid) 
         .set(chat.toMap());
   }
 
