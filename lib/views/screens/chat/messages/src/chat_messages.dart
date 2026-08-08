@@ -31,6 +31,7 @@ part 'chat_bubble.dart';
 part 'input_bar.dart';
 part 'chat_options.dart';
 part 'chat_top_bar.dart';
+part 'pinned_messages_bar.dart';
 part 'utility.dart';
 
 /// The main screen for displaying chat messages.
@@ -60,9 +61,23 @@ class _ChatMessagesState extends State<ChatMessages> {
   bool _isSearching = false;
   String _searchQuery = '';
 
+  // Owns the scroll position for the message list so the pinned-messages
+  // bar can jump to (and highlight) a specific message.
+  final ScrollController _scrollController = ScrollController();
+  List<MessagesModel> _latestChats = [];
+  late final ChatScrollRegistry _scrollRegistry;
+
   @override
   void initState() {
     super.initState();
+
+    _scrollRegistry = ChatScrollRegistry(
+      scrollController: _scrollController,
+      getMessages: () => _latestChats,
+      // All messages for this chat are already streamed in (no pagination
+      // in this build), so there's nothing more to load on demand.
+      loadMore: () async => false,
+    );
 
     _stream = ChatService.getChatMessagesStream(
       uid: widget.chat.uid ?? '',
@@ -92,6 +107,8 @@ class _ChatMessagesState extends State<ChatMessages> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _scrollController.dispose();
+    _scrollRegistry.dispose();
     super.dispose();
   }
 
@@ -102,6 +119,8 @@ class _ChatMessagesState extends State<ChatMessages> {
       uid: widget.chat.uid ?? '',
       currentUser: widget.currentUser,
       isGroupChat: widget.chat.isGroupChat,
+      chat: widget.chat,
+      scrollRegistry: _scrollRegistry,
       child: Scaffold(
         appBar: kIsMobile || width < 1000
             ? ChatTopBar(
@@ -162,6 +181,7 @@ class _ChatMessagesState extends State<ChatMessages> {
                 }
 
                 final allChats = snapshot.data ?? [];
+                _latestChats = allChats;
 
                 final chats = _searchQuery.isEmpty
                     ? allChats
@@ -170,12 +190,26 @@ class _ChatMessagesState extends State<ChatMessages> {
 
                         return text.contains(_searchQuery.toLowerCase());
                       }).toList();
+
+                final pinnedMessages = allChats.where((m) => m.isPinned).toList()
+                  ..sort(
+                    (a, b) => (a.pinnedTimeStamp ?? a.timestamp)
+                        .compareTo(b.pinnedTimeStamp ?? b.timestamp),
+                  );
+
                 return Column(
                   children: [
+                    if (pinnedMessages.isNotEmpty)
+                      PinnedMessagesBar(
+                        pinnedMessages: pinnedMessages,
+                        onTapMessage: (uid) =>
+                            _scrollRegistry.scrollToMessage(uid),
+                      ),
                     Expanded(
                       // Pass the raw list to BuildSliverChat
                       child: BuildSliverChat(
                         chats: chats,
+                        scrollController: _scrollController,
                         searchQuery: _searchQuery,
                         onOpenChat: widget.onOpenChat,
                       ),
@@ -198,9 +232,11 @@ class BuildSliverChat extends StatefulWidget {
   final List<MessagesModel> chats;
   final String searchQuery;
   final Function(ChatModel chat, String opponentUid)? onOpenChat;
+  final ScrollController scrollController;
   const BuildSliverChat({
     super.key,
     required this.chats,
+    required this.scrollController,
     this.searchQuery = '',
     this.onOpenChat,
   });
@@ -210,31 +246,42 @@ class BuildSliverChat extends StatefulWidget {
 }
 
 class _BuildSliverChatState extends State<BuildSliverChat> {
-  final ScrollController _scrollController = ScrollController();
   bool _showGoToBottomButton = false;
 
   @override
   void initState() {
-    _scrollController.addListener(() {
-      // Show "Go to Bottom" if not already at the bottom (i.e. pixels > 50)
-      if (_scrollController.offset > 50 && !_showGoToBottomButton) {
-        setState(() {
-          _showGoToBottomButton = true;
-        });
-      }
-      // Hide it when near the bottom
-      else if (_scrollController.offset <= 50 && _showGoToBottomButton) {
-        setState(() {
-          _showGoToBottomButton = false;
-        });
-      }
-    });
+    widget.scrollController.addListener(_scrollListener);
     super.initState();
   }
 
   @override
+  void didUpdateWidget(covariant BuildSliverChat oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController.removeListener(_scrollListener);
+      widget.scrollController.addListener(_scrollListener);
+    }
+  }
+
+  void _scrollListener() {
+    if (!mounted) return;
+    // Show "Go to Bottom" if not already at the bottom (i.e. pixels > 50)
+    if (widget.scrollController.offset > 50 && !_showGoToBottomButton) {
+      setState(() {
+        _showGoToBottomButton = true;
+      });
+    }
+    // Hide it when near the bottom
+    else if (widget.scrollController.offset <= 50 && _showGoToBottomButton) {
+      setState(() {
+        _showGoToBottomButton = false;
+      });
+    }
+  }
+
+  @override
   void dispose() {
-    _scrollController.dispose();
+    widget.scrollController.removeListener(_scrollListener);
     super.dispose();
   }
 
@@ -280,47 +327,14 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
     final chatData = ChatData.of(context);
     final uid = chatData.uid;
     final currentUser = chatData.currentUser;
-    final pinned = widget.chats.where((m) => m.isPinned).toList();
-    final normal = widget.chats.where((m) => !m.isPinned).toList();
+    final scrollRegistry = chatData.scrollRegistry;
 
-    final groupedChats = _groupChatsByDate(normal);
+    // Pinned messages stay inline in the normal flow (they still show a
+    // "Pinned" tag on the bubble itself) - the fixed PinnedMessagesBar
+    // above the list is what surfaces them, matching Bitrix's behaviour.
+    final groupedChats = _groupChatsByDate(widget.chats);
 
     final List<Widget> slivers = [];
-
-    if (pinned.isNotEmpty) {
-      slivers.insert(
-        0,
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 12, bottom: 6),
-                child: Text(
-                  "Pinned messages",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.8),
-                  ),
-                ),
-              ),
-
-              ...pinned.map((msg) {
-                return ChatBubble(
-                  message: msg,
-                  isPinned: true,
-                  isSender: msg.senderId == currentUser,
-                  chatUid: uid,
-                  onOpenChat: widget.onOpenChat,
-                );
-              }),
-            ],
-          ),
-        ),
-      );
-    }
 
     for (var entry in groupedChats.entries) {
       final dateLabel = entry.key;
@@ -361,17 +375,35 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
         SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
             final message = chats[index];
-            return ChatBubble(
-              key: ValueKey(message.uid),
-              chatUid: uid,
-              message: message,
-              isSender: message.senderId == currentUser,
-              // The 'isLast' logic seems to be for seenBy.
-              // Note: This logic assumes chats are sorted newest-to-oldest per day.
-              // If they are sorted oldest-to-newest, this should be `index == chats.length - 1`.
-              // Based on `reverse: true` in CustomScrollView, assuming 0 is the *newest*.
-              isLast: message.senderId == currentUser && index == 0,
-              onOpenChat: widget.onOpenChat,
+            final messageUid = message.uid;
+            return ValueListenableBuilder<String?>(
+              key: ValueKey(messageUid),
+              valueListenable: scrollRegistry.highlightedUid,
+              builder: (context, highlightedUid, child) {
+                return AnimatedContainer(
+                  key: messageUid != null
+                      ? scrollRegistry.keyFor(messageUid)
+                      : null,
+                  duration: const Duration(milliseconds: 300),
+                  color: (messageUid != null && highlightedUid == messageUid)
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  child: child,
+                );
+              },
+              child: ChatBubble(
+                chatUid: uid,
+                message: message,
+                isSender: message.senderId == currentUser,
+                // The 'isLast' logic seems to be for seenBy.
+                // Note: This logic assumes chats are sorted newest-to-oldest per day.
+                // If they are sorted oldest-to-newest, this should be `index == chats.length - 1`.
+                // Based on `reverse: true` in CustomScrollView, assuming 0 is the *newest*.
+                isLast: message.senderId == currentUser && index == 0,
+                onOpenChat: widget.onOpenChat,
+              ),
             );
           }, childCount: chats.length),
         ),
@@ -381,7 +413,7 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
     return Stack(
       children: [
         CustomScrollView(
-          controller: _scrollController,
+          controller: widget.scrollController,
           reverse: true, // This makes the list start at the bottom
           slivers: slivers.reversed
               .toList(), // This reverses the *order of groups* (e.g., Today, Yesterday)
@@ -403,7 +435,7 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
                   elevation: 2,
                 ),
                 onPressed: () {
-                  _scrollController.animateTo(
+                  widget.scrollController.animateTo(
                     0.0,
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOut,
@@ -447,5 +479,166 @@ DateTime _parseDateKey(String key) {
     return DateTime(yesterday.year, yesterday.month, yesterday.day);
   } else {
     return DateFormat('MMM d, yyyy').parse(key);
+  }
+}
+
+class ThreadSheet extends StatelessWidget {
+  final MessagesModel parentMessage;
+  final ChatModel chat;
+
+  const ThreadSheet({
+    super.key,
+    required this.parentMessage,
+    required this.chat,
+  });
+
+  static void show(
+    BuildContext context,
+    MessagesModel parentMessage,
+    ChatModel chat,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) =>
+          ThreadSheet(parentMessage: parentMessage, chat: chat),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Container(
+      height: screenHeight * 0.85,
+      margin: EdgeInsets.only(top: 24, bottom: keyboardHeight),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Iconsax.message_programming,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    "Thread Reply",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    parentMessage.senderName ?? "User",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    parentMessage.message,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+
+            Expanded(
+              child: StreamBuilder<List<MessagesModel>>(
+                stream: ChatService.getThreadMessagesStream(
+                  chatId: chat.uid ?? '',
+                  parentMessageId: parentMessage.uid ?? '',
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  }
+                  final replies = snapshot.data ?? [];
+                  if (replies.isEmpty) {
+                    return Center(
+                      child: Text(
+                        "No replies yet. Be the first to reply!",
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    itemCount: replies.length,
+                    itemBuilder: (context, index) {
+                      final reply = replies[index];
+                      final isSender = reply.senderId == parentMessage.senderId;
+                      return ChatBubble(
+                        chatUid: chat.uid ?? '',
+                        message: reply,
+                        isSender: isSender,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const Divider(),
+
+            ChatInputBar(chat: chat, threadId: parentMessage.uid),
+          ],
+        ),
+      ),
+    );
   }
 }

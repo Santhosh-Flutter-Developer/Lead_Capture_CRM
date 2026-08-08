@@ -301,7 +301,7 @@ class _ChatBubbleState extends State<ChatBubble>
                         _overlayController.hide();
                         Clipboard.setData(ClipboardData(text: _msg.message));
                       },
-                      "pin": _pinMessage,
+                        if (_isPinned) "unpin": _pinMessage else "pin": _pinMessage,
                       if (widget.isSender)
                         "edit": () {
                           _overlayController.hide();
