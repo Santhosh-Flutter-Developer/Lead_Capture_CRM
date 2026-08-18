@@ -5,6 +5,7 @@ import 'package:any_link_preview/any_link_preview.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -28,6 +29,7 @@ import '/theme/theme.dart';
 
 part 'chat_data.dart';
 part 'chat_bubble.dart';
+part 'group_viewed_by_indicator.dart';
 part 'input_bar.dart';
 part 'chat_options.dart';
 part 'chat_top_bar.dart';
@@ -197,6 +199,14 @@ class _ChatMessagesState extends State<ChatMessages> {
                         .compareTo(b.pinnedTimeStamp ?? b.timestamp),
                   );
 
+                // The latest message sent by the current user, taken from the
+                // full (un-search-filtered) message stream. This is what the
+                // single, conversation-level "Viewed by" indicator is
+                // anchored to for group chats, independent of search state.
+                final latestOutgoingMessage = allChats.firstWhereOrNull(
+                  (m) => m.senderId == widget.currentUser,
+                );
+
                 return Column(
                   children: [
                     if (pinnedMessages.isNotEmpty)
@@ -212,6 +222,7 @@ class _ChatMessagesState extends State<ChatMessages> {
                         scrollController: _scrollController,
                         searchQuery: _searchQuery,
                         onOpenChat: widget.onOpenChat,
+                        latestOutgoingMessage: latestOutgoingMessage,
                       ),
                     ),
                     ChatInputBar(chat: widget.chat),
@@ -233,12 +244,20 @@ class BuildSliverChat extends StatefulWidget {
   final String searchQuery;
   final Function(ChatModel chat, String opponentUid)? onOpenChat;
   final ScrollController scrollController;
+
+  /// The latest message sent by the current user (independent of any
+  /// active search filter). Used to anchor the single, conversation-level
+  /// "Viewed by" indicator for group chats. Null if the current user
+  /// hasn't sent a message yet.
+  final MessagesModel? latestOutgoingMessage;
+
   const BuildSliverChat({
     super.key,
     required this.chats,
     required this.scrollController,
     this.searchQuery = '',
     this.onOpenChat,
+    this.latestOutgoingMessage,
   });
 
   @override
@@ -406,6 +425,25 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
               ),
             );
           }, childCount: chats.length),
+        ),
+      );
+    }
+
+    // ── Group-chat "Viewed by" indicator ──────────────────────────────
+    // A single, conversation-level indicator (Bitrix-style) shown once at
+    // the very bottom of the message list — never per-message. Added last
+    // here (before the sliver list is reversed below) so it ends up
+    // rendered below the latest message, just above the composer.
+    // Hidden while searching so it doesn't sit awkwardly under a filtered
+    // result set that may not even include the latest message.
+    if (chatData.isGroupChat && widget.searchQuery.isEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: GroupViewedByIndicator(
+            latestOutgoingMessage: widget.latestOutgoingMessage,
+            currentUser: currentUser,
+            participants: chatData.chat.participants,
+          ),
         ),
       );
     }
