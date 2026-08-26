@@ -62,6 +62,7 @@ class MenuService {
         title: 'Dashboard',
         icon: Iconsax.home_2,
         route: '/dashboard',
+        requiredPermissions: ['Dashboard'],
       ),
       MenuItem(
         id: 'feed',

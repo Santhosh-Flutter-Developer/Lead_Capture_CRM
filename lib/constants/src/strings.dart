@@ -123,6 +123,7 @@ class AppStrings {
   ];
 
   static List<String> accessPagesList = [
+    "Dashboard",
     "Role",
     "Designation",
     "Department",

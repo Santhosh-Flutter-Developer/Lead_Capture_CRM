@@ -56,15 +56,15 @@ class PermissionService {
 
         final match = role.permissions.where((p) => p.page == page);
         if (match.isEmpty) return null;
-        final permission = match.first;
 
-        if (permission.canCreate ||
-            permission.canEdit ||
-            permission.canDelete ||
-            permission.canView) {
-          return permission;
-        }
-        return null;
+        // Return the role's permission entry for this page exactly as
+        // configured — including one where every flag is false, which
+        // means the admin explicitly revoked all access. Collapsing
+        // that case to null would make it indistinguishable from "this
+        // role doesn't mention this page at all", and callers that
+        // default-allow on null (e.g. Dashboard widgets) would then
+        // wrongly show content the admin just turned off.
+        return match.first;
       }
     } catch (_) {
       // Live fetch failed (e.g. offline) — fall back to cached values below.
@@ -76,25 +76,29 @@ class PermissionService {
   static Future<PermissionModel?> _getCachedPermissions(String page) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // If the page was never synced to this device at all, there's truly
+    // nothing cached for it — return null so callers can apply their own
+    // fallback. Once it *has* been synced, trust the cached flags as-is,
+    // even if every one of them is false (an explicit "no access").
+    if (!prefs.containsKey('${_viewKey}_$page')) {
+      return null;
+    }
+
     final canCreate = prefs.getBool('${_createKey}_$page') ?? false;
     final canEdit = prefs.getBool('${_editKey}_$page') ?? false;
     final canDelete = prefs.getBool('${_deleteKey}_$page') ?? false;
     final canView = prefs.getBool('${_viewKey}_$page') ?? false;
-    final canExport = prefs.getBool('${_exportKey}_$page') ?? true;
-    final canImport = prefs.getBool('${_importKey}_$page') ?? true;
+    final canExport = prefs.getBool('${_exportKey}_$page') ?? false;
+    final canImport = prefs.getBool('${_importKey}_$page') ?? false;
 
-    if (canCreate || canEdit || canDelete || canView) {
-      return PermissionModel(
-        page: page,
-        canCreate: canCreate,
-        canDelete: canDelete,
-        canEdit: canEdit,
-        canView: canView,
-        canExport: canExport,
-        canImport: canImport,
-      );
-    }
-
-    return null;
+    return PermissionModel(
+      page: page,
+      canCreate: canCreate,
+      canDelete: canDelete,
+      canEdit: canEdit,
+      canView: canView,
+      canExport: canExport,
+      canImport: canImport,
+    );
   }
 }
