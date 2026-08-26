@@ -139,6 +139,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   final List<ProjectModel> _selectedProjects = [];
 
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
 
   bool _isAdmin = false;
 
@@ -163,6 +164,8 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
 
     _isAdmin = await Spdb.isAdminLoggedIn();
+
+    _permissionsLoaded = true;
 
     setState(() {});
 
@@ -229,6 +232,12 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
 
 
             if (state is ProjectsLoaded) {
+
+              if (!_permissionsLoaded) {
+
+                return const WaitingLoading();
+
+              }
 
               if (!(permissions?.canView ?? false)) {
 
@@ -624,52 +633,6 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
 
               const SizedBox(width: 10),
 
-            ] else ...[
-
-              ElevatedButton.icon(
-
-                onPressed: null,
-
-                icon: Icon(
-
-                  Icons.add,
-
-                  size: 18,
-
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                ),
-
-                label: Text(
-
-                  "Add $_pageTitle",
-
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                  ),
-
-                ),
-
-                style: ElevatedButton.styleFrom(
-
-                  backgroundColor: Theme.of(
-
-                    context,
-
-                  ).colorScheme.surfaceContainer,
-
-                  foregroundColor: Theme.of(
-
-                    context,
-
-                  ).colorScheme.onSurfaceVariant,
-
-                ),
-
-              ),
-
             ],
 
             if (permissions?.canDelete ?? false) ...[
@@ -894,48 +857,6 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
 
               ],
 
-            ] else ...[
-
-              if (_selectedProjects.isNotEmpty) ...[
-
-                ElevatedButton.icon(
-
-                  label: Text(
-
-                    "Delete",
-
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                    ),
-
-                  ),
-
-                  icon: Icon(Iconsax.trash),
-
-                  onPressed: () {},
-
-                  style: ElevatedButton.styleFrom(
-
-                    backgroundColor: Theme.of(
-
-                      context,
-
-                    ).colorScheme.surfaceContainer,
-
-                    foregroundColor: Theme.of(
-
-                      context,
-
-                    ).colorScheme.onSurfaceVariant,
-
-                  ),
-
-                ),
-
-              ],
-
             ],
 
           ],
@@ -1095,22 +1016,6 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
                   color: Theme.of(context).colorScheme.secondary,
 
                   splashRadius: 20,
-
-                ),
-
-              ] else ...[
-
-                IconButton(
-
-                  icon: Icon(
-
-                    Iconsax.edit,
-
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                  ),
-
-                  onPressed: null,
 
                 ),
 
@@ -1287,22 +1192,6 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
                     }
 
                   },
-
-                ),
-
-              ] else ...[
-
-                IconButton(
-
-                  icon: Icon(
-
-                    Iconsax.trash,
-
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                  ),
-
-                  onPressed: null,
 
                 ),
 

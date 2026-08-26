@@ -87,6 +87,7 @@ class _DealsListingViewState extends State<DealsListingView> {
   double? _value;
 
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   String? _currentUid;
   bool _isAdmin = false;
 
@@ -100,6 +101,7 @@ class _DealsListingViewState extends State<DealsListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -156,6 +158,9 @@ class _DealsListingViewState extends State<DealsListingView> {
             }
 
             if (state is DealLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -812,21 +817,6 @@ class _DealsListingViewState extends State<DealsListingView> {
                 ),
               ),
               const SizedBox(width: 10),
-            ] else ...[
-              ElevatedButton.icon(
-                onPressed: null,
-                icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-                label: Text(
-                  "Add $_pageTitle",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.grey300,
-                  foregroundColor: AppColors.grey600,
-                ),
-              ),
             ],
           ],
         );
@@ -1026,8 +1016,7 @@ class _DealsListingViewState extends State<DealsListingView> {
         DataCell(
           Row(
             children: [
-              if ((permissions?.canEdit ?? false) &&
-                  (_isAdmin || deal.createdBy.uid == _currentUid)) ...[
+              if (permissions?.canEdit ?? false) ...[
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   color: AppColors.info,
@@ -1045,11 +1034,6 @@ class _DealsListingViewState extends State<DealsListingView> {
                       );
                     }
                   },
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(Iconsax.edit, color: AppColors.grey400),
-                  onPressed: null,
                 ),
               ],
             ],

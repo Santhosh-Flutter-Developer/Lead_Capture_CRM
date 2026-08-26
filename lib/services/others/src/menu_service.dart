@@ -405,8 +405,14 @@ class MenuService {
 
     final role = await RoleService.getRole(uid: employee!.role);
 
-    // Extract permission names from role permissions
-    return role.permissions.map((p) => p.page).toList();
+    // Extract permission names from role permissions.
+    // Only pages the user can actually VIEW should surface a menu entry —
+    // having create/edit/delete/export/import rights without view access
+    // must not make the menu item appear.
+    return role.permissions
+        .where((p) => p.canView)
+        .map((p) => p.page)
+        .toList();
   }
 
   /// Get all available permissions

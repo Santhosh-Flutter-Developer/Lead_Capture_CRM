@@ -74,6 +74,7 @@ class TicketListingView extends StatefulWidget {
 class _TicketListingViewState extends State<TicketListingView> {
   final List<CustomerTicketModel> _selectedTickets = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   String? _currentUid;
   bool _isAdmin = false;
 
@@ -87,6 +88,7 @@ class _TicketListingViewState extends State<TicketListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -120,6 +122,9 @@ class _TicketListingViewState extends State<TicketListingView> {
             if (state is TicketLoading) return const WaitingLoading();
 
             if (state is TicketLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -362,29 +367,6 @@ class _TicketListingViewState extends State<TicketListingView> {
                 ),
               ),
               const SizedBox(width: 10),
-            ] else ...[
-              ElevatedButton.icon(
-                onPressed: null,
-                icon: Icon(
-                  Icons.add,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                label: Text(
-                  "Add $_pageTitle",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant,
-                ),
-              ),
             ],
             const SizedBox(width: 10),
             if (permissions?.canDelete ?? false) ...[
@@ -452,27 +434,6 @@ class _TicketListingViewState extends State<TicketListingView> {
                     foregroundColor: AppColors.white,
                   ),
                 ),
-            ] else ...[
-              if (_selectedTickets.isNotEmpty) ...[
-                ElevatedButton.icon(
-                  label: Text(
-                    "Delete",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  icon: Icon(Iconsax.trash),
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainer,
-                    foregroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
             ],
           ],
         );
@@ -684,11 +645,7 @@ class _TicketListingViewState extends State<TicketListingView> {
         DataCell(
           Row(
             children: [
-              if ((permissions?.canEdit ?? false) &&
-                  (_isAdmin ||
-                      ticket.ticketCreatedBy.uid == _currentUid ||
-                      (ticket.ticketCreatedBy.uid.isEmpty &&
-                          ticket.createdBy.contains(_currentUid ?? '')))) ...[
+              if (permissions?.canEdit ?? false) ...[
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   onPressed: () {
@@ -706,14 +663,6 @@ class _TicketListingViewState extends State<TicketListingView> {
                   },
                   color: Theme.of(context).colorScheme.secondary,
                   splashRadius: 20,
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(
-                    Iconsax.edit,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: null,
                 ),
               ],
               if (permissions?.canDelete ?? false) ...[
@@ -755,14 +704,6 @@ class _TicketListingViewState extends State<TicketListingView> {
                       FlushBar.show(context, e.toString(), isSuccess: false);
                     }
                   },
-                ),
-              ] else ...[
-                IconButton(
-                  icon: Icon(
-                    Iconsax.trash,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: null,
                 ),
               ],
             ],

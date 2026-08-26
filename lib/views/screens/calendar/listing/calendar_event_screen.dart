@@ -6,6 +6,7 @@ import 'package:leadcapture/views/screens/calendar/form/event_view.dart';
 import '/constants/constants.dart';
 import '/views/views.dart';
 import '/models/models.dart';
+import '/services/services.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
 
@@ -35,6 +36,26 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
   Calendar _currentView = Calendar.month;
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
+  PermissionModel? _permissions;
+  PermissionModel? _taskPermissions;
+  PermissionModel? _leadPermissions;
+  PermissionModel? _dealPermissions;
+  PermissionModel? _ticketPermissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Calendar');
+    _taskPermissions = await PermissionService.getPermissions('Tasks');
+    _leadPermissions = await PermissionService.getPermissions('Leads');
+    _dealPermissions = await PermissionService.getPermissions('Deals');
+    _ticketPermissions = await PermissionService.getPermissions('Tickets');
+    if (mounted) setState(() {});
+  }
 
   // --- HELPERS ---
 
@@ -413,9 +434,14 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
             time: (e.deadline ?? DateTime.now()).formatDateTime,
             onTap: () {
               if (kIsDesktop) {
-                GeneralDialog.showRTLSheet(context, TaskEdit(uid: e.uid ?? ''));
+                GeneralDialog.showRTLSheet(context, TaskView(uid: e.uid ?? ''));
               } else {
-                Sheet.showSheet(context, widget: TaskEdit(uid: e.uid ?? ''));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TaskView(uid: e.uid ?? ''),
+                  ),
+                );
               }
             },
             completed: e.completed,
@@ -541,6 +567,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
           child: InkWell(
             onTap: () async {
               if (totalCount == 0) {
+                if (!(_permissions?.canCreate ?? false)) return;
                 var popResult = await showCreateDialog();
                 if (popResult == null) return;
                 if (popResult == 1) {
@@ -748,6 +775,7 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                       selectedDate: date,
                     );
                   } else {
+                    if (!(_permissions?.canCreate ?? false)) return;
                     var popResult = await showCreateDialog();
                     if (popResult == null) return;
                     if (popResult == 1) {
@@ -1059,25 +1087,26 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      if (kIsDesktop) {
-                                        GeneralDialog.showRTLSheet(
-                                          context,
-                                          EventEdit(uid: item.uid ?? ''),
-                                        );
-                                      } else {
-                                        Sheet.showSheet(
-                                          context,
-                                          widget: EventEdit(
-                                            uid: item.uid ?? '',
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
+                                  if (_permissions?.canEdit ?? false)
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        if (kIsDesktop) {
+                                          GeneralDialog.showRTLSheet(
+                                            context,
+                                            EventEdit(uid: item.uid ?? ''),
+                                          );
+                                        } else {
+                                          Sheet.showSheet(
+                                            context,
+                                            widget: EventEdit(
+                                              uid: item.uid ?? '',
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   Column(
                                     children: [
                                       Text(
@@ -1104,12 +1133,15 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                                 if (kIsDesktop) {
                                   GeneralDialog.showRTLSheet(
                                     context,
-                                    TaskEdit(uid: item.uid ?? ''),
+                                    TaskView(uid: item.uid ?? ''),
                                   );
                                 } else {
-                                  Sheet.showSheet(
+                                  Navigator.push(
                                     context,
-                                    widget: TaskEdit(uid: item.uid ?? ''),
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          TaskView(uid: item.uid ?? ''),
+                                    ),
                                   );
                                 }
                               },
@@ -1125,23 +1157,26 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      if (kIsDesktop) {
-                                        GeneralDialog.showRTLSheet(
-                                          context,
-                                          TaskEdit(uid: item.uid ?? ''),
-                                        );
-                                      } else {
-                                        Sheet.showSheet(
-                                          context,
-                                          widget: TaskEdit(uid: item.uid ?? ''),
-                                        );
-                                      }
-                                    },
-                                  ),
+                                  if (_taskPermissions?.canEdit ?? false)
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        if (kIsDesktop) {
+                                          GeneralDialog.showRTLSheet(
+                                            context,
+                                            TaskEdit(uid: item.uid ?? ''),
+                                          );
+                                        } else {
+                                          Sheet.showSheet(
+                                            context,
+                                            widget: TaskEdit(
+                                              uid: item.uid ?? '',
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   Column(
                                     children: [
                                       Text(
@@ -1194,23 +1229,26 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      if (kIsDesktop) {
-                                        GeneralDialog.showRTLSheet(
-                                          context,
-                                          LeadEdit(uid: item.uid ?? ''),
-                                        );
-                                      } else {
-                                        Sheet.showSheet(
-                                          context,
-                                          widget: LeadEdit(uid: item.uid ?? ''),
-                                        );
-                                      }
-                                    },
-                                  ),
+                                  if (_leadPermissions?.canEdit ?? false)
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        if (kIsDesktop) {
+                                          GeneralDialog.showRTLSheet(
+                                            context,
+                                            LeadEdit(uid: item.uid ?? ''),
+                                          );
+                                        } else {
+                                          Sheet.showSheet(
+                                            context,
+                                            widget: LeadEdit(
+                                              uid: item.uid ?? '',
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   Column(
                                     children: [
                                       Text(
@@ -1262,23 +1300,26 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      if (kIsDesktop) {
-                                        GeneralDialog.showRTLSheet(
-                                          context,
-                                          DealEdit(uid: item.uid ?? ''),
-                                        );
-                                      } else {
-                                        Sheet.showSheet(
-                                          context,
-                                          widget: DealEdit(uid: item.uid ?? ''),
-                                        );
-                                      }
-                                    },
-                                  ),
+                                  if (_dealPermissions?.canEdit ?? false)
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        if (kIsDesktop) {
+                                          GeneralDialog.showRTLSheet(
+                                            context,
+                                            DealEdit(uid: item.uid ?? ''),
+                                          );
+                                        } else {
+                                          Sheet.showSheet(
+                                            context,
+                                            widget: DealEdit(
+                                              uid: item.uid ?? '',
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   Column(
                                     children: [
                                       Text(
@@ -1329,25 +1370,26 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      if (kIsDesktop) {
-                                        GeneralDialog.showRTLSheet(
-                                          context,
-                                          TicketEdit(uid: item.uid ?? ''),
-                                        );
-                                      } else {
-                                        Sheet.showSheet(
-                                          context,
-                                          widget: TicketEdit(
-                                            uid: item.uid ?? '',
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
+                                  if (_ticketPermissions?.canEdit ?? false)
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        if (kIsDesktop) {
+                                          GeneralDialog.showRTLSheet(
+                                            context,
+                                            TicketEdit(uid: item.uid ?? ''),
+                                          );
+                                        } else {
+                                          Sheet.showSheet(
+                                            context,
+                                            widget: TicketEdit(
+                                              uid: item.uid ?? '',
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   Column(
                                     children: [
                                       Text(
@@ -1380,7 +1422,8 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (selectedDate != null)
+                      if (selectedDate != null &&
+                          (_permissions?.canCreate ?? false))
                         ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);

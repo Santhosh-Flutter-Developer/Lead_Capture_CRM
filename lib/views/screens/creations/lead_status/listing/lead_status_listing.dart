@@ -119,6 +119,7 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
   final List<LeadStatusModel> _selectedLeadStatus = [];
 
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
 
   final ScrollController _hScrollController = ScrollController();
@@ -141,6 +142,8 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+
+    _permissionsLoaded = true;
 
     setState(() {});
 
@@ -207,6 +210,12 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
 
             if (state is LeadStatusLoaded) {
+
+              if (!_permissionsLoaded) {
+
+                return const WaitingLoading();
+
+              }
 
               if (!(permissions?.canView ?? false)) {
 
@@ -662,9 +671,8 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
           children: [
 
-            (permissions?.canCreate ?? false)
-
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
 
                     onPressed: () {
 
@@ -714,51 +722,14 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
                     ),
 
-                  )
-
-                : ElevatedButton.icon(
-
-                    onPressed: null,
-
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-
-                    label: Text(
-
-                      "Add $_pageTitle",
-
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                      ),
-
-                    ),
-
-                    style: ElevatedButton.styleFrom(
-
-                      backgroundColor: Theme.of(
-
-                        context,
-
-                      ).colorScheme.surfaceContainerHighest,
-
-                      foregroundColor: Theme.of(
-
-                        context,
-
-                      ).colorScheme.onSurfaceVariant,
-
-                    ),
-
                   ),
 
             const SizedBox(width: 10),
 
             if (_selectedLeadStatus.isNotEmpty) ...[
 
-              (permissions?.canDelete ?? false)
-
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
 
                       label: Text(
 
@@ -1004,34 +975,6 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
                       ),
 
-                    )
-
-                  : ElevatedButton.icon(
-
-                      label: Text(
-
-                        "Delete",
-
-                        style: Theme.of(
-
-                          context,
-
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-
-                      ),
-
-                      icon: Icon(Iconsax.trash),
-
-                      onPressed: () {},
-
-                      style: ElevatedButton.styleFrom(
-
-                        backgroundColor: AppColors.grey400,
-
-                        foregroundColor: AppColors.white,
-
-                      ),
-
                     ),
 
               SizedBox(width: 10),
@@ -1230,9 +1173,8 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
             children: [
 
-              (permissions?.canEdit ?? false)
-
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
 
                       icon: const Icon(Iconsax.edit),
 
@@ -1266,25 +1208,10 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
 
                       splashRadius: 20,
 
-                    )
-
-                  : IconButton(
-
-                      icon: Icon(
-
-                        Iconsax.edit,
-
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                      ),
-
-                      onPressed: null,
-
                     ),
 
-              (permissions?.canDelete ?? false)
-
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
 
                       icon: const Icon(Iconsax.trash),
 
@@ -1469,20 +1396,6 @@ class _LeadStatusListingViewState extends State<LeadStatusListingView> {
                         }
 
                       },
-
-                    )
-
-                  : IconButton(
-
-                      icon: Icon(
-
-                        Iconsax.trash,
-
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                      ),
-
-                      onPressed: null,
 
                     ),
 

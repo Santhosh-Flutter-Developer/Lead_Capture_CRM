@@ -30,11 +30,18 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
 
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
+  PermissionModel? _permissions;
 
   @override
   void initState() {
     super.initState();
     _future = _initializeBoard();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Deals');
+    if (mounted) setState(() {});
   }
 
   @override
@@ -145,7 +152,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
         if (details.data.isLocked) {
           return false;
         }
-        return details.data.uid != null;
+        return (_permissions?.canEdit ?? false) && details.data.uid != null;
       },
       onAcceptWithDetails: (details) async {
         final deal = details.data;
@@ -302,7 +309,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
     
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: isLocked
+      child: (isLocked || !(_permissions?.canEdit ?? false))
           ? _buildLockedCard(task, list)
           : Draggable<DealModel>(
               data: task,

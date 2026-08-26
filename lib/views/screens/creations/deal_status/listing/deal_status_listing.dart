@@ -59,6 +59,7 @@ class DealStatusListingView extends StatefulWidget {
 class _DealStatusListingViewState extends State<DealStatusListingView> {
   final List<DealStatusModel> _selectedDealStatus = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
@@ -71,6 +72,7 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -104,6 +106,9 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
             }
 
             if (state is DealStatusLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -348,8 +353,8 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
       children: [
         Row(
           children: [
-            (permissions?.canCreate ?? false)
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
                     onPressed: () {
                       if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
@@ -374,29 +379,11 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: null,
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-                    label: Text(
-                      "Add $_pageTitle",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      foregroundColor: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
-                    ),
                   ),
             const SizedBox(width: 10),
             if (_selectedDealStatus.isNotEmpty) ...[
-              (permissions?.canDelete ?? false)
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
                       label: Text(
                         "Delete",
                         style: Theme.of(
@@ -519,20 +506,6 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
                           context,
                         ).colorScheme.onPrimary,
                       ),
-                    )
-                  : ElevatedButton.icon(
-                      label: Text(
-                        "Delete",
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-                      ),
-                      icon: Icon(Iconsax.trash),
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.grey400,
-                        foregroundColor: AppColors.white,
-                      ),
                     ),
               SizedBox(width: 10),
             ],
@@ -632,8 +605,8 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
         DataCell(
           Row(
             children: [
-              (permissions?.canEdit ?? false)
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
                         if (kIsMobile || width < 1000) {
@@ -650,16 +623,9 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
                       },
                       color: Theme.of(context).colorScheme.primary,
                       splashRadius: 20,
-                    )
-                  : IconButton(
-                      icon: Icon(
-                        Iconsax.edit,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: null,
                     ),
-              (permissions?.canDelete ?? false)
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.trash),
                       color: Theme.of(context).colorScheme.error,
                       splashRadius: 20,
@@ -748,13 +714,6 @@ class _DealStatusListingViewState extends State<DealStatusListingView> {
                           );
                         }
                       },
-                    )
-                  : IconButton(
-                      icon: Icon(
-                        Iconsax.trash,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: null,
                     ),
             ],
           ),

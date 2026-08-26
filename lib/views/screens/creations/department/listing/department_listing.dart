@@ -63,6 +63,7 @@ class DepartmentListingView extends StatefulWidget {
 class _DepartmentListingViewState extends State<DepartmentListingView> {
   final List<DepartmentModel> _selectedDepartments = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
@@ -75,6 +76,7 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -107,6 +109,9 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
               return const WaitingLoading();
             }
             if (state is DepartmentLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -292,8 +297,8 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
       children: [
         Row(
           children: [
-            (permissions?.canCreate ?? false)
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
                     onPressed: () {
                       if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
@@ -318,29 +323,11 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: null,
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-                    label: Text(
-                      "Add $_pageTitle",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainer,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
                   ),
             const SizedBox(width: 10),
             if (_selectedDepartments.isNotEmpty) ...[
-              (permissions?.canDelete ?? false)
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
                       label: Text(
                         "Delete",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -422,27 +409,6 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
                         backgroundColor: Theme.of(context).colorScheme.error,
                         foregroundColor: Theme.of(context).colorScheme.onError,
                       ),
-                    )
-                  : ElevatedButton.icon(
-                      label: Text(
-                        "Delete",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      icon: Icon(
-                        Iconsax.trash,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainer,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant,
-                      ),
                     ),
             ],
           ],
@@ -493,8 +459,8 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
         DataCell(
           Row(
             children: [
-              (permissions?.canEdit ?? false)
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
                         if (kIsMobile || width < 1000) {
@@ -511,13 +477,9 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
                       },
                       color: AppColors.info,
                       splashRadius: 20,
-                    )
-                  : IconButton(
-                      icon: Icon(Iconsax.edit, color: AppColors.grey400),
-                      onPressed: null,
                     ),
-              (permissions?.canDelete ?? false)
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.trash),
                       color: AppColors.danger,
                       splashRadius: 20,
@@ -578,10 +540,6 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
                           );
                         }
                       },
-                    )
-                  : IconButton(
-                      icon: Icon(Iconsax.trash, color: AppColors.grey400),
-                      onPressed: null,
                     ),
             ],
           ),

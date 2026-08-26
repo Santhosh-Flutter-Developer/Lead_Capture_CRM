@@ -37,11 +37,18 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
+  PermissionModel? _permissions;
 
   @override
   void initState() {
     super.initState();
     _future = _initializeBoard();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Leads');
+    if (mounted) setState(() {});
   }
 
   @override
@@ -148,7 +155,9 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
   Widget _buildKanbanColumn(LeadStatusModel list, List<LeadModel> leads) {
     return DragTarget<LeadModel>(
       onWillAcceptWithDetails: (details) {
-        return details.data.uid != null && details.data.leadsConverted != true;
+        return (_permissions?.canEdit ?? false) &&
+            details.data.uid != null &&
+            details.data.leadsConverted != true;
       },
       onAcceptWithDetails: (details) async {
         final lead = details.data;
@@ -362,17 +371,18 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () => Sheet.showSheet(
-                      context,
-                      widget: quickLead(context, list),
+                  if (_permissions?.canCreate ?? false)
+                    InkWell(
+                      onTap: () => Sheet.showSheet(
+                        context,
+                        widget: quickLead(context, list),
+                      ),
+                      child: const Icon(
+                        Iconsax.add_circle,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
-                    child: const Icon(
-                      Iconsax.add_circle,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -745,6 +755,48 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
     }
 
     // Draggable card for unconverted leads
+    final cardInkWell = InkWell(
+      onTap: () async {
+        final result = kIsDesktop
+            ? await GeneralDialog.showRTLSheet(
+                context,
+                LeadsViewPage(lead: task),
+              )
+            : await Sheet.showSheet(context, widget: LeadsViewPage(lead: task));
+        if (result == 'deleted' && context.mounted) {
+          widget.onLeadDeleted?.call();
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(
+                context,
+              ).colorScheme.shadow.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12.0),
+        child: _buildCardContent(task, list),
+      ),
+    );
+
+    // Only allow dragging (status change via drag & drop) when the role
+    // has Edit access on Leads — otherwise render a plain, non-draggable
+    // card so an unauthorized user can't reorder/convert leads by dragging.
+    if (!(_permissions?.canEdit ?? false)) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: cardInkWell,
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Draggable<LeadModel>(
@@ -791,40 +843,7 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
             ),
           ),
         ),
-        child: InkWell(
-          onTap: () async {
-            final result = kIsDesktop
-                ? await GeneralDialog.showRTLSheet(
-                    context,
-                    LeadsViewPage(lead: task),
-                  )
-                : await Sheet.showSheet(
-                    context,
-                    widget: LeadsViewPage(lead: task),
-                  );
-            if (result == 'deleted' && context.mounted) {
-              widget.onLeadDeleted?.call();
-            }
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.shadow.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(12.0),
-            child: _buildCardContent(task, list),
-          ),
-        ),
+        child: cardInkWell,
       ),
     );
   }

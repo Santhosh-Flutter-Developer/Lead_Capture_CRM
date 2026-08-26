@@ -80,6 +80,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
   final List<UserRowModel> _selectedEmployees = [];
   final List<UserRowModel> _employeesList = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   PermissionModel? tasksPermissions;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
@@ -96,6 +97,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     tasksPermissions = await PermissionService.getPermissions('Tasks');
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -144,6 +146,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
             }
 
             if (state is UsersLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -631,27 +636,6 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               ),
             ),
           );
-        } else {
-          buttons.add(
-            ElevatedButton.icon(
-              onPressed: null,
-              icon: Icon(
-                Icons.add,
-                size: 18,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              label: Text(
-                "Add $_pageTitle",
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          );
         }
 
         // Upload Button (Gated by canImport)
@@ -681,28 +665,6 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               ),
             ),
           );
-        } else {
-          buttons.add(
-            ElevatedButton.icon(
-              onPressed: null,
-              icon: Icon(
-                Iconsax.cloud_plus,
-                size: 18,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              label: Text(
-                "Upload",
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          );
-        }
 
         buttons.add(const SizedBox(width: 10));
 
@@ -743,7 +705,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
             ),
           ),
         );
+        }
 
+        if (permissions?.canExport ?? false) {
         buttons.add(
           ElevatedButton.icon(
             label: Text(
@@ -753,9 +717,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               ),
             ),
             icon: Icon(Iconsax.export_3),
-            onPressed:
-                (permissions?.canExport ?? false) == false ||
-                    _employeesList.isEmpty
+            onPressed: _employeesList.isEmpty
                 ? null
                 : () async {
                     try {
@@ -855,6 +817,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
             ),
           ),
         );
+        }
 
         /*buttons.add(
           ElevatedButton.icon(
@@ -909,10 +872,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
           ),
         );*/
 
-        if (_selectedEmployees.isNotEmpty) {
+        if (_selectedEmployees.isNotEmpty && (permissions?.canDelete ?? false)) {
           buttons.add(
-            (permissions?.canDelete ?? false)
-                ? ElevatedButton.icon(
+                  ElevatedButton.icon(
                     label: Text(
                       "Delete",
                       style: Theme.of(
@@ -1017,24 +979,6 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.danger,
                       foregroundColor: AppColors.white,
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    label: Text(
-                      "Delete",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    icon: const Icon(Iconsax.trash),
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainer,
-                      foregroundColor: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
                     ),
                   ),
           );
@@ -1266,9 +1210,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
             ),
           );
 
+          if (tasksPermissions?.canCreate ?? false) {
           buttons.add(
-            (tasksPermissions?.canCreate ?? false)
-                ? ElevatedButton.icon(
+                ElevatedButton.icon(
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -1292,30 +1236,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                       backgroundColor: AppColors.success,
                       foregroundColor: AppColors.white,
                     ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: null,
-                    icon: Icon(
-                      Icons.task,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    label: Text(
-                      "Create Task",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainer,
-                      foregroundColor: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
-                    ),
                   ),
           );
+          }
         }
 
         return Column(
@@ -1677,8 +1600,8 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
         DataCell(
           Row(
             children: [
-              (permissions?.canEdit ?? false)
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.edit),
                       color: Theme.of(context).colorScheme.secondary,
                       onPressed: () {
@@ -1700,29 +1623,15 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                           );
                         }
                       },
-                    )
-                  : IconButton(
-                      icon: Icon(
-                        Iconsax.edit,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: null,
                     ),
               if (!user.isAdmin)
-                (permissions?.canDelete ?? false)
-                    ? IconButton(
+                if (permissions?.canDelete ?? false)
+                      IconButton(
                         icon: const Icon(Iconsax.trash),
                         color: Theme.of(context).colorScheme.error,
                         onPressed: () async {
                           handleDelete(context, user);
                         },
-                      )
-                    : IconButton(
-                        icon: Icon(
-                          Iconsax.trash,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        onPressed: null,
                       ),
             ],
           ),

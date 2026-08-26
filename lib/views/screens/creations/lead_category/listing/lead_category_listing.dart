@@ -62,6 +62,7 @@ class LeadCategoryListingView extends StatefulWidget {
 class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
   final List<LeadCategoryModel> _selectedLeadCategories = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
@@ -74,6 +75,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -107,6 +109,9 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
             }
 
             if (state is LeadCategoryLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -286,8 +291,8 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
       children: [
         Row(
           children: [
-            (permissions?.canCreate ?? false)
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
                     onPressed: () {
                       if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
@@ -312,29 +317,11 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: null,
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-                    label: Text(
-                      "Add $_pageTitle",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      foregroundColor: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
-                    ),
                   ),
             const SizedBox(width: 10),
             if (_selectedLeadCategories.isNotEmpty) ...[
-              (permissions?.canDelete ?? false)
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
                       label: const Text("Delete"),
                       icon: const Icon(Iconsax.trash),
                       onPressed: () async {
@@ -440,27 +427,6 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                           );
                         }
                       },
-                    )
-                  : ElevatedButton.icon(
-                      label: Text(
-                        "Delete",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      icon: Icon(
-                        Iconsax.trash,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant,
-                      ),
                     ),
             ],
           ],
@@ -510,8 +476,8 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
         DataCell(
           Row(
             children: [
-              (permissions?.canEdit ?? false)
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
                         if (kIsMobile || width < 1000) {
@@ -530,16 +496,9 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                       },
                       color: Theme.of(context).colorScheme.primary,
                       splashRadius: 20,
-                    )
-                  : IconButton(
-                      icon: Icon(
-                        Iconsax.edit,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: null,
                     ),
-              (permissions?.canDelete ?? false)
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.trash),
                       color: Theme.of(context).colorScheme.error,
                       splashRadius: 20,
@@ -627,13 +586,6 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                           );
                         }
                       },
-                    )
-                  : IconButton(
-                      icon: Icon(
-                        Iconsax.trash,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      onPressed: null,
                     ),
             ],
           ),

@@ -52,6 +52,7 @@ class ChatListingView extends StatefulWidget {
 
 class _ChatListingViewState extends State<ChatListingView> {
   String? _selectedChatUid;
+  String? _pendingOpponentUid;
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _ChatListingViewState extends State<ChatListingView> {
   void _openChatFromMention(ChatModel chat, String opponentUid) {
     setState(() {
       _selectedChatUid = chat.uid;
+      _pendingOpponentUid = null;
     });
   }
 
@@ -86,9 +88,32 @@ class _ChatListingViewState extends State<ChatListingView> {
             final selectedIndex = state.chats.indexWhere(
               (c) => c.uid == _selectedChatUid,
             );
+            // The chat stream filters out conversations that don't have a
+            // lastMessage yet (see ChatBloc._streamChat), which is exactly
+            // the state of a chat right after it's created via "start new
+            // chat" and before either side has sent a message. Without this
+            // fallback, _selectedChatUid points at a chat the stream will
+            // never surface, so the message pane stays stuck on "Select a
+            // Conversation" no matter how long you wait.
             final selectedChat = selectedIndex != -1
                 ? state.chats[selectedIndex]
-                : null;
+                : (_selectedChatUid != null && _pendingOpponentUid != null
+                      ? ChatModel(
+                          uid: _selectedChatUid,
+                          createdBy: widget.currentUserUid,
+                          participants: [
+                            widget.currentUserUid,
+                            _pendingOpponentUid!,
+                          ],
+                          participantsKey:
+                              ([widget.currentUserUid, _pendingOpponentUid!]
+                                    ..sort())
+                                  .join('_'),
+                          isPinned: false,
+                          isFavorite: false,
+                          lastMessage: null,
+                        )
+                      : null);
             return LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth < 1000) {
@@ -151,6 +176,7 @@ class _ChatListingViewState extends State<ChatListingView> {
                         onSelect: (index) {
                           setState(() {
                             _selectedChatUid = state.chats[index].uid;
+                            _pendingOpponentUid = null;
                           });
                         },
                         currentUserUid: widget.currentUserUid,
@@ -159,6 +185,7 @@ class _ChatListingViewState extends State<ChatListingView> {
                           // For desktop, select the new chat immediately
                           setState(() {
                             _selectedChatUid = chatId;
+                            _pendingOpponentUid = opponentUid;
                           });
                         },
                       ),

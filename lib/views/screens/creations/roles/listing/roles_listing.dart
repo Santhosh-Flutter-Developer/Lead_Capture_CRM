@@ -61,6 +61,7 @@ class RolesListingView extends StatefulWidget {
 class _RolesListingViewState extends State<RolesListingView> {
   final List<RoleModel> _selectedRoles = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
 
   @override
   void initState() {
@@ -70,6 +71,7 @@ class _RolesListingViewState extends State<RolesListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -101,6 +103,12 @@ class _RolesListingViewState extends State<RolesListingView> {
             }
 
             if (state is RolesLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
+              if (!(permissions?.canView ?? false)) {
+                return buildNoPermissionView(context);
+              }
               return RefreshIndicator(
                 onRefresh: () => _refreshRoles(),
                 child: ListView(
@@ -305,25 +313,27 @@ class _RolesListingViewState extends State<RolesListingView> {
         DataCell(
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Iconsax.edit),
-                onPressed: () {
-                  if (kIsMobile || width < 1000) {
-                    Sheet.showSheet(
-                      context,
-                      widget: RoleEdit(uid: role.uid ?? ''),
-                    );
-                  } else {
-                    GeneralDialog.showRTLSheet(
-                      context,
-                      RoleEdit(uid: role.uid ?? ''),
-                    );
-                  }
-                },
-                color: AppColors.info,
-                splashRadius: 20,
-              ),
-              IconButton(
+              if (permissions?.canEdit ?? false)
+                IconButton(
+                  icon: const Icon(Iconsax.edit),
+                  onPressed: () {
+                    if (kIsMobile || width < 1000) {
+                      Sheet.showSheet(
+                        context,
+                        widget: RoleEdit(uid: role.uid ?? ''),
+                      );
+                    } else {
+                      GeneralDialog.showRTLSheet(
+                        context,
+                        RoleEdit(uid: role.uid ?? ''),
+                      );
+                    }
+                  },
+                  color: AppColors.info,
+                  splashRadius: 20,
+                ),
+              if (permissions?.canDelete ?? false)
+                IconButton(
                 icon: const Icon(Iconsax.trash),
                 color: AppColors.danger,
                 splashRadius: 20,

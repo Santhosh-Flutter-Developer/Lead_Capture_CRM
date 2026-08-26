@@ -3,6 +3,7 @@ import 'package:iconsax/iconsax.dart';
 import '/theme/theme.dart';
 import '/views/views.dart';
 import '/models/models.dart';
+import '/services/services.dart';
 import '/utils/utils.dart';
 
 class EventViewPage extends StatelessWidget {
@@ -25,6 +26,19 @@ class EventView extends StatefulWidget {
 }
 
 class _EventViewState extends State<EventView> {
+  PermissionModel? _permissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Calendar');
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,23 +49,24 @@ class _EventViewState extends State<EventView> {
         automaticallyImplyLeading: false,
         title: const Text('Event Details'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.pop(context);
-              if (kIsDesktop) {
-                GeneralDialog.showRTLSheet(
-                  context,
-                  EventEdit(uid: widget.event.uid ?? ''),
-                );
-              } else {
-                Sheet.showSheet(
-                  context,
-                  widget: EventEdit(uid: widget.event.uid ?? ''),
-                );
-              }
-            },
-          ),
+          if (_permissions?.canEdit ?? false)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                Navigator.pop(context);
+                if (kIsDesktop) {
+                  GeneralDialog.showRTLSheet(
+                    context,
+                    EventEdit(uid: widget.event.uid ?? ''),
+                  );
+                } else {
+                  Sheet.showSheet(
+                    context,
+                    widget: EventEdit(uid: widget.event.uid ?? ''),
+                  );
+                }
+              },
+            ),
         ],
       ),
       body: SingleChildScrollView(

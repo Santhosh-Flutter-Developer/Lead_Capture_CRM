@@ -43,7 +43,7 @@ class _DashboardState extends State<Dashboard> {
       'Deals',
       'Tasks',
       'Employees',
-      'Contacts',
+      'Contact',
       'Company',
       'Tickets',
     ];

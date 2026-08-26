@@ -1,8 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/utils/src/download_io.dart';
+import '/utils/src/download_io.dart'
+    if (dart.library.html) '/utils/src/download_web.dart'
+    show saveFileToDownloads;
 import 'package:provider/provider.dart';
 import '/services/services.dart';
 import '/views/views.dart';
@@ -92,9 +95,10 @@ class ClientListingView extends StatefulWidget {
 class _ClientListingViewState extends State<ClientListingView> {
   final List<ClientModel> _selectedClients = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
   String get pageTitle {
-    return widget.section == ClientSection.contacts ? 'Contacts' : 'Company';
+    return widget.section == ClientSection.contacts ? 'Contact' : 'Company';
   }
 
   final ScrollController _hScrollController = ScrollController();
@@ -108,6 +112,7 @@ class _ClientListingViewState extends State<ClientListingView> {
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -435,7 +440,7 @@ class _ClientListingViewState extends State<ClientListingView> {
                     );
 
                     // Open file
-                    openfile(filePath, context);
+                    if (!kIsWeb) openfile(filePath, context);
                   } catch (e) {
                     FlushBar.show(context, e.toString(), isSuccess: false);
                   }
@@ -578,16 +583,6 @@ class _ClientListingViewState extends State<ClientListingView> {
                   ),
                 ),
               ],
-              // ] else ...[
-              //   ElevatedButton.icon(
-              //     label: Text("Delete"),
-              //     icon: Icon(Iconsax.trash),
-              //     onPressed: () {},
-              //     style: ElevatedButton.styleFrom(
-              //       backgroundColor: AppColors.grey400,
-              //       foregroundColor: AppColors.white,
-              //     ),
-              //   ),
               // ],
             ],
           ],

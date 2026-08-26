@@ -126,6 +126,8 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
   bool _isAdmin = false;
 
+  PermissionModel? _permissions;
+
 
 
   @override
@@ -142,6 +144,13 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
     _refreshDeal();
 
+    _loadPermissions();
+
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Deals');
+    if (mounted) setState(() {});
   }
 
 
@@ -982,7 +991,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
         actions: [
 
-          if (_isAdmin || _deal.createdBy.uid == _currentUid) ...[
+          if (_permissions?.canEdit ?? false) ...[
 
             if (!_deal.isLocked)
 
@@ -1030,11 +1039,13 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
               }),
 
+          ],
+
+          if (!_deal.isLocked && (_permissions?.canDelete ?? false)) ...[
+
             const SizedBox(width: 8),
 
-            if (!_deal.isLocked)
-
-              _appBarButton(Iconsax.trash, "Delete", () async {
+            _appBarButton(Iconsax.trash, "Delete", () async {
 
                 final result = await showDialog<bool>(
 
@@ -4499,4 +4510,3 @@ class _ScheduleDealActivityDialogState
   }
 
 }
-

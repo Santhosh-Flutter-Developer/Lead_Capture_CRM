@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 import '/theme/theme.dart';
@@ -53,13 +53,17 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
 
       if (_authStatus == AuthorizationStatus.denied) {
         setState(() {
-          _error = '❌ Notification permission denied by user.';
+          _error = kIsWeb
+              ? '❌ Notifications are blocked for this site in your browser. '
+                    'Click the padlock icon next to the address bar → Site '
+                    'settings → Notifications → Allow, then refresh this page.'
+              : '❌ Notification permission denied by user.';
           _loading = false;
         });
         return;
       }
 
-      if (Platform.isIOS) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
         await messaging.setForegroundNotificationPresentationOptions(
           alert: true,
           badge: true,
@@ -69,12 +73,14 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
 
       // Get APNs token (for iOS only)
       String? apns;
-      if (Platform.isIOS) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
         apns = await messaging.getAPNSToken();
       }
 
-      // Get FCM token
-      String? fcm = await messaging.getToken();
+      // Get FCM token (web requires the VAPID key)
+      String? fcm = await messaging.getToken(
+        vapidKey: kIsWeb ? kVapidKey : null,
+      );
 
       if (fcm == null) {
         setState(() {
@@ -210,9 +216,15 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '• FCM token is used to send notifications via Firebase.\n'
-                      '• APNs token is managed internally by Firebase for iOS.\n'
-                      '• If tokens are empty, reinstall app or restart device.',
+                      kIsWeb
+                          ? '• FCM token is used to send notifications via Firebase.\n'
+                                '• Web push requires the browser notification permission '
+                                'to be Allowed for this site.\n'
+                                '• If tokens are empty, check the padlock icon → Site '
+                                'settings → Notifications, then refresh.'
+                          : '• FCM token is used to send notifications via Firebase.\n'
+                                '• APNs token is managed internally by Firebase for iOS.\n'
+                                '• If tokens are empty, reinstall app or restart device.',
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: AppColors.black54),

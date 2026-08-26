@@ -20,6 +20,18 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
   Calendar _currentView = Calendar.month;
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
+  PermissionModel? _permissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Tasks');
+    if (mounted) setState(() {});
+  }
 
   // --- HELPERS ---
 
@@ -199,9 +211,14 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
           ],
           onTap: () {
             if (kIsDesktop) {
-              GeneralDialog.showRTLSheet(context, TaskEdit(uid: e.uid ?? ''));
+              GeneralDialog.showRTLSheet(context, TaskView(uid: e.uid ?? ''));
             } else {
-              Sheet.showSheet(context, widget: TaskEdit(uid: e.uid ?? ''));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TaskView(uid: e.uid ?? ''),
+                ),
+              );
             }
           },
           completed: e.completed,
@@ -237,6 +254,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
           child: InkWell(
             onTap: () async {
               if (taskCount == 0) {
+                if (!(_permissions?.canCreate ?? false)) return;
                 if (kIsDesktop) {
                   GeneralDialog.showRTLSheet(
                     context,
@@ -368,6 +386,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
                           .toList(),
                     );
                   } else {
+                    if (!(_permissions?.canCreate ?? false)) return;
                     if (kIsDesktop) {
                       GeneralDialog.showRTLSheet(
                         context,
@@ -537,16 +556,33 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
                           return ListTile(
                             onTap: () {
                               Navigator.pop(context);
-                              if (kIsDesktop) {
-                                GeneralDialog.showRTLSheet(
-                                  context,
-                                  TaskEdit(uid: item.uid ?? ''),
-                                );
+                              if (_permissions?.canEdit ?? false) {
+                                if (kIsDesktop) {
+                                  GeneralDialog.showRTLSheet(
+                                    context,
+                                    TaskEdit(uid: item.uid ?? ''),
+                                  );
+                                } else {
+                                  Sheet.showSheet(
+                                    context,
+                                    widget: TaskEdit(uid: item.uid ?? ''),
+                                  );
+                                }
                               } else {
-                                Sheet.showSheet(
-                                  context,
-                                  widget: TaskEdit(uid: item.uid ?? ''),
-                                );
+                                if (kIsDesktop) {
+                                  GeneralDialog.showRTLSheet(
+                                    context,
+                                    TaskView(uid: item.uid ?? ''),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          TaskView(uid: item.uid ?? ''),
+                                    ),
+                                  );
+                                }
                               }
                             },
                             title: Text('#${item.taskNumber} ${item.taskName}'),

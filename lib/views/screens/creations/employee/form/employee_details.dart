@@ -595,11 +595,15 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
 
   Widget _buildDataPoint(String label, String value, IconData icon) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical:8.0),
+          child: Icon(
+            icon,
+            size: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(

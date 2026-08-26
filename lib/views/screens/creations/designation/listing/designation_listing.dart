@@ -63,6 +63,7 @@ class DesignationListingView extends StatefulWidget {
 class _DesignationListingViewState extends State<DesignationListingView> {
   final List<DesignationModel> _selectedDesignations = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
@@ -75,6 +76,7 @@ class _DesignationListingViewState extends State<DesignationListingView> {
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -108,6 +110,9 @@ class _DesignationListingViewState extends State<DesignationListingView> {
             }
 
             if (state is DesignationLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -324,8 +329,8 @@ class _DesignationListingViewState extends State<DesignationListingView> {
       children: [
         Row(
           children: [
-            (permissions?.canCreate ?? false)
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
                     onPressed: () async {
                       if (kIsMobile || width < 1000) {
                         Sheet.showSheet(
@@ -350,25 +355,11 @@ class _DesignationListingViewState extends State<DesignationListingView> {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: null,
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-                    label: Text(
-                      "Add Designation",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.grey300,
-                      foregroundColor: AppColors.grey600,
-                    ),
                   ),
             const SizedBox(width: 10),
             if (_selectedDesignations.isNotEmpty) ...[
-              (permissions?.canDelete ?? false)
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
                       label: Text(
                         "Delete",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -452,20 +443,6 @@ class _DesignationListingViewState extends State<DesignationListingView> {
                         backgroundColor: Theme.of(context).colorScheme.error,
                         foregroundColor: Theme.of(context).colorScheme.onError,
                       ),
-                    )
-                  : ElevatedButton.icon(
-                      label: Text(
-                        "Delete",
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-                      ),
-                      icon: Icon(Iconsax.trash),
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.grey400,
-                        foregroundColor: AppColors.white,
-                      ),
                     ),
             ],
           ],
@@ -525,8 +502,8 @@ class _DesignationListingViewState extends State<DesignationListingView> {
         DataCell(
           Row(
             children: [
-              (permissions?.canEdit ?? false)
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.edit),
                       onPressed: () {
                         if (kIsMobile || width < 1000) {
@@ -543,13 +520,9 @@ class _DesignationListingViewState extends State<DesignationListingView> {
                       },
                       color: AppColors.info,
                       splashRadius: 20,
-                    )
-                  : IconButton(
-                      icon: Icon(Iconsax.edit, color: AppColors.grey400),
-                      onPressed: null,
                     ),
-              (permissions?.canDelete ?? false)
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
                       icon: const Icon(Iconsax.trash),
                       color: AppColors.danger,
                       splashRadius: 20,
@@ -609,10 +582,6 @@ class _DesignationListingViewState extends State<DesignationListingView> {
                           );
                         }
                       },
-                    )
-                  : IconButton(
-                      icon: Icon(Iconsax.trash, color: AppColors.grey400),
-                      onPressed: null,
                     ),
             ],
           ),

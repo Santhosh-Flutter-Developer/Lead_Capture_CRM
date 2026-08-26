@@ -24,6 +24,13 @@ class PermissionService {
     }
   }
 
+  /// Returns permissions for [page], always pulled fresh from the
+  /// employee's current role in Firestore so that changes an admin makes
+  /// to a role show up immediately (next time this page is opened) instead
+  /// of waiting for the user to log out and back in, or hit manual sync.
+  ///
+  /// Falls back to the last synced values cached in SharedPreferences if
+  /// the live fetch fails (e.g. offline).
   static Future<PermissionModel?> getPermissions(String page) async {
     var isAdmin = await Spdb.isAdminLoggedIn();
     if (isAdmin) {
@@ -38,12 +45,40 @@ class PermissionService {
       );
     }
 
+    try {
+      final employee = await Spdb.getEmployee();
+      if (employee != null && employee.role.isNotEmpty) {
+        final role = await RoleService.getRole(uid: employee.role);
+
+        // Keep the local cache in sync so the offline fallback below
+        // (and anything else still reading the cache) stays fresh too.
+        await savePermissions(role.permissions);
+
+        final match = role.permissions.where((p) => p.page == page);
+        if (match.isEmpty) return null;
+        final permission = match.first;
+
+        if (permission.canCreate ||
+            permission.canEdit ||
+            permission.canDelete ||
+            permission.canView) {
+          return permission;
+        }
+        return null;
+      }
+    } catch (_) {
+      // Live fetch failed (e.g. offline) — fall back to cached values below.
+    }
+
+    return _getCachedPermissions(page);
+  }
+
+  static Future<PermissionModel?> _getCachedPermissions(String page) async {
     final prefs = await SharedPreferences.getInstance();
 
     final canCreate = prefs.getBool('${_createKey}_$page') ?? false;
     final canEdit = prefs.getBool('${_editKey}_$page') ?? false;
-    // Delete is admin-only — non-admin users never get delete permission.
-    const canDelete = false;
+    final canDelete = prefs.getBool('${_deleteKey}_$page') ?? false;
     final canView = prefs.getBool('${_viewKey}_$page') ?? false;
     final canExport = prefs.getBool('${_exportKey}_$page') ?? true;
     final canImport = prefs.getBool('${_importKey}_$page') ?? true;

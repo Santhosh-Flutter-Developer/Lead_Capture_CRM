@@ -169,7 +169,7 @@ class _AdminProfileState extends State<AdminProfile> {
     }
   }
 
-  void _viewFullImage(String imageUrl) {
+  void _viewFullImage(String imageUrl, {required bool canEdit}) {
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -203,13 +203,14 @@ class _AdminProfileState extends State<AdminProfile> {
                         icon: const Icon(Icons.close, color: Colors.white),
                         onPressed: () => Navigator.pop(context),
                       ),
-                      IconButton(
-                        icon: const Icon(Iconsax.trash, color: Colors.red),
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _removeProfileImage();
-                        },
-                      ),
+                      if (canEdit)
+                        IconButton(
+                          icon: const Icon(Iconsax.trash, color: Colors.red),
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _removeProfileImage();
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -265,18 +266,17 @@ class _AdminProfileState extends State<AdminProfile> {
               ),
             ),
             actions: [
-              IconButton(
-                onPressed: canEdit ?(){
-                   _openEdit(width: width);
-                } : null,
-                tooltip: canEdit ? 'Edit Admin' : 'No edit permission',
-                icon: Icon(
-                  Iconsax.edit,
-                  color: canEdit
-                      ? Theme.of(context).colorScheme.onSurface
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
+              if (canEdit)
+                IconButton(
+                  onPressed: () {
+                    _openEdit(width: width);
+                  },
+                  tooltip: 'Edit Admin',
+                  icon: Icon(
+                    Iconsax.edit,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
             ],
           ),
           body: SingleChildScrollView(
@@ -311,7 +311,7 @@ class _AdminProfileState extends State<AdminProfile> {
               alignment: Alignment.bottomRight,
               children: [
                 GestureDetector(
-                  onTap: hasImage ? () => _viewFullImage(image) : null,
+                  onTap: hasImage ? () => _viewFullImage(image, canEdit: canEdit) : null,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(

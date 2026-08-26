@@ -69,6 +69,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   late TabController _tabController;
   String? _currentUid;
   bool _isAdmin = false;
+  PermissionModel? _permissions;
 
   @override
   void initState() {
@@ -78,6 +79,12 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
     _tabController = TabController(length: 5, vsync: this);
     _loadOwnership();
     _refreshLead();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Leads');
+    if (mounted) setState(() {});
   }
 
   void _syncLeadCategory() {
@@ -320,7 +327,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          if (_isAdmin || _lead.createdBy.uid == _currentUid) ...[
+          if (_permissions?.canEdit ?? false) ...[
             _appBarButton(Iconsax.edit, "Edit", () async {
               if (kIsMobile || width < 1000) {
                 await Sheet.showSheet(
@@ -335,9 +342,10 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               }
               await _refreshLead();
             }),
+          ],
+          if (_isAdmin || (_permissions?.canDelete ?? false)) ...[
             const SizedBox(width: 8),
-            if (_isAdmin)
-              _appBarButton(Iconsax.trash, "Delete", () async {
+            _appBarButton(Iconsax.trash, "Delete", () async {
                 final result = await showDialog<bool>(
                   context: context,
                   builder: (context) => const ConfirmDialog(

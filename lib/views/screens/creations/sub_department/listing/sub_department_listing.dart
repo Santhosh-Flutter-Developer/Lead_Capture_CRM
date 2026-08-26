@@ -121,6 +121,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
   final List<SubDepartmentModel> _selectedSubDepartments = [];
 
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
 
   final ScrollController _hScrollController = ScrollController();
@@ -143,6 +144,8 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+
+    _permissionsLoaded = true;
 
     setState(() {});
 
@@ -209,6 +212,12 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
 
             if (state is SubDepartmentLoaded) {
+
+              if (!_permissionsLoaded) {
+
+                return const WaitingLoading();
+
+              }
 
               if (!(permissions?.canView ?? false)) {
 
@@ -628,7 +637,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
         _searchBox(onSearchChanged: onSearchChanged),
 
-        if (!kIsMobile && width >= 1000)
+        /*if (!kIsMobile && width >= 1000)
 
         Row(
 
@@ -668,7 +677,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
           ],
 
-        ),
+        ),*/
 
       ],
 
@@ -692,9 +701,8 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
           children: [
 
-            (permissions?.canCreate ?? false)
-
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
 
                     onPressed: () {
 
@@ -744,43 +752,14 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
                     ),
 
-                  )
-
-                : ElevatedButton.icon(
-
-                    onPressed: null,
-
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-
-                    label: Text(
-
-                      "Add $_pageTitle",
-
-                      style: Theme.of(
-
-                        context,
-
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-
-                    ),
-
-                    style: ElevatedButton.styleFrom(
-
-                      backgroundColor: AppColors.grey300,
-
-                      foregroundColor: AppColors.grey600,
-
-                    ),
-
                   ),
 
             const SizedBox(width: 10),
 
             if (_selectedSubDepartments.isNotEmpty) ...[
 
-              (permissions?.canDelete ?? false)
-
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
 
                       label: Text(
 
@@ -948,34 +927,6 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
                       ),
 
-                    )
-
-                  : ElevatedButton.icon(
-
-                      label: Text(
-
-                        "Delete",
-
-                        style: Theme.of(
-
-                          context,
-
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-
-                      ),
-
-                      icon: Icon(Iconsax.trash),
-
-                      onPressed: () {},
-
-                      style: ElevatedButton.styleFrom(
-
-                        backgroundColor: AppColors.grey400,
-
-                        foregroundColor: AppColors.white,
-
-                      ),
-
                     ),
 
             ],
@@ -1094,9 +1045,8 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
             children: [
 
-              (permissions?.canEdit ?? false)
-
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
 
                       icon: const Icon(Iconsax.edit),
 
@@ -1134,19 +1084,10 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
                       splashRadius: 20,
 
-                    )
-
-                  : IconButton(
-
-                      icon: Icon(Iconsax.edit, color: AppColors.grey400),
-
-                      onPressed: null,
-
                     ),
 
-              (permissions?.canDelete ?? false)
-
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
 
                       icon: const Icon(Iconsax.trash),
 
@@ -1267,14 +1208,6 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
                         }
 
                       },
-
-                    )
-
-                  : IconButton(
-
-                      icon: Icon(Iconsax.trash, color: AppColors.grey400),
-
-                      onPressed: null,
 
                     ),
 

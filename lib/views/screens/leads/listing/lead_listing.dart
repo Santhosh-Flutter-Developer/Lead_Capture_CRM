@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:leadcapture/utils/src/download_io.dart';
+import '/utils/src/download_io.dart'
+    if (dart.library.html) '/utils/src/download_web.dart'
+    show saveFileToDownloads;
 import 'package:leadcapture/views/screens/leads/listing/lead_upload.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
@@ -83,6 +86,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   final List<LeadModel> _leadsList = [];
   List<LeadModel> _filteredLeads = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   String? _currentUid;
   bool _isAdmin = false;
 
@@ -104,6 +108,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
+    _permissionsLoaded = true;
     setState(() {});
   }
 
@@ -167,6 +172,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               return const WaitingLoading();
             }
             if (state is LeadLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -985,45 +993,55 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           );
         }
 
-        actionButtons.add(const SizedBox(width: 10));
+        if (permissions?.canImport ?? false) {
+          actionButtons.add(const SizedBox(width: 10));
 
-        actionButtons.add(
-          OutlinedButton.icon(
-            onPressed: () async {
-              await Download.downloadFromAsset(
-                context,
-                "assets/templates/lead_upload_template.xlsx",
-                "Lead_Template.xlsx",
-              );
-            },
-            icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: const Text("Template"),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(color: Theme.of(context).colorScheme.primary),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          actionButtons.add(
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Download.downloadFromAsset(
+                  context,
+                  "assets/templates/lead_upload_template.xlsx",
+                  "Lead_Template.xlsx",
+                );
+              },
+              icon: const Icon(Icons.file_download_outlined, size: 18),
+              label: const Text("Template"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
             ),
-          ),
-        );
+          );
 
-        actionButtons.add(
-          OutlinedButton.icon(
-            onPressed: () async {
-              await Download.downloadFromAsset(
-                context,
-                "assets/templates/lead_upload_template_with_data.xlsx",
-                "Lead_Sample_Data.xlsx",
-              );
-            },
-            icon: const Icon(Icons.contact_page_outlined, size: 18),
-            label: const Text("Sample Data"),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.secondary,
-              side: BorderSide(color: Theme.of(context).colorScheme.secondary),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          actionButtons.add(
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Download.downloadFromAsset(
+                  context,
+                  "assets/templates/lead_upload_template_with_data.xlsx",
+                  "Lead_Sample_Data.xlsx",
+                );
+              },
+              icon: const Icon(Icons.contact_page_outlined, size: 18),
+              label: const Text("Sample Data"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.secondary,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
             ),
-          ),
-        );
+          );
+        }
 
         // EXPORT BUTTON
         if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
@@ -1120,7 +1138,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                     fileName:
                         'Leads_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
                   );
-                  openfile(filePath, context);
+                  if (!kIsWeb) openfile(filePath, context);
                 } catch (e) {
                   FlushBar.show(context, e.toString(), isSuccess: false);
                 }
@@ -1393,8 +1411,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         DataCell(
           Row(
             children: [
-              if ((permissions?.canEdit ?? false) &&
-                  (_isAdmin || lead.createdBy.uid == _currentUid)) ...[
+              if (permissions?.canEdit ?? false) ...[
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   color: Theme.of(context).colorScheme.primary,
@@ -1415,7 +1432,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
               ],
 
-              IconButton(
+              if (permissions?.canEdit ?? false)
+                IconButton(
                 icon: const Icon(Icons.autorenew_rounded),
                 tooltip: 'Convert $_pageTitle to Deal',
                 color: Theme.of(context).colorScheme.secondary,

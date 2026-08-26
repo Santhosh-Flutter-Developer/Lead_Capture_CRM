@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '/constants/constants.dart';
 import '/views/views.dart';
 import '/models/models.dart';
+import '/services/services.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
 
@@ -19,6 +20,18 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
   Calendar _currentView = Calendar.month;
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
+  PermissionModel? _permissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    _permissions = await PermissionService.getPermissions('Deals');
+    if (mounted) setState(() {});
+  }
 
   // --- HELPERS ---
 
@@ -230,6 +243,7 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
           child: InkWell(
             onTap: () async {
               if (count == 0) {
+                if (!(_permissions?.canCreate ?? false)) return;
                 if (kIsDesktop) {
                   GeneralDialog.showRTLSheet(context, DealCreate());
                 } else {
@@ -347,6 +361,7 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
                           .toList(),
                     );
                   } else {
+                    if (!(_permissions?.canCreate ?? false)) return;
                     if (kIsDesktop) {
                       GeneralDialog.showRTLSheet(context, DealCreate());
                     } else {
@@ -550,23 +565,24 @@ class _DealsCalendarListingState extends State<DealsCalendarListing> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, size: 20),
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                                if (kIsDesktop) {
-                                                  GeneralDialog.showRTLSheet(
-                                                    context,
-                                                    DealEdit(uid: item.uid ?? ''),
-                                                  );
-                                                } else {
-                                                  Sheet.showSheet(
-                                                    context,
-                                                    widget: DealEdit(uid: item.uid ?? ''),
-                                                  );
-                                                }
-                                              },
-                                            ),
+                                            if (_permissions?.canEdit ?? false)
+                                              IconButton(
+                                                icon: const Icon(Icons.edit, size: 20),
+                                                onPressed: () {
+                                                  Navigator.pop(context);
+                                                  if (kIsDesktop) {
+                                                    GeneralDialog.showRTLSheet(
+                                                      context,
+                                                      DealEdit(uid: item.uid ?? ''),
+                                                    );
+                                                  } else {
+                                                    Sheet.showSheet(
+                                                      context,
+                                                      widget: DealEdit(uid: item.uid ?? ''),
+                                                    );
+                                                  }
+                                                },
+                                              ),
                                             if (item.dealValue > 0)
                                               Text(
                                                 item.dealValue.toString(),

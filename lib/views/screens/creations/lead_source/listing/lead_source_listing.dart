@@ -123,6 +123,7 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
   final List<LeadSourceModel> _selectedLeadCategories = [];
 
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   bool _isAdmin = false;
 
   final ScrollController _hScrollController = ScrollController();
@@ -145,6 +146,8 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
     permissions = await PermissionService.getPermissions(_pageTitle);
     _isAdmin = await Spdb.isAdminLoggedIn();
+
+    _permissionsLoaded = true;
 
     setState(() {});
 
@@ -211,6 +214,12 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
 
             if (state is LeadSourceLoaded) {
+
+              if (!_permissionsLoaded) {
+
+                return const WaitingLoading();
+
+              }
 
               if (!(permissions?.canView ?? false)) {
 
@@ -630,9 +639,8 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
           children: [
 
-            (permissions?.canCreate ?? false)
-
-                ? ElevatedButton.icon(
+            if (permissions?.canCreate ?? false)
+                  ElevatedButton.icon(
 
                     onPressed: () {
 
@@ -682,43 +690,14 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
                     ),
 
-                  )
-
-                : ElevatedButton.icon(
-
-                    onPressed: null,
-
-                    icon: Icon(Icons.add, size: 18, color: AppColors.grey600),
-
-                    label: Text(
-
-                      "Add $_pageTitle",
-
-                      style: Theme.of(
-
-                        context,
-
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.grey600),
-
-                    ),
-
-                    style: ElevatedButton.styleFrom(
-
-                      backgroundColor: AppColors.grey300,
-
-                      foregroundColor: AppColors.grey600,
-
-                    ),
-
                   ),
 
             const SizedBox(width: 10),
 
             if (_selectedLeadCategories.isNotEmpty) ...[
 
-              (permissions?.canDelete ?? false)
-
-                  ? ElevatedButton.icon(
+              if (permissions?.canDelete ?? false)
+                    ElevatedButton.icon(
 
                       label: Text(
 
@@ -972,34 +951,6 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
                       ),
 
-                    )
-
-                  : ElevatedButton.icon(
-
-                      label: Text(
-
-                        "Delete",
-
-                        style: Theme.of(
-
-                          context,
-
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-
-                      ),
-
-                      icon: Icon(Iconsax.trash),
-
-                      onPressed: () {},
-
-                      style: ElevatedButton.styleFrom(
-
-                        backgroundColor: AppColors.grey400,
-
-                        foregroundColor: AppColors.white,
-
-                      ),
-
                     ),
 
             ],
@@ -1118,9 +1069,8 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
             children: [
 
-              (permissions?.canEdit ?? false)
-
-                  ? IconButton(
+              if (permissions?.canEdit ?? false)
+                    IconButton(
 
                       icon: const Icon(Iconsax.edit),
 
@@ -1154,25 +1104,10 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
 
                       splashRadius: 20,
 
-                    )
-
-                  : IconButton(
-
-                      icon: Icon(
-
-                        Iconsax.edit,
-
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                      ),
-
-                      onPressed: null,
-
                     ),
 
-              (permissions?.canDelete ?? false)
-
-                  ? IconButton(
+              if (permissions?.canDelete ?? false)
+                    IconButton(
 
                       icon: const Icon(Iconsax.trash),
 
@@ -1357,20 +1292,6 @@ class _LeadSourceListingViewState extends State<LeadSourceListingView> {
                         }
 
                       },
-
-                    )
-
-                  : IconButton(
-
-                      icon: Icon(
-
-                        Iconsax.trash,
-
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-
-                      ),
-
-                      onPressed: null,
 
                     ),
 
