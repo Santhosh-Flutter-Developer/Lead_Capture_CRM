@@ -973,11 +973,12 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            _chip(
-              CacheService.leadStatusByUid(lead.leadStatus)?.name ?? '',
-              AppColors.blue,
-            ),
-            _chip(lead.leadSource.name, AppColors.orange),
+            // _chip(
+            //   CacheService.leadStatusByUid(lead.leadStatus)?.name ?? '',
+            //   AppColors.blue,
+            // ),
+            if (lead.leadSource.name.isNotEmpty && lead.leadSource.name != '')
+              _chip(lead.leadSource.name, AppColors.orange),
             // ElevatedButton(
             //   onPressed: () async {
             //   final originalLead = lead.copyWith();

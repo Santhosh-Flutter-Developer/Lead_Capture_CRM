@@ -591,14 +591,14 @@ class _TaskListingViewState extends State<TaskListingView> {
                   ? AppColors.success
                   : task.hasStarted
                   ? AppColors.blue
-                  : AppColors.danger,
+                  : AppColors.warning,
             ),
             child: Text(
               task.completed
                   ? 'Completed'
                   : task.hasStarted
                   ? 'Started'
-                  : 'Not Started',
+                  : 'Pending',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall!.copyWith(color: AppColors.white),
