@@ -590,13 +590,9 @@ class _TaskCreateState extends State<TaskCreate> {
               runSpacing: 8,
               children: _selectedAttachments
                   .map(
-                    (file) => Chip(
-                      avatar: const Icon(Iconsax.document, size: 16),
-                      label: Text(
-                        file.name,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      onDeleted: () =>
+                    (file) => AttachmentPill(
+                      name: file.name,
+                      onRemove: () =>
                           setState(() => _selectedAttachments.remove(file)),
                     ),
                   )

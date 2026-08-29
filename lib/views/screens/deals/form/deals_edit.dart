@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
 import '/models/models.dart';
 import '/utils/utils.dart';
 import '/constants/constants.dart';
@@ -55,7 +53,7 @@ class _DealEditState extends State<DealEdit> {
   RegionModel? _regionModel;
   StateModel? _stateModel;
   CityModel? _cityModel;
-  final List<File> _selectedAttachments = [];
+  final List<PlatformFile> _selectedAttachments = [];
   List<FileModel> _uploadedAttachments = [];
 
   @override
@@ -721,7 +719,7 @@ class _DealEditState extends State<DealEdit> {
             onTap: () async {
               var files = await FilePick.pickFiles(context);
               if (files != null && files.isNotEmpty) {
-                _selectedAttachments.addAll(files as Iterable<File>);
+                _selectedAttachments.addAll(files);
                 setState(() {});
               }
             },
@@ -733,19 +731,16 @@ class _DealEditState extends State<DealEdit> {
           children: [..._selectedAttachments, ..._uploadedAttachments].map((
             file,
           ) {
-            return Chip(
-              label: file is File
-                  ? Text(
-                      path.basename(file.path),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
+            return AttachmentPill(
+              name: file is PlatformFile
+                  ? file.name
                   : file is FileModel
-                  ? Text(
-                      file.name,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  : const SizedBox(),
-              onDeleted: () async {
+                  ? file.name
+                  : '',
+              onOpen: file is FileModel
+                  ? () => previewAttachment(context, file)
+                  : null,
+              onRemove: () async {
                 if (file is FileModel) {
                   try {
                     futureLoading(context);
@@ -832,20 +827,27 @@ class _DealEditState extends State<DealEdit> {
 
         List<FileModel> attachments = _uploadedAttachments;
         if (_selectedAttachments.isNotEmpty) {
-          List<String> urls = await StorageService.uploadFilesInBatch(
-            files: _selectedAttachments,
+          final fileDataList = await Future.wait(
+            _selectedAttachments.map((pf) async {
+              final bytes = await platformFileToBytes(pf);
+              return (bytes: bytes, fileName: pf.name);
+            }),
+          );
+          List<String> urls = await StorageService.uploadBytesInBatch(
+            files: fileDataList,
             folder: StorageFolder.dealAttachments,
           );
 
           for (var i = 0; i < _selectedAttachments.length; i++) {
-            var j = _selectedAttachments[i];
-            var mimeType = lookupMimeType(j.path) ?? '';
+            final pf = _selectedAttachments[i];
+            final ext = pf.extension ?? '';
+            final mimeType = lookupMimeType(pf.name) ?? '';
 
             attachments.add(
               FileModel(
-                name: path.basename(j.path),
-                extension: path.basename(j.path).split('.').last,
-                size: j.lengthSync(),
+                name: pf.name,
+                extension: ext,
+                size: pf.size,
                 url: urls[i],
                 mimeType: mimeType,
               ),

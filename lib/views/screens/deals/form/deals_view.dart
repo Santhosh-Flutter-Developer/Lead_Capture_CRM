@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,8 +9,6 @@ import 'package:line_icons/line_icons.dart';
 import 'package:mime/mime.dart';
 
 import 'package:leadcapture/theme/src/app_colors.dart';
-
-import 'package:path/path.dart' as path;
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -301,7 +297,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
       if (confirm == true) {
 
-        _startUpload(files.cast<File>());
+        _startUpload(files);
 
       }
 
@@ -311,7 +307,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
 
 
-  void _startUpload(List<File> files) async {
+  void _startUpload(List<PlatformFile> files) async {
 
     try {
 
@@ -323,9 +319,21 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
       if (files.isNotEmpty) {
 
-        List<String> urls = await StorageService.uploadFilesInBatch(
+        final fileDataList = await Future.wait(
 
-          files: files,
+          files.map((pf) async {
+
+            final bytes = await platformFileToBytes(pf);
+
+            return (bytes: bytes, fileName: pf.name);
+
+          }),
+
+        );
+
+        List<String> urls = await StorageService.uploadBytesInBatch(
+
+          files: fileDataList,
 
           folder: StorageFolder.dealAttachments,
 
@@ -335,9 +343,9 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
         for (var i = 0; i < files.length; i++) {
 
-          var file = files[i];
+          final pf = files[i];
 
-          var mimeType = lookupMimeType(file.path) ?? '';
+          final mimeType = lookupMimeType(pf.name) ?? '';
 
 
 
@@ -345,11 +353,11 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
             FileModel(
 
-              name: path.basename(file.path),
+              name: pf.name,
 
-              extension: path.extension(file.path).replaceAll('.', ''),
+              extension: pf.extension ?? '',
 
-              size: file.lengthSync(),
+              size: pf.size,
 
               url: urls[i],
 
@@ -3789,7 +3797,7 @@ class _DealsViewState extends State<DealsView> with TickerProviderStateMixin {
 
                   trailing: const Icon(Iconsax.export_1, size: 16),
 
-                  onTap: () {},
+                  onTap: () => previewAttachment(context, file),
 
                 ),
 

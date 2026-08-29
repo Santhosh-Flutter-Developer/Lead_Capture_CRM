@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -50,7 +48,7 @@ class _TicketCreateState extends State<TicketCreate> {
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  final List<File> _selectedAttachments = [];
+  final List<PlatformFile> _selectedAttachments = [];
   DateTime? _selectedDeadline;
   DateTime? _selectedReminder;
 
@@ -742,10 +740,8 @@ class _TicketCreateState extends State<TicketCreate> {
           InkWell(
             onTap: () async {
               var files = await FilePick.pickFiles(context);
-              if (files != null) {
-                setState(
-                  () => _selectedAttachments.addAll(files as Iterable<File>),
-                );
+              if (files != null && files.isNotEmpty) {
+                setState(() => _selectedAttachments.addAll(files));
               }
             },
             child: Container(
@@ -787,13 +783,9 @@ class _TicketCreateState extends State<TicketCreate> {
               runSpacing: 8,
               children: _selectedAttachments
                   .map(
-                    (file) => Chip(
-                      avatar: const Icon(Iconsax.document, size: 16),
-                      label: Text(
-                        path.basename(file.path),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      onDeleted: () =>
+                    (file) => AttachmentPill(
+                      name: file.name,
+                      onRemove: () =>
                           setState(() => _selectedAttachments.remove(file)),
                     ),
                   )
@@ -854,19 +846,25 @@ class _TicketCreateState extends State<TicketCreate> {
         List<FileModel> attachments = [];
 
         if (_selectedAttachments.isNotEmpty) {
-          List<String> urls = await StorageService.uploadFilesInBatch(
-            files: _selectedAttachments,
+          final fileDataList = await Future.wait(
+            _selectedAttachments.map((pf) async {
+              final bytes = await platformFileToBytes(pf);
+              return (bytes: bytes, fileName: pf.name);
+            }),
+          );
+          List<String> urls = await StorageService.uploadBytesInBatch(
+            files: fileDataList,
             folder: StorageFolder.ticketAttachments,
           );
           for (var i = 0; i < _selectedAttachments.length; i++) {
-            var file = _selectedAttachments[i];
+            final pf = _selectedAttachments[i];
             attachments.add(
               FileModel(
-                name: path.basename(file.path),
-                extension: path.extension(file.path).replaceAll('.', ''),
-                size: file.lengthSync(),
+                name: pf.name,
+                extension: pf.extension ?? '',
+                size: pf.size,
                 url: urls[i],
-                mimeType: lookupMimeType(file.path) ?? '',
+                mimeType: lookupMimeType(pf.name) ?? '',
               ),
             );
           }

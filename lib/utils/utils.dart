@@ -9,6 +9,7 @@ export 'src/file_picker.dart';
 export 'src/download.dart';
 export 'src/message_provider.dart';
 export 'src/open_file.dart';
+export 'src/attachment_preview.dart';
 export 'src/platform.dart';
 export 'src/audio_recorder.dart';
 export 'src/pick_image.dart';

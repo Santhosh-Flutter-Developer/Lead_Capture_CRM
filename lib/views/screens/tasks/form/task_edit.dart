@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -45,7 +43,7 @@ class _TaskEditState extends State<TaskEdit> {
   String? _selectedSubTaskOf;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  final List<File> _selectedAttachments = [];
+  final List<PlatformFile> _selectedAttachments = [];
   List<FileModel> _existingAttachments = [];
   DateTime? _selectedDeadLine;
   DateTime? _selectedReminder;
@@ -626,8 +624,8 @@ class _TaskEditState extends State<TaskEdit> {
           InkWell(
             onTap: () async {
               var files = await FilePick.pickFiles(context);
-              if (files != null) {
-                setState(() => _selectedAttachments.addAll(files as Iterable<File>));
+              if (files != null && files.isNotEmpty) {
+                setState(() => _selectedAttachments.addAll(files));
               }
             },
             child: Container(
@@ -665,13 +663,10 @@ class _TaskEditState extends State<TaskEdit> {
               runSpacing: 8,
               children: _existingAttachments
                   .map(
-                    (file) => Chip(
-                      avatar: const Icon(Iconsax.document, size: 16),
-                      label: Text(
-                        file.name,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      onDeleted: () =>
+                    (file) => AttachmentPill(
+                      name: file.name,
+                      onOpen: () => previewAttachment(context, file),
+                      onRemove: () =>
                           setState(() => _existingAttachments.remove(file)),
                     ),
                   )
@@ -693,13 +688,9 @@ class _TaskEditState extends State<TaskEdit> {
               runSpacing: 8,
               children: _selectedAttachments
                   .map(
-                    (file) => Chip(
-                      avatar: const Icon(Iconsax.document, size: 16),
-                      label: Text(
-                        path.basename(file.path),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      onDeleted: () =>
+                    (file) => AttachmentPill(
+                      name: file.name,
+                      onRemove: () =>
                           setState(() => _selectedAttachments.remove(file)),
                     ),
                   )
@@ -761,20 +752,27 @@ class _TaskEditState extends State<TaskEdit> {
         List<FileModel> attachments = List<FileModel>.from(_existingAttachments);
 
         if (_selectedAttachments.isNotEmpty) {
-          List<String> urls = await StorageService.uploadFilesInBatch(
-            files: _selectedAttachments,
+          final fileDataList = await Future.wait(
+            _selectedAttachments.map((pf) async {
+              final bytes = await platformFileToBytes(pf);
+              return (bytes: bytes, fileName: pf.name);
+            }),
+          );
+          List<String> urls = await StorageService.uploadBytesInBatch(
+            files: fileDataList,
             folder: StorageFolder.taskAttachments,
           );
 
           for (var i = 0; i < _selectedAttachments.length; i++) {
-            var file = File(_selectedAttachments[i].path);
-            var mimeType = lookupMimeType(file.path) ?? '';
+            final pf = _selectedAttachments[i];
+            final ext = pf.extension ?? '';
+            final mimeType = lookupMimeType(pf.name) ?? '';
 
             attachments.add(
               FileModel(
-                name: path.basename(file.path),
-                extension: path.extension(file.path).replaceAll('.', ''),
-                size: file.lengthSync(),
+                name: pf.name,
+                extension: ext,
+                size: pf.size,
                 url: urls[i],
                 mimeType: mimeType,
               ),

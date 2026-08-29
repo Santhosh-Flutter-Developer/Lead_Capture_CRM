@@ -30,23 +30,16 @@ class StorageService {
     var cid = await Spdb.getCid();
     var uid = const Uuid().v1();
     String downloadLink;
-    final uploadDir = storage.child(
-      "$cid/${folder.name}/$uid.${file.path.split('.').last}",
-    );
+    final ext = file.path.split('.').last;
+    final uploadDir = storage.child("$cid/${folder.name}/$uid.$ext");
 
     try {
-      const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff'];
-      if (imageExtensions.contains(file.path.split('.').last)) {
-        UploadTask uploadTask = uploadDir.putData(
-          Uint8List.fromList(file.readAsBytesSync()),
-        );
-        TaskSnapshot taskSnapshot = await uploadTask;
-        downloadLink = await taskSnapshot.ref.getDownloadURL();
-        return downloadLink;
-      }
-
+      final metadata = SettableMetadata(contentType: _mimeFromExt(ext));
       final fileBytes = await file.readAsBytes();
-      UploadTask uploadTask = uploadDir.putData(Uint8List.fromList(fileBytes));
+      UploadTask uploadTask = uploadDir.putData(
+        Uint8List.fromList(fileBytes),
+        metadata,
+      );
       TaskSnapshot taskSnapshot = await uploadTask;
       downloadLink = await taskSnapshot.ref.getDownloadURL();
       return downloadLink;
@@ -137,11 +130,14 @@ class StorageService {
     List<Future<String>> uploadTasks = files.map((file) async {
       try {
         var uid = const Uuid().v1();
-        final uploadDir = storage.child(
-          "$cid/${folder.name}/$uid.${file.path.split('.').last}",
-        );
+        final ext = file.path.split('.').last;
+        final uploadDir = storage.child("$cid/${folder.name}/$uid.$ext");
+        final metadata = SettableMetadata(contentType: _mimeFromExt(ext));
         final fileBytes = await file.readAsBytes();
-        UploadTask uploadTask = uploadDir.putData(Uint8List.fromList(fileBytes));
+        UploadTask uploadTask = uploadDir.putData(
+          Uint8List.fromList(fileBytes),
+          metadata,
+        );
         TaskSnapshot taskSnapshot = await uploadTask;
         return await taskSnapshot.ref.getDownloadURL();
       } catch (e, st) {
@@ -201,12 +197,53 @@ class StorageService {
         return 'image/webp';
       case 'gif':
         return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      case 'tiff':
+        return 'image/tiff';
       case 'pdf':
         return 'application/pdf';
       case 'mp4':
         return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'mkv':
+        return 'video/x-matroska';
+      case 'webm':
+        return 'video/webm';
       case 'mp3':
         return 'audio/mpeg';
+      case 'wav':
+        return 'audio/wav';
+      case 'aac':
+        return 'audio/aac';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'ppt':
+        return 'application/vnd.ms-powerpoint';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'csv':
+        return 'text/csv';
+      case 'txt':
+        return 'text/plain';
+      case 'json':
+        return 'application/json';
+      case 'xml':
+        return 'application/xml';
+      case 'htm':
+      case 'html':
+        return 'text/html';
+      case 'zip':
+        return 'application/zip';
       default:
         return 'application/octet-stream';
     }

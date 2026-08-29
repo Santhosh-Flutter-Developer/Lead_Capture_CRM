@@ -19,4 +19,6 @@ export 'src/button.dart';
 export 'src/count_display.dart';
 export 'src/filter.dart';
 export 'src/submit_button.dart';
+export 'src/pdf_preview_page.dart';
+export 'src/attachment_pill.dart';
 

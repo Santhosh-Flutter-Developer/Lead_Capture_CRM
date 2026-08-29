@@ -523,9 +523,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
       itemBuilder: (context, index) {
         final file = _taskModel.attachments[index];
         return InkWell(
-          onTap: () async {
-            await Download.downloadFromUrl(context, file.url, file.name);
-          },
+          onTap: () => previewAttachment(context, file),
           child: Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,

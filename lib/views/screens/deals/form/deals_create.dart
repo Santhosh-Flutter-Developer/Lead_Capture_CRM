@@ -705,12 +705,9 @@ class _DealCreateState extends State<DealCreate> {
         Wrap(
           spacing: 8,
           children: _selectedAttachments.map((file) {
-            return Chip(
-              label: Text(
-                file.name,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              onDeleted: () {
+            return AttachmentPill(
+              name: file.name,
+              onRemove: () {
                 _selectedAttachments.remove(file);
                 setState(() {});
               },

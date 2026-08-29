@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
@@ -8,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '/utils/utils.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -19,7 +17,6 @@ import 'package:flutter/foundation.dart';
 import '/utils/src/download_io.dart'
     if (dart.library.html) '/utils/src/download_web.dart'
     show saveFileToDownloads;
-import 'package:path/path.dart' as path;
 
 class LeadsViewAppColors {
   static const Color primary = Color(0xFF2563EB);
@@ -114,60 +111,8 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  Future<void> _downloadAndOpenAttachment(FileModel file) async {
-    if (file.url.isEmpty) {
-      FlushBar.show(context, 'File URL is unavailable', isSuccess: false);
-      return;
-    }
-    await Download.downloadFromUrl(context, file.url, file.name);
-  }
-
-  Future<void> _openAttachmentInBrowser(FileModel file) async {
-    if (file.url.isEmpty) {
-      FlushBar.show(context, 'File URL is unavailable', isSuccess: false);
-      return;
-    }
-    final uri = Uri.tryParse(file.url);
-    if (uri == null ||
-        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        FlushBar.show(context, 'Could not open file', isSuccess: false);
-      }
-    }
-  }
-
   void _previewAttachment(FileModel file) {
-    if (file.url.isEmpty) {
-      FlushBar.show(context, 'File URL is unavailable', isSuccess: false);
-      return;
-    }
-
-    final mime = file.mimeType.toLowerCase();
-    final ext = file.extension.toLowerCase();
-
-    final imageExtensions = [
-      "png",
-      "jpg",
-      "jpeg",
-      "webp",
-      "bmp",
-      "gif",
-      "tiff",
-    ];
-    final videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
-    final audioExtensions = ['mp3', 'wav', 'aac'];
-
-    if (mime.startsWith('image/') || imageExtensions.contains(ext)) {
-      Navigate.route(context, GalleryScreen(images: [file], initialIndex: 0));
-    } else if (mime.startsWith('video/') || videoExtensions.contains(ext)) {
-      Navigate.route(context, VideoPlay(file: file));
-    } else if (mime.startsWith('audio/') || audioExtensions.contains(ext)) {
-      Navigate.route(context, AudioPlay(file: file));
-    } else if (ext == 'pdf') {
-      Navigate.route(context, PdfPreviewPage(file: file));
-    } else {
-      _openAttachmentInBrowser(file);
-    }
+    previewAttachment(context, file);
   }
 
   Future<void> _downloadNotes() async {
@@ -1839,27 +1784,8 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // IconButton(
-                      //   icon: const Icon(Iconsax.eye, size: 18),
-                      //   tooltip: 'Preview',
-                      //   onPressed: () => _previewAttachment(file),
-                      // ),
-                      IconButton(
-                        icon: const Icon(Iconsax.document_download, size: 18),
-                        tooltip: 'Download & Open',
-                        onPressed: () => _downloadAndOpenAttachment(file),
-                      ),
-                      // IconButton(
-                      //   icon: const Icon(Iconsax.export_1, size: 16),
-                      //   tooltip: 'Open in Browser',
-                      //   onPressed: () => _openAttachmentInBrowser(file),
-                      // ),
-                    ],
-                  ),
-                  onTap: () => _downloadAndOpenAttachment(file),
+                  trailing: const Icon(Iconsax.arrow_right_3, size: 16),
+                  onTap: () => _previewAttachment(file),
                 ),
               ),
             ),
@@ -2067,31 +1993,37 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       );
 
       if (confirm == true) {
-        _startUpload(files.cast<File>());
+        _startUpload(files);
       }
     }
   }
 
-  void _startUpload(List<File> files) async {
+  void _startUpload(List<PlatformFile> files) async {
     try {
       futureLoading(context);
       List<FileModel> attachments = [];
 
       if (files.isNotEmpty) {
-        List<String> urls = await StorageService.uploadFilesInBatch(
-          files: files,
+        final fileDataList = await Future.wait(
+          files.map((pf) async {
+            final bytes = await platformFileToBytes(pf);
+            return (bytes: bytes, fileName: pf.name);
+          }),
+        );
+        List<String> urls = await StorageService.uploadBytesInBatch(
+          files: fileDataList,
           folder: StorageFolder.leadAttachments,
         );
 
         for (var i = 0; i < files.length; i++) {
-          var file = files[i];
-          var mimeType = lookupMimeType(file.path) ?? '';
+          final pf = files[i];
+          final mimeType = lookupMimeType(pf.name) ?? '';
 
           attachments.add(
             FileModel(
-              name: path.basename(file.path),
-              extension: path.extension(file.path).replaceAll('.', ''),
-              size: file.lengthSync(),
+              name: pf.name,
+              extension: pf.extension ?? '',
+              size: pf.size,
               url: urls[i],
               mimeType: mimeType,
             ),
@@ -2487,35 +2419,6 @@ class _ScheduleLeadActivityDialogState
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class PdfPreviewPage extends StatelessWidget {
-  final FileModel file;
-  const PdfPreviewPage({super.key, required this.file});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          file.name,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Iconsax.document_download),
-            onPressed: () =>
-                Download.downloadFromUrl(context, file.url, file.name),
-          ),
-        ],
-      ),
-      body: SfPdfViewer.network(
-        file.url,
-        canShowScrollHead: true,
-        canShowScrollStatus: true,
       ),
     );
   }

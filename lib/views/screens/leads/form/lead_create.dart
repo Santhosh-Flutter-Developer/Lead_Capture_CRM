@@ -268,12 +268,9 @@ class _LeadCreateState extends State<LeadCreate> {
           alignment: WrapAlignment.start,
           crossAxisAlignment: WrapCrossAlignment.start,
           children: _selectedAttachments.map((file) {
-            return Chip(
-              label: Text(
-                file.name,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              onDeleted: () {
+            return AttachmentPill(
+              name: file.name,
+              onRemove: () {
                 _selectedAttachments.remove(file);
                 setState(() {});
               },

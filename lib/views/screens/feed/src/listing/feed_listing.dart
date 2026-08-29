@@ -857,13 +857,11 @@ class FeedCardState extends State<FeedCard> {
                                             ),
                                           ),
                                           TextButton(
-                                            onPressed: () async {
-                                              await Download.downloadFromUrl(
-                                                context,
-                                                file.url,
-                                                file.name,
-                                              );
-                                            },
+                                            onPressed: () =>
+                                                previewAttachment(
+                                                  context,
+                                                  file,
+                                                ),
                                             child: const Text('Open'),
                                           ),
                                         ],

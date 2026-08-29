@@ -402,9 +402,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
       runSpacing: 12,
       children: _ticketModel.attachments.map((file) {
         return InkWell(
-          onTap: () async {
-            await Download.downloadFromUrl(context, file.url, file.name);
-          },
+          onTap: () => previewAttachment(context, file),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

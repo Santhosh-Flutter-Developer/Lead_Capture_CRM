@@ -442,6 +442,7 @@ class _FeedEditState extends State<FeedEdit> {
                           ..._existingAttachments.map(
                             (fileModel) => _buildFileRow(
                               name: fileModel.name,
+                              onTap: () => previewAttachment(context, fileModel),
                               onRemove: () {
                                 setState(() {
                                   _existingAttachments.remove(fileModel);
@@ -517,8 +518,14 @@ class _FeedEditState extends State<FeedEdit> {
     );
   }
 
-  Widget _buildFileRow({required String name, required VoidCallback onRemove}) {
-    return Container(
+  Widget _buildFileRow({
+    required String name,
+    required VoidCallback onRemove,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -547,6 +554,7 @@ class _FeedEditState extends State<FeedEdit> {
             onPressed: onRemove,
           ),
         ],
+      ),
       ),
     );
   }

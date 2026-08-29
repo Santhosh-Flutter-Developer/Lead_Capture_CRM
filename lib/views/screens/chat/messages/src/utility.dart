@@ -201,7 +201,9 @@ class AttachmentPreview extends StatelessWidget {
   }
 
   Widget _buildDocument(FileModel e, BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () => previewAttachment(context, e),
+      child: Container(
       width: 220,
       margin: const EdgeInsets.all(4),
       padding: const EdgeInsets.all(10),
@@ -230,11 +232,13 @@ class AttachmentPreview extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          IconButton(
-            icon: const Icon(Iconsax.document_download, size: 18),
-            onPressed: () => Download.downloadFromUrl(context, e.url, e.name),
+          Icon(
+            Iconsax.arrow_right_3,
+            size: 16,
+            color: AppColors.grey,
           ),
         ],
+      ),
       ),
     );
   }
