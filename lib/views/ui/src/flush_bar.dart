@@ -18,6 +18,7 @@ class FlushBar {
     IconData? icon,
     Color? backgroundColor,
     Color? textColor,
+    Duration duration = const Duration(seconds: 5),
   }) {
     Flushbar(
       message: message,
@@ -28,7 +29,7 @@ class FlushBar {
               isSuccess ? Icons.check_circle : Icons.error,
               color: AppColors.white,
             ),
-      duration: const Duration(seconds: 5),
+      duration: duration,
       backgroundColor:
           backgroundColor ?? (isSuccess ? AppColors.success : AppColors.danger),
       margin: const EdgeInsets.all(12),

@@ -15,8 +15,65 @@ class LeadService {
     return 'lead_${leadUid}_activity_$activityUid';
   }
 
-  static Future<String> createLead({required LeadModel lead}) async {
+  /// Builds a normalized set of dedupe keys from raw field values: email,
+  /// mobile, and lead-name+company-name as a fallback so leads without an
+  /// email or mobile can still be matched. This is the single source of
+  /// truth for duplicate matching, shared by manual create, quick-add,
+  /// and bulk import (see LeadUpload's _duplicateKeysForRow).
+  static List<String> duplicateKeysFor({
+    String? email,
+    String? mobile,
+    String? leadName,
+    String? companyName,
+  }) {
+    final normEmail = (email ?? '').trim().toLowerCase();
+    final normMobile = (mobile ?? '').trim();
+    final normName = (leadName ?? '').trim().toLowerCase();
+    final normCompany = (companyName ?? '').trim().toLowerCase();
+
+    final keys = <String>[];
+    if (normEmail.isNotEmpty) keys.add('email:$normEmail');
+    if (normMobile.isNotEmpty) keys.add('mobile:$normMobile');
+    if (normName.isNotEmpty) keys.add('name:$normName|$normCompany');
+    return keys;
+  }
+
+  static List<String> duplicateKeysForLead(LeadModel lead) =>
+      duplicateKeysFor(
+        email: lead.leadEmail,
+        mobile: lead.companyMobile,
+        leadName: lead.leadName,
+        companyName: lead.companyName,
+      );
+
+  /// Returns true if [lead] matches an existing lead by email, mobile,
+  /// or lead-name+company-name. Pass [existingLeads] to reuse an
+  /// already-fetched list (e.g. during bulk import) and avoid refetching
+  /// all leads on every call.
+  static Future<bool> isDuplicateLead({
+    required LeadModel lead,
+    List<LeadModel>? existingLeads,
+  }) async {
+    final leads = existingLeads ?? await getAllLeads();
+    final existingKeys = <String>{
+      for (final l in leads) ...duplicateKeysForLead(l),
+    };
+    final newKeys = duplicateKeysForLead(lead);
+    return newKeys.any(existingKeys.contains);
+  }
+
+  static Future<String> createLead({
+    required LeadModel lead,
+    bool skipDuplicateCheck = false,
+  }) async {
     try {
+      if (!skipDuplicateCheck) {
+        final isDuplicate = await isDuplicateLead(lead: lead);
+        if (isDuplicate) {
+          throw 'This lead already exists (matching email, mobile number, or name & company).';
+        }
+      }
+
       var cid = await Spdb.getCid();
       var uid = await Spdb.getUid();
 
@@ -85,6 +142,9 @@ class LeadService {
     } catch (e, st) {
       debugPrint("Error creating lead: $e\n$st");
       await ErrorService.recordError(e, st);
+      if (e is String && e.startsWith('This lead already exists')) {
+        rethrow;
+      }
       throw 'Error creating lead: $e';
     }
   }

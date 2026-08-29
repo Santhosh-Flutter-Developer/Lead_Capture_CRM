@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -91,6 +92,47 @@ class _LeadUploadState extends State<LeadUpload> {
     return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
+  // Returns null if the row is valid, or a short reason string if it's not.
+  String? _rowInvalidReason(List<String> row) {
+    // Check required fields
+    if (row[0].trim().isEmpty ||
+        row[2].trim().isEmpty ||
+        row[4].trim().isEmpty ||
+        row[6].trim().isEmpty) {
+      return 'Missing required fields';
+    }
+
+    // Validate email format if provided
+    if (row[1].trim().isNotEmpty) {
+      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+      if (!emailRegex.hasMatch(row[1].trim())) {
+        return 'Invalid email format';
+      }
+    }
+
+    // Validate lead value is numeric if provided
+    if (row[5].trim().isNotEmpty) {
+      if (double.tryParse(row[5].trim()) == null) {
+        return 'Invalid lead value (must be a number)';
+      }
+    }
+
+    return null;
+  }
+
+  /// Builds a normalized set of keys used to detect duplicate leads.
+  /// Delegates to LeadService.duplicateKeysFor so the exact same
+  /// matching rules apply here, in the manual "Add Lead" form, and in
+  /// the Kanban quick-add flow.
+  List<String> _duplicateKeysForRow(List<String> row) {
+    return LeadService.duplicateKeysFor(
+      email: row[1],
+      mobile: row[8],
+      leadName: row[0],
+      companyName: row[7],
+    );
+  }
+
   void _uploadLeadData() async {
     try {
       if (_rows.isEmpty) return;
@@ -110,22 +152,38 @@ class _LeadUploadState extends State<LeadUpload> {
       int skippedCount = 0;
       final totalRows = _rows.length - 1;
 
+      // Tracks why a row was skipped, e.g. "Duplicate lead" -> 3 rows
+      final Map<String, int> skipReasons = {};
+      void recordSkip(String reason) {
+        skippedCount++;
+        skipReasons[reason] = (skipReasons[reason] ?? 0) + 1;
+      }
+
       // ✅ Load once
       final currentUser = await Spdb.getUser();
       final allCountries = await RegionService.getCountries();
+
+      // Load existing leads once so we can detect duplicates instead of
+      // re-adding leads that are already in the system.
+      final existingLeads = await LeadService.getAllLeads();
+      final existingKeys = <String>{
+        for (final lead in existingLeads) ...LeadService.duplicateKeysForLead(lead),
+      };
 
       for (var i = 1; i < _rows.length; i++) {
         final row = _rows[i];
 
         try {
-          final hasRequiredFields =
-              row[0].trim().isNotEmpty &&
-              row[2].trim().isNotEmpty &&
-              row[4].trim().isNotEmpty &&
-              row[6].trim().isNotEmpty;
+          final invalidReason = _rowInvalidReason(row);
+          if (invalidReason != null) {
+            recordSkip(invalidReason);
+            continue;
+          }
 
-          if (!hasRequiredFields) {
-            skippedCount++;
+          final rowKeys = _duplicateKeysForRow(row);
+          final isDuplicate = rowKeys.any(existingKeys.contains);
+          if (isDuplicate) {
+            recordSkip('Duplicate lead (already exists)');
             continue;
           }
 
@@ -134,7 +192,7 @@ class _LeadUploadState extends State<LeadUpload> {
           CityModel? city;
 
           if (row[9].trim().isNotEmpty) {
-            country = allCountries.firstWhere(
+            country = allCountries.firstWhereOrNull(
               (c) => c.name.toLowerCase() == row[9].trim().toLowerCase(),
             );
           }
@@ -144,7 +202,7 @@ class _LeadUploadState extends State<LeadUpload> {
               regionId: country.uid!,
             );
 
-            state = states.firstWhere(
+            state = states.firstWhereOrNull(
               (s) => s.name.toLowerCase() == row[10].trim().toLowerCase(),
             );
           }
@@ -155,7 +213,7 @@ class _LeadUploadState extends State<LeadUpload> {
               stateId: state.uid!,
             );
 
-            city = cities.firstWhere(
+            city = cities.firstWhereOrNull(
               (c) => c.name.toLowerCase() == row[11].trim().toLowerCase(),
             );
           }
@@ -206,11 +264,17 @@ class _LeadUploadState extends State<LeadUpload> {
             leadsConverted: false,
           );
 
-          await LeadService.createLead(lead: leadModel);
+          await LeadService.createLead(lead: leadModel, skipDuplicateCheck: true);
 
           uploadedCount++;
+          // Register this new lead's keys so a duplicate later in the same
+          // file is also caught, not just duplicates against existing data.
+          existingKeys.addAll(rowKeys);
         } catch (e, st) {
-          skippedCount++;
+          // Show the real error so future failures are self-diagnosing
+          // from the toast itself, instead of a generic "Upload error".
+          final reason = 'Upload error: ${e.toString().replaceFirst('Exception: ', '')}';
+          recordSkip(reason);
           debugPrint("Error uploading row ${i + 1}: $e\n$st");
         }
       }
@@ -218,13 +282,24 @@ class _LeadUploadState extends State<LeadUpload> {
       if (Navigator.canPop(context)) Navigator.pop(context);
       Navigator.pop(context, true);
 
+      final buffer = StringBuffer()
+        ..writeln("Upload Completed")
+        ..writeln("Total: $totalRows  •  Added: $uploadedCount  •  Skipped: $skippedCount");
+
+      if (skipReasons.isNotEmpty) {
+        final reasonLines = skipReasons.entries
+            .map((e) => "${e.key}: ${e.value}")
+            .join('\n');
+        buffer.write(reasonLines);
+      }
+
       FlushBar.show(
         context,
-        "Upload Completed\n"
-        "Total: $totalRows\n"
-        "Uploaded: $uploadedCount\n"
-        "Skipped: $skippedCount",
-        isSuccess: true,
+        buffer.toString().trimRight(),
+        isSuccess: uploadedCount > 0,
+        duration: skipReasons.isEmpty
+            ? const Duration(seconds: 5)
+            : Duration(seconds: 5 + skipReasons.length),
       );
     } catch (e) {
       if (Navigator.canPop(context)) Navigator.pop(context);
