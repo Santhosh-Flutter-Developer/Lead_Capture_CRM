@@ -219,6 +219,8 @@ class StorageService {
         return 'audio/wav';
       case 'aac':
         return 'audio/aac';
+      case 'm4a':
+        return 'audio/mp4';
       case 'doc':
         return 'application/msword';
       case 'docx':

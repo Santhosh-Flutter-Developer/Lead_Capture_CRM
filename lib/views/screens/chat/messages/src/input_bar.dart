@@ -28,6 +28,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   String _getMimeType(String ext) {
     ext = ext.toLowerCase();
+    // NOTE: previously referenced `imageExtensions`/`videoExtensions`/
+    // `audioExtensions` without defining them anywhere in scope — every
+    // other usage in this file declares its own local copy inside a
+    // different method, so this was an undefined-identifier compile error.
+    // 'm4a' is included so recorded voice notes (see AudioRecorder) are
+    // correctly classified as audio.
+    const imageExtensions = ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff"];
+    const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+    const audioExtensions = ['mp3', 'wav', 'aac', 'm4a'];
     if (imageExtensions.contains(ext)) return 'image/$ext';
     if (videoExtensions.contains(ext)) return 'video/$ext';
     if (audioExtensions.contains(ext)) return 'audio/$ext';
@@ -60,7 +69,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       allowedExtensions: [
         'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', // images
         'mp4', 'mov', 'avi', 'mkv', 'webm', // videos
-        'mp3', 'wav', 'aac', // audio
+        'mp3', 'wav', 'aac', 'm4a', // audio
         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', // documents
       ],
     );
@@ -373,16 +382,40 @@ class _ChatInputBarState extends State<ChatInputBar> {
     messageProvider.stopRecording();
     var output = await AudioRecorder.stopRecording();
     if (output != null && output.isNotEmpty) {
-      // Audio recorder returns a file path (native) or blob URL (web)
-      // Wrap as PlatformFile so _uploadFiles handles it uniformly
+      final name = 'recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      // AudioRecorder.stopRecording() returns a file path on native
+      // platforms and a browser blob: URL on web.
       if (!kIsWeb) {
         _pickedFiles.add(PlatformFile(
-          name: 'recording_${DateTime.now().millisecondsSinceEpoch}.m4a',
+          name: name,
           size: 0,
           path: output,
         ));
+      } else {
+        try {
+          // blob: URLs are only readable from within the browser that
+          // created them, so fetch the bytes now while the URL is alive,
+          // then wrap them as a PlatformFile so _uploadFiles can upload
+          // them the same way it uploads any other web-picked file.
+          final response = await http.get(Uri.parse(output));
+          if (response.statusCode == 200) {
+            _pickedFiles.add(PlatformFile(
+              name: name,
+              size: response.bodyBytes.length,
+              bytes: response.bodyBytes,
+            ));
+          } else {
+            throw Exception(
+              'Failed to read recorded audio (status ${response.statusCode})',
+            );
+          }
+        } catch (e, st) {
+          await ErrorService.recordError(e, st);
+          if (mounted) {
+            FlushBar.show(context, e.toString(), isSuccess: false);
+          }
+        }
       }
-      // Web blob URL audio upload not supported yet — skip silently
     }
     _stopTimer();
     setState(() {});

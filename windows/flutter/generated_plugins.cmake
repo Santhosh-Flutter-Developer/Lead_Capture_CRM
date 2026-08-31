@@ -13,6 +13,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   geolocator_windows
   local_notifier
   permission_handler_windows
+  record_windows
   screen_retriever_windows
   syncfusion_pdfviewer_windows
   tray_manager

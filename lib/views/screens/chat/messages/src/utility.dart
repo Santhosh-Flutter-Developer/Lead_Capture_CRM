@@ -571,8 +571,11 @@ class _VideoPlayState extends State<VideoPlay> {
   @override
   void initState() {
     super.initState();
-    // On Windows, use system player by default due to video_player limitations
-    if (Platform.isWindows) {
+    // On Windows, use system player by default due to video_player limitations.
+    // NOTE: uses the web-safe `kIsWindows` helper (lib/utils/src/platform.dart),
+    // not dart:io's `Platform.isWindows`, which throws
+    // `Unsupported operation: Platform._operatingSystem` on Flutter Web.
+    if (kIsWindows) {
       setState(() {
         _useSystemPlayer = true;
       });

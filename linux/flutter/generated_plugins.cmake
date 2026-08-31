@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_window_close
   local_notifier
   open_file_linux
+  record_linux
   screen_retriever_linux
   syncfusion_pdfviewer_linux
   tray_manager
