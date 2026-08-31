@@ -390,12 +390,23 @@ class AuthService {
     try {
       var cid = await Spdb.getCid();
 
-      var userRef = firebase.users
+      var userDoc = await firebase.users
           .doc(cid)
           .collection(Collections.employees.name)
-          .doc(uid);
+          .doc(uid)
+          .get();
 
-      var userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        // Not an employee — this uid may belong to an Admin account.
+        // Admin FCM tokens are stored under the admins collection instead
+        // (see _trackDevice), so fall back to look there too.
+        userDoc = await firebase.users
+            .doc(cid)
+            .collection(Collections.admins.name)
+            .doc(uid)
+            .get();
+      }
+
       if (!userDoc.exists) return [];
 
       var userData = userDoc.data();
