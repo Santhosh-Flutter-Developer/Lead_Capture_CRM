@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import '/views/views.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -329,14 +330,25 @@ class _ProjectCreateState extends State<ProjectCreate> {
           child: FormFields(
             label: 'Start Date',
             controller: _startDateController,
-            hintText: 'DD/MM/YYYY',
+            hintText: 'Select date & time',
             readOnly: true,
+            suffixIcon: const Icon(Iconsax.calendar_edit),
             onTap: () async {
               var selectedDate = await datePicker(context);
               if (selectedDate != null) {
-                _startDateController.text = selectedDate.formatDate;
-                _selectedStartDate = selectedDate;
-                setState(() {});
+                var selectedTime = await pickTime(context, null);
+                if (selectedTime != null) {
+                  var combined = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
+                  _startDateController.text = combined.formatDateTime;
+                  _selectedStartDate = combined;
+                  setState(() {});
+                }
               }
             },
           ),
@@ -346,14 +358,25 @@ class _ProjectCreateState extends State<ProjectCreate> {
           child: FormFields(
             label: 'End Date',
             controller: _endDateController,
-            hintText: 'DD/MM/YYYY',
+            hintText: 'Select date & time',
             readOnly: true,
+            suffixIcon: const Icon(Iconsax.calendar_edit),
             onTap: () async {
               var selectedDate = await datePicker(context);
               if (selectedDate != null) {
-                _endDateController.text = selectedDate.formatDate;
-                _selectedEndDate = selectedDate;
-                setState(() {});
+                var selectedTime = await pickTime(context, null);
+                if (selectedTime != null) {
+                  var combined = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
+                  _endDateController.text = combined.formatDateTime;
+                  _selectedEndDate = combined;
+                  setState(() {});
+                }
               }
             },
           ),
@@ -363,14 +386,25 @@ class _ProjectCreateState extends State<ProjectCreate> {
           child: FormFields(
             label: 'Deadline',
             controller: _deadlineController,
-            hintText: 'DD/MM/YYYY',
+            hintText: 'Select date & time',
             readOnly: true,
+            suffixIcon: const Icon(Iconsax.notification),
             onTap: () async {
               var selectedDate = await datePicker(context);
               if (selectedDate != null) {
-                _deadlineController.text = selectedDate.formatDate;
-                _selectedDeadlineDate = selectedDate;
-                setState(() {});
+                var selectedTime = await pickTime(context, null);
+                if (selectedTime != null) {
+                  var combined = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
+                  _deadlineController.text = combined.formatDateTime;
+                  _selectedDeadlineDate = combined;
+                  setState(() {});
+                }
               }
             },
           ),
