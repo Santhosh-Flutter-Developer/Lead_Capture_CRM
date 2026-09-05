@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:shimmer/shimmer.dart';
@@ -59,7 +60,8 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   String? _employeeType;
   String _outsideOffice = 'No';
 
-  File? _selectedProfileImage;
+  XFile? _selectedProfileImage;
+  Uint8List? _selectedProfileImageBytes;
   String? _profileImageUrl;
   bool _oldProfileImageRemoved = false;
 
@@ -502,13 +504,31 @@ class _EmployeeEditState extends State<EmployeeEdit> {
     }
   }
 
+  /// Cross-platform image picker (Android, iOS, Web, Windows).
+  ///
+  /// Previously this always called FlutterExifRotation.rotateImage() and
+  /// stored a dart:io File. FlutterExifRotation has no web implementation,
+  /// so on web it threw MissingPluginException("No implementation found for
+  /// method rotateImage on channel flutter_exif_rotation"). dart:io File is
+  /// also unsupported on web (Image.file() and File.readAsBytes() both fail
+  /// there). We now branch by platform and always end up with an XFile +
+  /// Uint8List, the same web-safe pattern used in employee_create.dart,
+  /// admin_edit.dart and client_edit.dart.
   Future<void> pickImage() async {
-    // On Windows: use file picker only
+    // On Windows: use file picker only (image_picker has no gallery/camera
+    // implementation on Windows).
     if (kIsWindows) {
       await _pickImageFromFile();
       return;
     }
 
+    if (kIsWeb) {
+      await _pickImageFromFile();
+      return;
+    }
+
+    // Android / iOS: show the camera vs gallery sheet, then rotate using
+    // EXIF data (flutter_exif_rotation only has native Android/iOS support).
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -554,10 +574,12 @@ class _EmployeeEditState extends State<EmployeeEdit> {
       );
       if (xFile == null) return;
       final rotated = await FlutterExifRotation.rotateImage(path: xFile.path);
+      final bytes = await rotated.readAsBytes();
 
       if (mounted) {
         setState(() {
-          _selectedProfileImage = rotated;
+          _selectedProfileImage = XFile(rotated.path);
+          _selectedProfileImageBytes = bytes;
           _markProfileImageReplaced();
         });
       }
@@ -569,25 +591,39 @@ class _EmployeeEditState extends State<EmployeeEdit> {
     }
   }
 
-  /// Windows-only: Pick an image file.
+  /// Web: file_picker with withData: true returns raw bytes directly, with
+  /// no blob: URL and no native plugin involved.
+  /// Windows: image_picker has no gallery implementation, so file_picker's
+  /// native file dialog is used, then bytes are read from the returned path.
   Future<void> _pickImageFromFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: kIsWeb,
         dialogTitle: 'Select a profile photo',
       );
 
       if (result == null || result.files.isEmpty) return;
+      final pf = result.files.single;
 
-      final pickedPath = result.files.single.path;
-      if (pickedPath == null) return;
-
-      final imageFile = File(pickedPath);
+      XFile imageFile;
+      Uint8List bytes;
+      if (kIsWeb) {
+        if (pf.bytes == null) return;
+        bytes = pf.bytes!;
+        imageFile = XFile.fromData(bytes, name: pf.name);
+      } else {
+        final pickedPath = pf.path;
+        if (pickedPath == null) return;
+        imageFile = XFile(pickedPath);
+        bytes = await imageFile.readAsBytes();
+      }
 
       if (mounted) {
         setState(() {
           _selectedProfileImage = imageFile;
+          _selectedProfileImageBytes = bytes;
           _markProfileImageReplaced();
         });
       }
@@ -625,8 +661,11 @@ class _EmployeeEditState extends State<EmployeeEdit> {
                           width: 130,
                           fit: BoxFit.cover,
                         )
-                      : Image.file(
-                          _selectedProfileImage!,
+                      : Image.memory(
+                          // Image.file() is not supported on Flutter Web, so
+                          // the preview must always come from the in-memory
+                          // bytes rather than the picked XFile/path.
+                          _selectedProfileImageBytes!,
                           height: 130,
                           width: 130,
                           fit: BoxFit.cover,
@@ -638,6 +677,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
                   child: GestureDetector(
                     onTap: () {
                       _selectedProfileImage = null;
+                      _selectedProfileImageBytes = null;
                       if (_profileImageUrl != null) {
                         _profileImageUrl = null;
                         _oldProfileImageRemoved = true;
@@ -1229,9 +1269,12 @@ class _EmployeeEditState extends State<EmployeeEdit> {
           String? profileImageUrl;
 
           if (_selectedProfileImage != null) {
-            profileImageUrl = await StorageService.uploadFile(
-              file: _selectedProfileImage!,
-              folder: StorageFolder.adminProfile,
+            // xFileToUploadUrl() works on all platforms: it reads bytes on
+            // web (no dart:io File involved) and uploads from the native
+            // path on Android/iOS/Windows.
+            profileImageUrl = await xFileToUploadUrl(
+              _selectedProfileImage!,
+              StorageFolder.adminProfile,
             );
           }
 
@@ -1287,9 +1330,9 @@ class _EmployeeEditState extends State<EmployeeEdit> {
           // - Use null if the image was explicitly removed
           String? profileImageUrl;
           if (_selectedProfileImage != null) {
-            profileImageUrl = await StorageService.uploadFile(
-              file: _selectedProfileImage!,
-              folder: StorageFolder.userPhotos,
+            profileImageUrl = await xFileToUploadUrl(
+              _selectedProfileImage!,
+              StorageFolder.userPhotos,
             );
           } else if (!_oldProfileImageRemoved) {
             profileImageUrl = _profileImageUrl;

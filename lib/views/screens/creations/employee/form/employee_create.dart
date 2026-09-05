@@ -144,12 +144,25 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
         if (pickedPath == null) return;
         imageFile = XFile(pickedPath);
       } else if (kIsWeb) {
-        // Web: image_picker's gallery source works fine on web.
-        imageFile = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-          imageQuality: 85,
+        // Web: use file_picker with bytes instead of
+        // ImagePicker().pickImage(imageQuality: ...). Passing imageQuality
+        // makes image_picker_for_web resize the image on a <canvas> and hand
+        // back an XFile backed by a blob: object URL; the later
+        // imageFile.readAsBytes() fetch of that blob URL can fail once the
+        // browser revokes it (reliably reproducible in InPrivate/Incognito),
+        // throwing "Could not load Blob from its URL. Has it been revoked?".
+        // file_picker's withData: true returns the raw bytes directly, with
+        // no intermediate blob URL to revoke.
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+          withData: true,
+          dialogTitle: 'Select a profile photo',
         );
-        if (imageFile == null) return;
+        if (result == null || result.files.isEmpty) return;
+        final pf = result.files.single;
+        if (pf.bytes == null) return;
+        imageFile = XFile.fromData(pf.bytes!, name: pf.name);
       } else {
         // Mobile/native desktop: gallery only, with EXIF rotation.
         final picked = await ImagePicker().pickImage(

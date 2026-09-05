@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:image_picker/image_picker.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/constants/constants.dart';
@@ -76,11 +75,17 @@ class _AdminProfileState extends State<AdminProfile> {
     final uid = _admin.uid;
     if (uid == null || uid.isEmpty) return;
 
-    final picker = ImagePicker();
-    final pickedImage = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 65,
-    );
+    // Use PickImage.pickFromGallery() instead of instantiating ImagePicker()
+    // directly. On web, ImagePicker().pickImage(imageQuality: ...) makes the
+    // plugin resize the image on a canvas and hand back an XFile backed by a
+    // blob: object URL. xFileToUploadUrl() -> xfile.readAsBytes() then fetches
+    // that blob URL, but the browser can revoke it first (this happens very
+    // reliably in InPrivate/Incognito windows), causing:
+    // "Exception: Could not load Blob from its URL. Has it been revoked?"
+    // PickImage.pickFromGallery() avoids this entirely on web by using
+    // file_picker with withData: true, which returns the raw bytes directly
+    // (via XFile.fromData) with no intermediate blob URL to revoke.
+    final pickedImage = await PickImage.pickFromGallery();
 
     if (pickedImage == null) return;
     FlushBar.show(context, "Uploading profile picture...");
