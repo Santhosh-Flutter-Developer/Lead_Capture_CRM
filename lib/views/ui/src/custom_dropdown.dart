@@ -100,7 +100,10 @@ class _CustomSearchableDropdownState<T>
     _focusNode.dispose();
     _searchFocus.dispose();
     _panelFocus.dispose();
-    _removeOverlay();
+    // Remove immediately (not via the delayed _removeOverlay() below) since
+    // the widget is going away right now regardless of any in-flight ripple.
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 
@@ -143,8 +146,26 @@ class _CustomSearchableDropdownState<T>
   }
 
   void _removeOverlay() {
-    _overlayEntry?.remove();
+    // A single post-frame callback isn't long enough: Material ink-splash
+    // effects on the tapped item (ListTile/InkWell) run over many frames via
+    // their own AnimationController/Ticker (Flutter's default ripple fade is
+    // ~225-300ms). Ripping the OverlayEntry's RenderObject tree out of the
+    // Overlay while that ticker is still firing on it is what produced the
+    // red screen: "Assertion failed ... debugNeedsLayout is not true".
+    // Waiting long enough for the ripple to finish before removing avoids
+    // this entirely. entry.remove() is also guarded because, if this dropdown
+    // is closed and reopened quickly, the entry may already have been
+    // removed/replaced by the time this timer fires.
+    final entry = _overlayEntry;
     _overlayEntry = null;
+    if (entry == null) return;
+    Future.delayed(const Duration(milliseconds: 300), () {
+      try {
+        entry.remove();
+      } catch (_) {
+        // Already removed (e.g. dispose() ran first) — safe to ignore.
+      }
+    });
   }
 
   void _toggle() {
@@ -726,9 +747,26 @@ class _CustomFutureSearchableDropdownState<T>
   final FocusNode _panelFocus = FocusNode();
   final TextEditingController _searchController = TextEditingController();
 
-  OverlayEntry? _overlayEntry;
+  // OverlayPortal replaces manual OverlayEntry insert()/remove() management.
+  // The previous implementation called Overlay.of(context).insert()/remove()
+  // imperatively, which tore the overlay's RenderObject subtree out of the
+  // tree mid-gesture (e.g. while a tapped ListTile's or "Done" button's ink
+  // response was still active), producing:
+  // "Assertion failed ... debugNeedsLayout is not true".
+  // OverlayPortal is the framework's own replacement for exactly this
+  // pattern (used internally by TextField's selection toolbar, Tooltip,
+  // etc.) and manages the overlay child's lifecycle safely and
+  // declaratively, so there's no remove-while-in-use race to work around.
+  final OverlayPortalController _overlayController = OverlayPortalController();
   bool _isOpen = false;
   bool _isLoading = false;
+
+  // Geometry computed once when the dropdown opens (needs the anchor's
+  // RenderBox, only reliably available at that point) and reused by
+  // _buildOverlayContent() on every rebuild while the portal is shown.
+  Size _anchorSize = Size.zero;
+  bool _preferBelow = true;
+  double _panelHeight = 280;
 
   List<T> _allItems = [];
   List<T> _filtered = [];
@@ -750,14 +788,12 @@ class _CustomFutureSearchableDropdownState<T>
     super.didUpdateWidget(oldWidget);
     if (widget.initialValue != oldWidget.initialValue) {
       _selected = widget.initialValue;
-      _overlayEntry?.markNeedsBuild();
       setState(() {});
     }
     if (widget.initialValues != oldWidget.initialValues) {
       _selectedList = widget.initialValues == null
           ? <T>{}
           : widget.initialValues!.cast<T>().toSet();
-      _overlayEntry?.markNeedsBuild();
       setState(() {});
     }
   }
@@ -769,7 +805,6 @@ class _CustomFutureSearchableDropdownState<T>
     _focusNode.dispose();
     _searchFocus.dispose();
     _panelFocus.dispose();
-    _removeOverlay();
     super.dispose();
   }
 
@@ -777,7 +812,6 @@ class _CustomFutureSearchableDropdownState<T>
     if (_allItems.isNotEmpty) return;
 
     setState(() => _isLoading = true);
-    _overlayEntry?.markNeedsBuild();
 
     try {
       final items = await widget.asyncItems();
@@ -787,24 +821,45 @@ class _CustomFutureSearchableDropdownState<T>
           _filtered = List<T>.from(_allItems);
           _isLoading = false;
         });
-        _overlayEntry?.markNeedsBuild();
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _overlayEntry?.markNeedsBuild();
       }
     }
+  }
+
+  /// Computes where the panel should open (above/below the anchor) and how
+  /// tall it can be. Needs the anchor's RenderBox, so it must run while the
+  /// anchor is still the widget that was tapped (i.e. from _open()), not
+  /// lazily inside the overlay builder.
+  void _computeOverlayGeometry() {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final globalTopLeft = renderBox.localToGlobal(Offset.zero);
+    final media = MediaQuery.of(context);
+
+    final availableBelow =
+        media.size.height - (globalTopLeft.dy + size.height) - 8.0;
+    final availableAbove = globalTopLeft.dy - media.padding.top - 8.0;
+    final preferBelow =
+        availableBelow >= math.min(widget.maxPanelHeight, availableAbove);
+    final double panelHeight = preferBelow
+        ? math.min(widget.maxPanelHeight, availableBelow)
+        : math.min(widget.maxPanelHeight, availableAbove);
+
+    _anchorSize = size;
+    _preferBelow = preferBelow;
+    _panelHeight = panelHeight;
   }
 
   void _open() {
     if (_isOpen) return;
 
     _filtered = List<T>.from(_allItems);
-
-    _overlayEntry = _createOverlay();
-    Overlay.of(context).insert(_overlayEntry!);
+    _computeOverlayGeometry();
     setState(() => _isOpen = true);
+    _overlayController.show();
 
     _loadItems();
 
@@ -818,17 +873,12 @@ class _CustomFutureSearchableDropdownState<T>
 
   void _close({bool returnFocus = true}) {
     if (!_isOpen) return;
-    _removeOverlay();
+    _overlayController.hide();
     setState(() {
       _isOpen = false;
       _searchController.clear();
     });
     if (returnFocus) _focusNode.requestFocus();
-  }
-
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
   }
 
   void _toggle() {
@@ -845,13 +895,7 @@ class _CustomFutureSearchableDropdownState<T>
         if (!_selectedList.add(item)) {
           _selectedList.remove(item);
         }
-        // if (_selectedList.contains(item)) {
-        //   _selectedList.remove(item);
-        // } else {
-        //   _selectedList.add(item);
-        // }
       });
-      _overlayEntry?.markNeedsBuild();
       widget.onChangedList?.call(List<T>.from(_selectedList));
     } else {
       widget.onChanged?.call(item);
@@ -875,171 +919,146 @@ class _CustomFutureSearchableDropdownState<T>
         }).toList();
       }
     });
-
-    if (_overlayEntry != null) _overlayEntry!.markNeedsBuild();
   }
 
-  OverlayEntry _createOverlay() {
-    final renderBox = context.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-    final globalTopLeft = renderBox.localToGlobal(Offset.zero);
-    final media = MediaQuery.of(context);
-
-    final availableBelow =
-        media.size.height - (globalTopLeft.dy + size.height) - 8.0;
-    final availableAbove = globalTopLeft.dy - media.padding.top - 8.0;
-    final preferBelow =
-        availableBelow >= math.min(widget.maxPanelHeight, availableAbove);
-    final double panelHeight = preferBelow
-        ? math.min(widget.maxPanelHeight, availableBelow)
-        : math.min(widget.maxPanelHeight, availableAbove);
-
-    return OverlayEntry(
-      builder: (context) {
-        return Stack(
-          children: [
-            GestureDetector(
-              onTap: () => _close(returnFocus: false),
-              behavior: HitTestBehavior.translucent,
-              child: Container(color: Colors.transparent),
-            ),
-            CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              targetAnchor: preferBelow
-                  ? Alignment.bottomLeft
-                  : Alignment.topLeft,
-              followerAnchor: preferBelow
-                  ? Alignment.topLeft
-                  : Alignment.bottomLeft,
-              offset: Offset(0, preferBelow ? 6.0 : -6.0),
-              child: Material(
-                elevation: 8,
+  Widget _buildOverlayContent(BuildContext context) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: () => _close(returnFocus: false),
+          behavior: HitTestBehavior.translucent,
+          child: Container(color: Colors.transparent),
+        ),
+        CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          targetAnchor: _preferBelow ? Alignment.bottomLeft : Alignment.topLeft,
+          followerAnchor: _preferBelow
+              ? Alignment.topLeft
+              : Alignment.bottomLeft,
+          offset: Offset(0, _preferBelow ? 6.0 : -6.0),
+          child: Material(
+            elevation: 8,
+            borderRadius: widget.borderRadius,
+            child: Container(
+              width: _anchorSize.width,
+              constraints: BoxConstraints(maxHeight: _panelHeight),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: widget.borderRadius,
-                child: Container(
-                  width: size.width,
-                  constraints: BoxConstraints(maxHeight: panelHeight),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: widget.borderRadius,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: SizedBox(
-                          height: 36,
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocus,
-                            style: Theme.of(context).textTheme.bodySmall,
-                            decoration: InputDecoration(
-                              hintText: 'Search...',
-                              prefixIcon: const Icon(Icons.search, size: 18),
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
+                  if (_isLoading)
+                    Expanded(
+                      child:
+                          widget.loadingWidget ??
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
                               ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                            ),
+                          ),
+                    )
+                  else if (_filtered.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child:
+                          widget.emptyWidget ?? const Text('No items found'),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final item = _filtered[index];
+                          final label =
+                              widget.itemAsString?.call(item) ??
+                              item.toString();
+                          final bool isSelected = widget.multiSelect
+                              ? _selectedList.contains(item)
+                              : item == _selected;
+
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              label,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            trailing: isSelected
+                                ? Icon(
+                                    Icons.check,
+                                    color: Theme.of(context).primaryColor,
+                                    size: 18,
+                                  )
+                                : null,
+                            selected: isSelected,
+                            onTap: () => _onItemSelected(item),
+                          );
+                        },
+                      ),
+                    ),
+                  if (widget.multiSelect &&
+                      !_isLoading &&
+                      _allItems.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => _close(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          child: const Text(
+                            "Done",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                      if (_isLoading)
-                        Expanded(
-                          child:
-                              widget.loadingWidget ??
-                              const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(20.0),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                        )
-                      else if (_filtered.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child:
-                              widget.emptyWidget ??
-                              const Text('No items found'),
-                        )
-                      else
-                        Flexible(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            padding: EdgeInsets.zero,
-                            itemCount: _filtered.length,
-                            itemBuilder: (context, index) {
-                              final item = _filtered[index];
-                              final label =
-                                  widget.itemAsString?.call(item) ??
-                                  item.toString();
-                              final bool isSelected = widget.multiSelect
-                                  ? _selectedList.contains(item)
-                                  : item == _selected;
-
-                              return ListTile(
-                                dense: true,
-                                title: Text(
-                                  label,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                trailing: isSelected
-                                    ? Icon(
-                                        Icons.check,
-                                        color: Theme.of(context).primaryColor,
-                                        size: 18,
-                                      )
-                                    : null,
-                                selected: isSelected,
-                                onTap: () => _onItemSelected(item),
-                              );
-                            },
-                          ),
-                        ),
-                      if (widget.multiSelect &&
-                          !_isLoading &&
-                          _allItems.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () => _close(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                              ),
-                              child: const Text(
-                                "Done",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                    ),
+                ],
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
@@ -1139,43 +1158,49 @@ class _CustomFutureSearchableDropdownState<T>
               ),
               const SizedBox(height: 8),
             ],
-            CompositedTransformTarget(
-              link: _layerLink,
-              child: Focus(
-                focusNode: _focusNode,
-                onFocusChange: (hasFocus) => setState(() {}),
-                child: GestureDetector(
-                  onTap: _toggle,
-                  child: Container(
-                    padding: widget.padding,
-                    height: 33, // Match fixed dropdown size
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      border: Border.all(
-                        color: _focusNode.hasFocus
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.outlineVariant,
-                        width: _focusNode.hasFocus
-                            ? 2
-                            : 1, // Match fixed dropdown border logic
+            OverlayPortal(
+              controller: _overlayController,
+              overlayChildBuilder: _buildOverlayContent,
+              child: CompositedTransformTarget(
+                link: _layerLink,
+                child: Focus(
+                  focusNode: _focusNode,
+                  onFocusChange: (hasFocus) => setState(() {}),
+                  child: GestureDetector(
+                    onTap: _toggle,
+                    child: Container(
+                      padding: widget.padding,
+                      height: 33, // Match fixed dropdown size
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border.all(
+                          color: _focusNode.hasFocus
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outlineVariant,
+                          width: _focusNode.hasFocus
+                              ? 2
+                              : 1, // Match fixed dropdown border logic
+                        ),
+                        borderRadius: widget.borderRadius,
                       ),
-                      borderRadius: widget.borderRadius,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildActivatorContent(
-                            displayText,
-                            hasSelection,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildActivatorContent(
+                              displayText,
+                              hasSelection,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                          color: Colors.grey,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Icon(
+                            _isOpen
+                                ? Icons.arrow_drop_up
+                                : Icons.arrow_drop_down,
+                            color: Colors.grey,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
