@@ -27,7 +27,9 @@ class _FeedCreateState extends State<FeedCreate> {
   List<TextEditingController> _pollOptionControllers = [];
 
   late Future _future;
-  AdminModel? _admin;
+  String? _currentUid;
+  String? _currentName;
+  String? _currentAvatar;
 
   @override
   void initState() {
@@ -37,10 +39,28 @@ class _FeedCreateState extends State<FeedCreate> {
   }
 
   Future<void> _init() async {
+    // Previously this always called AdminService.getAdmin(uid: uid),
+    // regardless of who was actually logged in. For an employee login,
+    // there is no matching Admin document, so the lookup silently returned
+    // null — leaving the composer showing "N/A" and posting an empty
+    // authorName, which the feed list then displayed as "Unknown user".
+    // isAdmin was already being fetched here but never actually used to
+    // pick which collection to query — fetch from the matching service
+    // instead so employee posts carry the poster's real name and avatar.
     var isAdmin = await Spdb.isAdminLoggedIn();
     var uid = await Spdb.getUid();
     if (uid != null) {
-      _admin = await AdminService.getAdmin(uid: uid);
+      if (isAdmin) {
+        final admin = await AdminService.getAdmin(uid: uid);
+        _currentUid = admin?.uid;
+        _currentName = admin?.name;
+        _currentAvatar = admin?.profileImageUrl;
+      } else {
+        final employee = await EmployeeService.getEmployee(uid: uid);
+        _currentUid = employee?.uid;
+        _currentName = employee?.name;
+        _currentAvatar = employee?.profileImageUrl;
+      }
     }
     setState(() {});
   }
@@ -199,9 +219,9 @@ class _FeedCreateState extends State<FeedCreate> {
 
       // Construct FeedModel
       final feedModel = FeedModel(
-        authorId: _admin?.uid ?? '',
-        authorName: _admin?.name ?? '',
-        authorAvatar: _admin?.profileImageUrl ?? '',
+        authorId: _currentUid ?? '',
+        authorName: _currentName ?? '',
+        authorAvatar: _currentAvatar ?? '',
         content: _contentController.text,
         createdAt: DateTime.now(),
         mediaImages: mediaImages,
@@ -312,13 +332,13 @@ class _FeedCreateState extends State<FeedCreate> {
                             CircleAvatar(
                               radius: 22,
                               backgroundImage: NetworkImage(
-                                _admin?.profileImageUrl ??
+                                _currentAvatar ??
                                     AppStrings.emptyProfilePhotoUrl,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              _admin?.name ?? 'N/A',
+                              _currentName ?? 'N/A',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,

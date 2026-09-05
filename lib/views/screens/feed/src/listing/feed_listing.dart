@@ -211,11 +211,33 @@ class FeedCardState extends State<FeedCard> {
   }
 
   Future<_CommentAuthorDisplay?> _loadCommentAuthorDisplay(String uid) async {
-    final cachedUser = CacheService.adminByUid(uid);
-    if (cachedUser != null) {
+    // This only ever checked the Admin cache/service, so any post or
+    // comment authored by an Employee (not present in the Admin
+    // collection) fell through to the 'Unknown user' placeholder even
+    // though the employee's profile does exist. Check the employee cache
+    // and service too, matching the adminByUid/employeeByUid pattern
+    // already used elsewhere (see pinned_messages_bar.dart).
+    final cachedEmployee = CacheService.employeeByUid(uid);
+    if (cachedEmployee != null) {
       return _CommentAuthorDisplay(
-        name: cachedUser.name,
-        avatar: cachedUser.profileImageUrl ?? '',
+        name: cachedEmployee.name,
+        avatar: cachedEmployee.profileImageUrl ?? '',
+      );
+    }
+
+    final cachedAdmin = CacheService.adminByUid(uid);
+    if (cachedAdmin != null) {
+      return _CommentAuthorDisplay(
+        name: cachedAdmin.name,
+        avatar: cachedAdmin.profileImageUrl ?? '',
+      );
+    }
+
+    final employee = await EmployeeService.getEmployee(uid: uid);
+    if (employee != null) {
+      return _CommentAuthorDisplay(
+        name: employee.name,
+        avatar: employee.profileImageUrl ?? '',
       );
     }
 
@@ -1194,8 +1216,17 @@ class FeedCardState extends State<FeedCard> {
                                                     admin?.profileImageUrl ??
                                                     '';
                                               } else {
+                                                // Bug fix: this previously
+                                                // called AdminService.getAdmin
+                                                // here too, so an employee's
+                                                // uid (not present in the
+                                                // Admin collection) always
+                                                // resolved to null, making
+                                                // every employee comment show
+                                                // as "Anonymous".
                                                 final employee =
-                                                    await AdminService.getAdmin(
+                                                    await EmployeeService
+                                                        .getEmployee(
                                                       uid: uid,
                                                     );
                                                 authorName =
@@ -1500,7 +1531,15 @@ class FeedCardState extends State<FeedCard> {
                     ],
                   ),
                 ),
-                if (_isAdmin)
+                // Bug fix: this previously showed the "..." edit/delete menu
+                // for any admin on every post, regardless of who actually
+                // created it. Tapping "Delete Post" on someone else's post
+                // then failed server-side with "Only post creator can delete
+                // this post" — a confusing dead-end instead of the option
+                // simply not being there. Only the post's own creator should
+                // see this menu at all.
+                if (widget.currentUserUid != null &&
+                    widget.currentUserUid == widget.feed.authorId)
                   PopupMenuButton<String>(
                     icon: Icon(
                       Iconsax.more,
