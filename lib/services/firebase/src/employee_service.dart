@@ -99,6 +99,57 @@ class EmployeeService {
     }
   }
 
+  /// Builds a normalized set of dedupe keys from raw field values:
+  /// employeeId, email, and mobile number. This is the single source of
+  /// truth for duplicate matching during bulk import, mirroring the
+  /// approach used for leads (see LeadService.duplicateKeysFor) so a
+  /// whole file can be checked against one in-memory set instead of the
+  /// three Firestore round trips per row that checkEmployeeExists does
+  /// for the single-employee form.
+  static List<String> duplicateKeysFor({
+    String? employeeId,
+    String? email,
+    String? mobileNumber,
+  }) {
+    final normId = (employeeId ?? '').trim().toLowerCase();
+    final normEmail = (email ?? '').trim().toLowerCase();
+    final normMobile = (mobileNumber ?? '').trim();
+
+    final keys = <String>[];
+    if (normId.isNotEmpty) keys.add('employeeId:$normId');
+    if (normEmail.isNotEmpty) keys.add('email:$normEmail');
+    if (normMobile.isNotEmpty) keys.add('mobile:$normMobile');
+    return keys;
+  }
+
+  static List<String> duplicateKeysForEmployee(EmployeeModel employee) =>
+      duplicateKeysFor(
+        employeeId: employee.employeeId,
+        email: employee.email,
+        mobileNumber: employee.mobileNumber,
+      );
+
+  /// Fetches every employee (active and inactive) so bulk import can
+  /// detect duplicates against the full roster — not just currently
+  /// active staff, which is all getAllEmployees() returns.
+  static Future<List<EmployeeModel>> getAllEmployeesForDuplicateCheck() async {
+    try {
+      var cid = await Spdb.getCid();
+      var querySnapshot = await firebase.users
+          .doc(cid)
+          .collection(Collections.employees.name)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => EmployeeModel.fromMap(doc.id, doc.data()))
+          .toList();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      throw 'Error fetching employees: $e';
+    }
+  }
+
   static Future<void> createEmployee({required EmployeeModel employee}) async {
     try {
       var cid = await Spdb.getCid();

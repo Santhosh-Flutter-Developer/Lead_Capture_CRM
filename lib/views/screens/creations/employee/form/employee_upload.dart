@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -32,6 +32,7 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
         type: FileType.custom,
         allowedExtensions: ['csv', 'xlsx'],
         allowMultiple: false,
+        withData: true,
       );
 
       if (result == null) {
@@ -42,15 +43,18 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
       final file = result.files.first;
       final ext = file.extension?.toLowerCase();
 
-      // Mocking the read logic so the UI works without your local files.
-      // UNCOMMENT your actual logic below to use real readers.
-
-      final path = file.path;
-      if (path == null) throw Exception('Platform returned no file path.');
-      final bytes = await File(path).readAsBytes();
+      // Previously this read the file via dart:io's File(path).readAsBytes().
+      // dart:io has no real filesystem on Flutter Web, so File(...) is a
+      // stub there — touching it throws "Unsupported operation:
+      // _Namespace" the instant a file is picked, silently resetting the
+      // screen back to the empty upload zone. Request the bytes directly
+      // from file_picker instead (withData: true above), matching the
+      // approach already used for lead uploads.
+      final bytes = file.bytes;
+      if (bytes == null) throw Exception('Could not read file bytes.');
       List<List<String>> rows = [];
       if (ext == 'csv') {
-        final str = String.fromCharCodes(bytes);
+        final str = utf8.decode(bytes);
         rows = CsvReader().parse(str);
       } else if (ext == 'xlsx') {
         rows = await XlsxReader().readFromBytes(bytes);
@@ -457,6 +461,25 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
       // assuming row 0 is header
       final totalRows = _rows.length - 1;
 
+      // Tracks why a row was skipped, e.g. "Duplicate employee" -> 3 rows,
+      // so the closing toast can show a reason breakdown like the leads
+      // import does, instead of a bare added/skipped count.
+      final Map<String, int> skipReasons = {};
+      void recordSkip(String reason) {
+        skippedCount++;
+        skipReasons[reason] = (skipReasons[reason] ?? 0) + 1;
+      }
+
+      // Load every existing employee once so duplicates can be checked
+      // in-memory against the whole file, instead of hitting Firestore
+      // three times per row the way the single-employee form does.
+      final existingEmployees =
+          await EmployeeService.getAllEmployeesForDuplicateCheck();
+      final existingKeys = <String>{
+        for (final emp in existingEmployees)
+          ...EmployeeService.duplicateKeysForEmployee(emp),
+      };
+
       for (var i = 1; i < _rows.length; i++) {
         final row = _rows[i];
 
@@ -470,7 +493,18 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
               row[11].trim().isNotEmpty; // role
 
           if (!hasRequiredFields) {
-            skippedCount++;
+            recordSkip('Missing required fields');
+            continue;
+          }
+
+          final rowKeys = EmployeeService.duplicateKeysFor(
+            employeeId: row[0],
+            email: row[2],
+            mobileNumber: row[7],
+          );
+          final isDuplicate = rowKeys.any(existingKeys.contains);
+          if (isDuplicate) {
+            recordSkip('Duplicate employee (already exists)');
             continue;
           }
 
@@ -570,8 +604,16 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
 
           await EmployeeService.createEmployee(employee: employeeModel);
           uploadedCount++;
+          // Register this new employee's keys so a duplicate later in the
+          // same file is also caught, not just duplicates against what
+          // already existed before the upload started.
+          existingKeys.addAll(rowKeys);
         } catch (e, st) {
-          skippedCount++;
+          // Show the real error so future failures are self-diagnosing
+          // from the toast itself, instead of a generic "skipped".
+          final reason =
+              'Upload error: ${e.toString().replaceFirst('Exception: ', '')}';
+          recordSkip(reason);
           debugPrint('Error uploading row ${i + 1}: $e, $st');
         }
       }
@@ -580,13 +622,27 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
         Navigator.pop(context);
       }
       Navigator.pop(context, true);
+
+      final buffer = StringBuffer()
+        ..writeln("Upload Completed")
+        ..writeln(
+          "Total: $totalRows  •  Added: $uploadedCount  •  Skipped: $skippedCount",
+        );
+
+      if (skipReasons.isNotEmpty) {
+        final reasonLines = skipReasons.entries
+            .map((e) => "${e.key}: ${e.value}")
+            .join('\n');
+        buffer.write(reasonLines);
+      }
+
       FlushBar.show(
         context,
-        "Upload completed.\n"
-        "Total rows: $totalRows\n"
-        "Uploaded: $uploadedCount\n"
-        "Skipped: $skippedCount",
-        isSuccess: true,
+        buffer.toString().trimRight(),
+        isSuccess: uploadedCount > 0,
+        duration: skipReasons.isEmpty
+            ? const Duration(seconds: 5)
+            : Duration(seconds: 5 + skipReasons.length),
       );
     } catch (e) {
       if (Navigator.canPop(context)) {

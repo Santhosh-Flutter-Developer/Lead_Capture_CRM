@@ -144,6 +144,27 @@ class _FeedCreateState extends State<FeedCreate> {
         return;
       }
 
+      // The "Post" button lives in the AppBar, outside the body's
+      // FutureBuilder, so it was tappable immediately — before _init()
+      // finished resolving _currentUid from the employee/admin lookup.
+      // A fast tap (or a slow lookup) posted the feed with authorId: '',
+      // which then permanently hid the Edit/Delete menu for that post's
+      // own creator, since feed_listing only shows it when
+      // currentUserUid == feed.authorId. Wait for _init to finish, and
+      // bail out with a message rather than post with a blank author.
+      await _future;
+      if (_currentUid == null || _currentUid!.isEmpty) {
+        if (mounted) {
+          FlushBar.show(
+            context,
+            'Could not verify your account. Please try again.',
+            isSuccess: false,
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
       futureLoading(context);
 
       // Construct PollModel if active
