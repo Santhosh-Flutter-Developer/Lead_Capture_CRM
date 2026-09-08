@@ -289,7 +289,20 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
                     child: Column(
                       children: [
                         Header(selectedMenu: _selectedMenu),
-                        Expanded(child: _buildMainContent()),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right:8.0),
+                            child: Scrollbar(
+                              // controller: _scrollController,
+                              thumbVisibility: true,
+                              interactive: true,
+                              trackVisibility: true,
+                              radius: const Radius.circular(8),
+                              thickness: 8,
+                              child: _buildMainContent(),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
