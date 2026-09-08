@@ -303,9 +303,11 @@ class _RolesListingViewState extends State<RolesListingView> {
     bool isSelected = controllerWatch.selectedIds.contains(role.uid ?? '');
     return DataRow(
       selected: isSelected,
-      onSelectChanged: (selected) {
-        controllerRead.onSelected(role.uid ?? '', selected);
-      },
+      onSelectChanged: role.isSuperAdmin
+          ? null
+          : (selected) {
+              controllerRead.onSelected(role.uid ?? '', selected);
+            },
       cells: [
         DataCell(Text(role.name)),
         DataCell(Text(role.description)),
@@ -313,7 +315,7 @@ class _RolesListingViewState extends State<RolesListingView> {
         DataCell(
           Row(
             children: [
-              if (permissions?.canEdit ?? false)
+              if ((permissions?.canEdit ?? false) && !role.isSuperAdmin)
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   onPressed: () {
@@ -332,7 +334,7 @@ class _RolesListingViewState extends State<RolesListingView> {
                   color: AppColors.info,
                   splashRadius: 20,
                 ),
-              if (permissions?.canDelete ?? false)
+              if ((permissions?.canDelete ?? false) && !role.isSuperAdmin)
                 IconButton(
                 icon: const Icon(Iconsax.trash),
                 color: AppColors.danger,
