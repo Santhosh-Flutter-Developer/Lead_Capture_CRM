@@ -8,8 +8,65 @@ class DealService {
   static final FirebaseConfig firebase = FirebaseConfig();
   static final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-  static Future<void> createDeal({required DealModel deal}) async {
+  /// Builds a normalized set of dedupe keys from raw field values: email,
+  /// mobile, and deal-name+company-name as a fallback, mirroring
+  /// LeadService.duplicateKeysFor so deals and leads are deduped the
+  /// same way.
+  static List<String> duplicateKeysFor({
+    String? email,
+    String? mobile,
+    String? dealName,
+    String? companyName,
+  }) {
+    final normEmail = (email ?? '').trim().toLowerCase();
+    final normMobile = (mobile ?? '').trim();
+    final normName = (dealName ?? '').trim().toLowerCase();
+    final normCompany = (companyName ?? '').trim().toLowerCase();
+
+    final keys = <String>[];
+    if (normEmail.isNotEmpty) keys.add('email:$normEmail');
+    if (normMobile.isNotEmpty) keys.add('mobile:$normMobile');
+    if (normName.isNotEmpty) keys.add('name:$normName|$normCompany');
+    return keys;
+  }
+
+  static List<String> duplicateKeysForDeal(DealModel deal) =>
+      duplicateKeysFor(
+        email: deal.dealEmail,
+        mobile: deal.companyMobile,
+        dealName: deal.dealName,
+        companyName: deal.companyName,
+      );
+
+  /// Returns true if [deal] matches an existing deal by email, mobile,
+  /// or deal-name+company-name. Pass [excludeUid] when editing so the
+  /// deal being edited doesn't match against itself.
+  static Future<bool> isDuplicateDeal({
+    required DealModel deal,
+    List<DealModel>? existingDeals,
+    String? excludeUid,
+  }) async {
+    final deals = existingDeals ?? await getAllDeals();
+    final existingKeys = <String>{
+      for (final d in deals)
+        if (d.uid != excludeUid) ...duplicateKeysForDeal(d),
+    };
+    final newKeys = duplicateKeysForDeal(deal);
+    return newKeys.any(existingKeys.contains);
+  }
+
+  static Future<void> createDeal({
+    required DealModel deal,
+    bool skipDuplicateCheck = false,
+  }) async {
     try {
+      if (!skipDuplicateCheck) {
+        final isDuplicate = await isDuplicateDeal(deal: deal);
+        if (isDuplicate) {
+          throw 'This deal already exists (matching email, mobile number, or name & company).';
+        }
+      }
+
       var cid = await Spdb.getCid();
       var uid = await Spdb.getUid();
       // Ensure the creator is in workflow
@@ -78,6 +135,9 @@ class DealService {
     } catch (e, st) {
       debugPrint("Error creating deal: $e\n$st");
       await ErrorService.recordError(e, st);
+      if (e is String && e.startsWith('This deal already exists')) {
+        rethrow;
+      }
       throw 'Error creating deal: $e';
     }
   }
@@ -85,6 +145,7 @@ class DealService {
   static Future<void> updateDeal({
     required String uid,
     required DealModel deal,
+    bool skipDuplicateCheck = false,
   }) async {
     try {
       var cid = await Spdb.getCid();
@@ -93,6 +154,16 @@ class DealService {
       final existingDeal = await getDeal(uid: uid);
       if (existingDeal.isLocked) {
         throw 'This deal is locked and cannot be modified';
+      }
+
+      if (!skipDuplicateCheck) {
+        final isDuplicate = await isDuplicateDeal(
+          deal: deal,
+          excludeUid: uid,
+        );
+        if (isDuplicate) {
+          throw 'This deal already exists (matching email, mobile number, or name & company).';
+        }
       }
 
       // Update deal in Firestore
@@ -154,6 +225,11 @@ class DealService {
     } catch (e, st) {
       debugPrint("Error updating deal: $e\n$st");
       await ErrorService.recordError(e, st);
+      if (e is String &&
+          (e.startsWith('This deal already exists') ||
+              e.startsWith('This deal is locked'))) {
+        rethrow;
+      }
       throw 'Error updating deal: $e';
     }
   }

@@ -53,10 +53,12 @@ class LeadService {
   static Future<bool> isDuplicateLead({
     required LeadModel lead,
     List<LeadModel>? existingLeads,
+    String? excludeUid,
   }) async {
     final leads = existingLeads ?? await getAllLeads();
     final existingKeys = <String>{
-      for (final l in leads) ...duplicateKeysForLead(l),
+      for (final l in leads)
+        if (l.uid != excludeUid) ...duplicateKeysForLead(l),
     };
     final newKeys = duplicateKeysForLead(lead);
     return newKeys.any(existingKeys.contains);
@@ -152,9 +154,20 @@ class LeadService {
   static Future<void> updateLead({
     required String uid,
     required LeadModel lead,
+    bool skipDuplicateCheck = false,
   }) async {
     try {
       var cid = await Spdb.getCid();
+
+      if (!skipDuplicateCheck) {
+        final isDuplicate = await isDuplicateLead(
+          lead: lead,
+          excludeUid: uid,
+        );
+        if (isDuplicate) {
+          throw 'This lead already exists (matching email, mobile number, or name & company).';
+        }
+      }
 
       await CommonService.update(
         '${Collections.users.name}/$cid/${Collections.leads.name}',
@@ -202,6 +215,9 @@ class LeadService {
     } catch (e, st) {
       debugPrint("Error updating lead: $e\n$st");
       await ErrorService.recordError(e, st);
+      if (e is String && e.startsWith('This lead already exists')) {
+        rethrow;
+      }
       throw 'Error updating lead: $e';
     }
   }

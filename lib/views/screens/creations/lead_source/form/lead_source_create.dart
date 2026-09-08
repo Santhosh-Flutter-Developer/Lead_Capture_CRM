@@ -150,6 +150,20 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
     if (_formKey.currentState!.validate()) {
       try {
         futureLoading(context);
+
+        String? duplicateError =
+            await LeadSourceService.checkLeadSourceExists(
+          name: _nameController.text.trim(),
+        );
+
+        if (duplicateError != null) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          FlushBar.show(context, duplicateError, isSuccess: false);
+          return;
+        }
+
         LeadSourceModel leadSourceModel = LeadSourceModel(
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),

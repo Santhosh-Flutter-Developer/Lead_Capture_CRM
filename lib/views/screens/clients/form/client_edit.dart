@@ -220,36 +220,54 @@ class _ContactUpdateState extends State<ContactUpdate> {
 
     futureLoading(context);
 
-    String? imageUrl = _profileImageUrl;
-    if (_profileImage != null) {
-      imageUrl = await xFileToUploadUrl(
-        _profileImage!,
-        StorageFolder.clientPhotos,
+    try {
+      String? imageUrl = _profileImageUrl;
+      if (_profileImage != null) {
+        imageUrl = await xFileToUploadUrl(
+          _profileImage!,
+          StorageFolder.clientPhotos,
+        );
+      }
+
+      if (_oldImageRemoved) {
+        await ClientService.deleteClientProfileImage(uid: widget.uid);
+      }
+
+      final updated = _client!.copyWith(
+        salutation: _salutation,
+        clientName: _name.text,
+        email: _email.text,
+        password: _password.text,
+        mobileNumber: _mobile.text,
+        gender: _gender,
+        changeLanguage: _language,
+        loginAllowed: _loginAllowed,
+        receiveEmailNotifications: _receiveEmailNotifications,
+        profilePictureUrl: imageUrl,
+        updatedAt: DateTime.now(),
+      );
+
+      await ClientService.editClient(client: updated, uid: widget.uid);
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      Navigator.pop(context, true);
+      FlushBar.show(context, "Contact updated", isSuccess: true);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      FlushBar.show(
+        context,
+        e.toString(),
+        isSuccess: false,
+        error: e,
+        stackTrace: st,
       );
     }
-
-    if (_oldImageRemoved) {
-      await ClientService.deleteClientProfileImage(uid: widget.uid);
-    }
-
-    final updated = _client!.copyWith(
-      salutation: _salutation,
-      clientName: _name.text,
-      email: _email.text,
-      password: _password.text,
-      mobileNumber: _mobile.text,
-      gender: _gender,
-      changeLanguage: _language,
-      loginAllowed: _loginAllowed,
-      receiveEmailNotifications: _receiveEmailNotifications,
-      profilePictureUrl: imageUrl,
-      updatedAt: DateTime.now(),
-    );
-
-    await ClientService.editClient(client: updated, uid: widget.uid);
-
-    Navigator.pop(context, true);
-    FlushBar.show(context, "Contact updated", isSuccess: true);
   }
 
   Widget _section(String title, Widget child) {
@@ -463,34 +481,52 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
 
     futureLoading(context);
 
-    String? logoUrl = _logoUrl;
-    if (_logo != null) {
-      logoUrl = await xFileToUploadUrl(
-        _logo!,
-        StorageFolder.clientCompanyLogos,
+    try {
+      String? logoUrl = _logoUrl;
+      if (_logo != null) {
+        logoUrl = await xFileToUploadUrl(
+          _logo!,
+          StorageFolder.clientCompanyLogos,
+        );
+      }
+
+      if (_oldLogoRemoved) {
+        await ClientService.deleteClientCompanyLogo(uid: widget.uid);
+      }
+
+      final updated = _client!.copyWith(
+        companyName: _companyName.text,
+        officialWebsite: _website.text,
+        gstVatNumber: _gst.text,
+        officePhoneNo: _phone.text,
+        postalCode: _postal.text,
+        companyAddress: _address.text,
+        notes: _note.text,
+        companyLogoUrl: logoUrl,
+        updatedAt: DateTime.now(),
+      );
+
+      await ClientService.editClient(client: updated, uid: widget.uid);
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      Navigator.pop(context, true);
+      FlushBar.show(context, "Company updated", isSuccess: true);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      FlushBar.show(
+        context,
+        e.toString(),
+        isSuccess: false,
+        error: e,
+        stackTrace: st,
       );
     }
-
-    if (_oldLogoRemoved) {
-      await ClientService.deleteClientCompanyLogo(uid: widget.uid);
-    }
-
-    final updated = _client!.copyWith(
-      companyName: _companyName.text,
-      officialWebsite: _website.text,
-      gstVatNumber: _gst.text,
-      officePhoneNo: _phone.text,
-      postalCode: _postal.text,
-      companyAddress: _address.text,
-      notes: _note.text,
-      companyLogoUrl: logoUrl,
-      updatedAt: DateTime.now(),
-    );
-
-    await ClientService.editClient(client: updated, uid: widget.uid);
-
-    Navigator.pop(context, true);
-    FlushBar.show(context, "Company updated", isSuccess: true);
   }
 
   Widget _section(String title, Widget child) {

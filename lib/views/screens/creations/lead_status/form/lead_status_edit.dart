@@ -239,6 +239,21 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
     if (_formKey.currentState!.validate()) {
       try {
         futureLoading(context);
+
+        String? duplicateError =
+            await LeadStatusService.checkLeadStatusExists(
+          name: _nameController.text.trim(),
+          excludeUid: widget.uid,
+        );
+
+        if (duplicateError != null) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          FlushBar.show(context, duplicateError, isSuccess: false);
+          return;
+        }
+
         LeadStatusModel leadStatusModel = LeadStatusModel(
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),

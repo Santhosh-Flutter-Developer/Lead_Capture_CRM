@@ -6,8 +6,77 @@ import '/services/services.dart';
 class ClientService {
   static final FirebaseConfig firebase = FirebaseConfig();
 
-  static Future<String?> createClient({required ClientModel client}) async {
+  /// Builds a normalized set of dedupe keys. Contacts are matched by
+  /// email/mobile only (names repeat too often to be a reliable
+  /// signal); companies are matched by office phone, GST/VAT number,
+  /// and company name, so the two lists never cross-match.
+  static List<String> duplicateKeysFor({
+    String? email,
+    String? mobile,
+    String? name,
+    String? gstVatNumber,
+  }) {
+    final normEmail = (email ?? '').trim().toLowerCase();
+    final normMobile = (mobile ?? '').trim();
+    final normName = (name ?? '').trim().toLowerCase();
+    final normGst = (gstVatNumber ?? '').trim().toLowerCase();
+
+    final keys = <String>[];
+    if (normEmail.isNotEmpty) keys.add('email:$normEmail');
+    if (normMobile.isNotEmpty) keys.add('mobile:$normMobile');
+    if (normGst.isNotEmpty) keys.add('gst:$normGst');
+    if (normName.isNotEmpty) keys.add('name:$normName');
+    return keys;
+  }
+
+  static List<String> duplicateKeysForClient(ClientModel client) {
+    if (client.isCompany) {
+      return duplicateKeysFor(
+        mobile: client.officePhoneNo,
+        name: client.companyName,
+        gstVatNumber: client.gstVatNumber,
+      );
+    }
+    // Contacts: many people share the same name, so only email and
+    // mobile number identify a genuine duplicate — name is excluded.
+    return duplicateKeysFor(
+      email: client.email,
+      mobile: client.mobileNumber,
+    );
+  }
+
+  /// Returns true if [client] matches an existing client of the same
+  /// type (company vs contact) by email, mobile/office phone, GST/VAT
+  /// number, or name. Pass [excludeUid] when editing.
+  static Future<bool> isDuplicateClient({
+    required ClientModel client,
+    List<ClientModel>? existingClients,
+    String? excludeUid,
+  }) async {
+    final clients = existingClients ?? await getAllClients();
+    final existingKeys = <String>{
+      for (final c in clients)
+        if (c.uid != excludeUid && c.isCompany == client.isCompany)
+          ...duplicateKeysForClient(c),
+    };
+    final newKeys = duplicateKeysForClient(client);
+    return newKeys.any(existingKeys.contains);
+  }
+
+  static Future<String?> createClient({
+    required ClientModel client,
+    bool skipDuplicateCheck = false,
+  }) async {
     try {
+      if (!skipDuplicateCheck) {
+        final isDuplicate = await isDuplicateClient(client: client);
+        if (isDuplicate) {
+          throw client.isCompany
+              ? 'This company already exists (matching name, GST/VAT number, or office phone).'
+              : 'This contact already exists (matching email or mobile number).';
+        }
+      }
+
       var cid = await Spdb.getCid();
       var name = client.isCompany
           ? (client.companyName ?? 'A new company')
@@ -22,6 +91,11 @@ class ClientService {
     } catch (e, st) {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
+      if (e is String &&
+          (e.startsWith('This company already exists') ||
+              e.startsWith('This contact already exists'))) {
+        rethrow;
+      }
       throw 'Error creating client: $e';
     }
   }
@@ -29,9 +103,22 @@ class ClientService {
   static Future<void> editClient({
     required String uid,
     required ClientModel client,
+    bool skipDuplicateCheck = false,
   }) async {
     try {
       var cid = await Spdb.getCid();
+
+      if (!skipDuplicateCheck) {
+        final isDuplicate = await isDuplicateClient(
+          client: client,
+          excludeUid: uid,
+        );
+        if (isDuplicate) {
+          throw client.isCompany
+              ? 'This company already exists (matching name, GST/VAT number, or office phone).'
+              : 'This contact already exists (matching email or mobile number).';
+        }
+      }
 
       var name = client.isCompany
           ? (client.companyName ?? 'Company')
@@ -45,6 +132,11 @@ class ClientService {
     } catch (e, st) {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
+      if (e is String &&
+          (e.startsWith('This company already exists') ||
+              e.startsWith('This contact already exists'))) {
+        rethrow;
+      }
       throw 'Error updating client: $e';
     }
   }

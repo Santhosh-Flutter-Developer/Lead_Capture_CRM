@@ -199,6 +199,21 @@ class _LeadPriorityEditState extends State<LeadPriorityEdit> {
     if (_formKey.currentState!.validate()) {
       try {
         futureLoading(context);
+
+        String? duplicateError =
+            await LeadPriorityService.checkLeadPriorityExists(
+          name: _nameController.text.trim(),
+          excludeUid: widget.uid,
+        );
+
+        if (duplicateError != null) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          FlushBar.show(context, duplicateError, isSuccess: false);
+          return;
+        }
+
         LeadPriorityModel leadPriorityModel = LeadPriorityModel(
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim(),

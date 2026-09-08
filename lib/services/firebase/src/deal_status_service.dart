@@ -262,4 +262,33 @@ class DealStatusService {
       rethrow;
     }
   }
+
+  static Future<String?> checkDealStatusExists({
+    required String name,
+    String? excludeUid,
+  }) async {
+    try {
+      var cid = await Spdb.getCid();
+      var querySnapshot = await firebase.users
+          .doc(cid)
+          .collection(Collections.dealStatus.name)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        if (excludeUid != null && doc.id == excludeUid) continue;
+
+        var data = doc.data();
+        if (data['name'] != null &&
+            data['name'].toString().decrypt.trim().toLowerCase() ==
+                name.trim().toLowerCase()) {
+          return 'Deal Status name already exists';
+        }
+      }
+      return null;
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      return 'Error checking deal status existence: $e';
+    }
+  }
 }
