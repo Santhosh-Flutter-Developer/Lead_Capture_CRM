@@ -158,7 +158,7 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
                 children: [
                   _buildQuickStats(context),
                   const SizedBox(height: 16),
-                  _buildReportingStructure(context),
+                  // _buildReportingStructure(context),
                 ],
               ),
             ),
@@ -171,7 +171,8 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
           children: [
             Expanded(flex: 5, child: _buildInformationGrid(context, 2)),
             const SizedBox(width: 16),
-            Expanded(flex: 3, child: _buildOtherDetails(context)),
+            Expanded(flex: 3, child: SizedBox()),
+            // Expanded(flex: 3, child: _buildOtherDetails(context)),
           ],
         ),
       ],
@@ -188,9 +189,9 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
         const SizedBox(height: 16),
         _buildInformationGrid(context, 1),
         const SizedBox(height: 16),
-        _buildReportingStructure(context),
+        // _buildReportingStructure(context),
         const SizedBox(height: 16),
-        _buildOtherDetails(context),
+        // _buildOtherDetails(context),
       ],
     );
   }
@@ -408,7 +409,7 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
   }
 
   /// REPORTING STRUCTURE
-  Widget _buildReportingStructure(BuildContext context) {
+  /*Widget _buildReportingStructure(BuildContext context) {
     return _buildSectionCard(
       title: "Reporting Structure",
       icon: Iconsax.hierarchy,
@@ -479,9 +480,9 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
         ],
       ),
     );
-  }
+  }*/
 
-  Widget _buildOtherDetails(BuildContext context) {
+  /*Widget _buildOtherDetails(BuildContext context) {
     return _buildSectionCard(
       title: "Professional Summary",
       icon: Iconsax.info_circle,
@@ -545,7 +546,7 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
         ],
       ),
     );
-  }
+  }*/
 
   // --- REUSABLE WIDGETS ---
   Widget _buildSectionCard({
