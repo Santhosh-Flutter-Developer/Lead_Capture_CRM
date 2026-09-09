@@ -17,6 +17,59 @@ import '/theme/theme.dart';
 
 const String _pageTitle = "Leads";
 
+/// Resolves a lead's status name, falling back to a direct service lookup
+/// and then a name match when the cached uid lookup misses (covers legacy
+/// or imported records where `leadStatus` may hold the status uid, a name
+/// that hasn't synced to the local cache yet).
+class _LeadStatusText extends StatelessWidget {
+  final String leadStatus;
+  const _LeadStatusText({required this.leadStatus});
+
+  Future<String> _resolve() async {
+    if (leadStatus.isEmpty) return '—';
+
+    final cached = CacheService.leadStatusByUid(leadStatus)?.name;
+    if (cached != null && cached.isNotEmpty) return cached;
+
+    try {
+      final status = await LeadStatusService.getLeadStatus(uid: leadStatus);
+      if (status.name.isNotEmpty) return status.name;
+    } catch (_) {
+      // Not found by uid — fall through to a name match below.
+    }
+
+    try {
+      final allStatuses = await LeadStatusService.getAllLeadStatus();
+      final match = allStatuses.firstWhereOrNull(
+        (s) => s.name.toLowerCase() == leadStatus.toLowerCase(),
+      );
+      if (match != null) return match.name;
+    } catch (_) {
+      // Ignore — fall through to raw value below.
+    }
+
+    return leadStatus;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cached = CacheService.leadStatusByUid(leadStatus)?.name;
+    if (cached != null && cached.isNotEmpty) {
+      return Text(cached, style: Theme.of(context).textTheme.bodySmall);
+    }
+
+    return FutureBuilder<String>(
+      future: _resolve(),
+      builder: (context, snapshot) {
+        return Text(
+          snapshot.data ?? (leadStatus.isEmpty ? '—' : leadStatus),
+          style: Theme.of(context).textTheme.bodySmall,
+        );
+      },
+    );
+  }
+}
+
 class LeadsListing extends StatelessWidget {
   final bool showAppBar;
   const LeadsListing({super.key, this.showAppBar = true});
@@ -1296,7 +1349,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     PaginatedDataController<LeadModel> controllerRead,
   ) {
     bool isSelected = controllerWatch.selectedIds.contains(lead.uid);
-    var leadCategory = CacheService.leadCategoryByUid(lead.leadCategory);
 
     /// Open Lead View
     void openLead(BuildContext context, LeadModel lead) async {
@@ -1365,8 +1417,18 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           Text(lead.leadEmail, style: Theme.of(context).textTheme.bodySmall),
         ),
 
-        /// Empty column
-        dataCell(context, const Text('')),
+        /// Mobile No
+        dataCell(
+          context,
+          Text(
+            (lead.companyMobile?.isNotEmpty ?? false)
+                ? lead.companyMobile!
+                : (lead.clientMobile?.isNotEmpty ?? false)
+                ? lead.clientMobile!
+                : '—',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
 
         /// Lead Value
         dataCell(
@@ -1377,23 +1439,17 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           ),
         ),
 
-        /// Category
+        /// Source
         dataCell(
           context,
           Text(
-            leadCategory?.name ?? '',
+            lead.leadSource.name,
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
 
         /// Status
-        dataCell(
-          context,
-          Text(
-            CacheService.leadStatusByUid(lead.leadStatus)?.name ?? '',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+        dataCell(context, _LeadStatusText(leadStatus: lead.leadStatus)),
 
         /// Created At
         dataCell(
