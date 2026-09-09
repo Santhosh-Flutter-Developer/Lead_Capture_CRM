@@ -42,10 +42,19 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
   PermissionModel? _dealPermissions;
   PermissionModel? _ticketPermissions;
 
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -74,6 +83,211 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
 
   int _getDaysInMonth(int year, int month) {
     return DateTime(year, month + 1, 0).day;
+  }
+
+  // --- SEARCH ---
+
+  DateTime _dateOfItem(dynamic item) {
+    if (item is EventModel) return item.eventDateTime;
+    if (item is TaskModel) return item.deadline ?? item.createdAt;
+    if (item is LeadModel) return item.createdAt;
+    if (item is DealModel) return item.createdAt;
+    if (item is CustomerTicketModel) return item.createdAt;
+    return DateTime.now();
+  }
+
+  String _titleOfItem(dynamic item) {
+    if (item is EventModel) return item.eventName;
+    if (item is TaskModel) return '#${item.taskNumber} ${item.taskName}';
+    if (item is LeadModel) {
+      return item.clientName != null && item.clientName!.isNotEmpty
+          ? item.clientName!
+          : item.leadName;
+    }
+    if (item is DealModel) {
+      return item.clientName != null && item.clientName!.isNotEmpty
+          ? item.clientName!
+          : item.dealName;
+    }
+    if (item is CustomerTicketModel) {
+      return '#${item.ticketNumber} ${item.ticketTitle}';
+    }
+    return '';
+  }
+
+  String _createdByNameOfItem(dynamic item) {
+    if (item is EventModel) return item.createdBy.name;
+    if (item is TaskModel) return item.taskCreatedBy.name;
+    if (item is LeadModel) return item.createdBy.name;
+    if (item is DealModel) return item.createdBy.name;
+    if (item is CustomerTicketModel) return item.ticketCreatedBy.name;
+    return '';
+  }
+
+  bool _matchesSearch(dynamic item, String query) {
+    return _titleOfItem(item).toLowerCase().contains(query) ||
+        _createdByNameOfItem(item).toLowerCase().contains(query);
+  }
+
+  List<dynamic> _filteredSearchResults(
+    List<EventModel> events,
+    List<TaskModel> tasks,
+    List<LeadModel> leads,
+    List<DealModel> deals,
+    List<CustomerTicketModel> tickets,
+  ) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return [];
+
+    final allItems = [...events, ...tasks, ...leads, ...deals, ...tickets]
+        .where((item) => _matchesSearch(item, query))
+        .toList();
+
+    allItems.sort((a, b) => _dateOfItem(b).compareTo(_dateOfItem(a)));
+    return allItems;
+  }
+
+  void _onItemTap(dynamic e) {
+    if (e is EventModel) {
+      if (kIsDesktop) {
+        GeneralDialog.showRTLSheet(context, EventViewPage(event: e));
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => EventViewPage(event: e)),
+        );
+      }
+    } else if (e is TaskModel) {
+      if (kIsDesktop) {
+        GeneralDialog.showRTLSheet(context, TaskView(uid: e.uid ?? ''));
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => TaskView(uid: e.uid ?? '')),
+        );
+      }
+    } else if (e is LeadModel) {
+      if (kIsDesktop) {
+        GeneralDialog.showRTLSheet(context, LeadsViewPage(lead: e));
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => LeadsViewPage(lead: e)),
+        );
+      }
+    } else if (e is DealModel) {
+      if (kIsDesktop) {
+        GeneralDialog.showRTLSheet(context, DealsViewPage(deal: e));
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => DealsViewPage(deal: e)),
+        );
+      }
+    } else if (e is CustomerTicketModel) {
+      if (kIsDesktop) {
+        GeneralDialog.showRTLSheet(context, TicketView(uid: e.uid ?? ''));
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TicketView(uid: e.uid ?? ''),
+          ),
+        );
+      }
+    }
+  }
+
+  String _categoryOfItem(dynamic item) {
+    if (item is EventModel) return item.eventDescription;
+    if (item is TaskModel) {
+      return item.highPriority ? 'High Priority' : 'Low Priority';
+    }
+    if (item is LeadModel) return item.leadName;
+    if (item is DealModel) return item.dealName;
+    if (item is CustomerTicketModel) return item.category.label;
+    return '';
+  }
+
+  bool _completedOfItem(dynamic item) {
+    if (item is EventModel) return item.completed;
+    if (item is TaskModel) return item.completed;
+    if (item is LeadModel) return item.leadsConverted;
+    if (item is CustomerTicketModel) return item.status == TicketStatus.closed;
+    return false;
+  }
+
+  Widget _buildSearchResults(
+    List<EventModel> events,
+    List<TaskModel> tasks,
+    List<LeadModel> leads,
+    List<DealModel> deals,
+    List<CustomerTicketModel> tickets,
+  ) {
+    final results = _filteredSearchResults(events, tasks, leads, deals, tickets);
+
+    if (results.isEmpty) {
+      return Center(
+        child: Text(
+          'No records found for "${_searchQuery.trim()}"',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: results.length,
+      itemBuilder: (context, index) {
+        final e = results[index];
+        final date = _dateOfItem(e);
+        return EventCard(
+          title: _titleOfItem(e),
+          category: _categoryOfItem(e),
+          categoryColor: Theme.of(context).colorScheme.primaryContainer,
+          textColor: Theme.of(context).colorScheme.primary,
+          time:
+              '${DateFormat('MMM d, yyyy').format(date)} • By ${_createdByNameOfItem(e)}',
+          completed: _completedOfItem(e),
+          onTap: () => _onItemTap(e),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (value) => setState(() => _searchQuery = value),
+          decoration: InputDecoration(
+            hintText: 'Search by title or created by...',
+            hintStyle: Theme.of(context).textTheme.bodySmall,
+            prefixIcon: const Icon(Iconsax.search_normal, size: 20),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _previousMonth() => setState(
@@ -173,7 +387,23 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
 
                         _buildViewSwitcher(),
 
-                        if (_currentView != Calendar.month) ...[
+                        _buildSearchField(),
+
+                        if (_searchQuery.trim().isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 4,
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '${_filteredSearchResults(state.events, state.tasks, state.leads, state.deals, state.tickets).length} result(s) found',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ),
+                        ] else if (_currentView != Calendar.month) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -203,13 +433,21 @@ class _CalendarDisplayState extends State<CalendarDisplay> {
                         ],
 
                         Expanded(
-                          child: _buildBody(
-                            state.events,
-                            state.tasks,
-                            state.leads,
-                            state.deals,
-                            state.tickets,
-                          ),
+                          child: _searchQuery.trim().isNotEmpty
+                              ? _buildSearchResults(
+                                  state.events,
+                                  state.tasks,
+                                  state.leads,
+                                  state.deals,
+                                  state.tickets,
+                                )
+                              : _buildBody(
+                                  state.events,
+                                  state.tasks,
+                                  state.leads,
+                                  state.deals,
+                                  state.tickets,
+                                ),
                         ),
                       ],
                     ),
