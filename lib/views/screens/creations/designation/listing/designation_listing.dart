@@ -370,6 +370,27 @@ class _DesignationListingViewState extends State<DesignationListingView> {
                       onPressed: () async {
                         if (_selectedDesignations.isEmpty) return;
 
+                        final blockedNames = <String>[];
+                        for (var d in _selectedDesignations) {
+                          final blocker =
+                              await DesignationService.getDesignationDeletionBlocker(
+                                d.uid ?? '',
+                              );
+                          if (blocker != null) blockedNames.add(d.name);
+                        }
+                        if (!context.mounted) return;
+                        if (blockedNames.isNotEmpty) {
+                          FlushBar.show(
+                            context,
+                            '${blockedNames.join(', ')} '
+                            '${blockedNames.length > 1 ? 'are' : 'is'} already '
+                            'mapped to an employee. Please reassign those '
+                            'employees before deleting.',
+                            isSuccess: false,
+                          );
+                          return;
+                        }
+
                         final result = await showDialog<bool>(
                           context: context,
                           builder: (context) => ConfirmDialog(
@@ -527,6 +548,16 @@ class _DesignationListingViewState extends State<DesignationListingView> {
                       color: AppColors.danger,
                       splashRadius: 20,
                       onPressed: () async {
+                        final blocker =
+                            await DesignationService.getDesignationDeletionBlocker(
+                              designation.uid ?? '',
+                            );
+                        if (!context.mounted) return;
+                        if (blocker != null) {
+                          FlushBar.show(context, blocker, isSuccess: false);
+                          return;
+                        }
+
                         final result = await showDialog<bool>(
                           context: context,
                           builder: (context) => ConfirmDialog(

@@ -127,19 +127,48 @@ class RoleService {
     }
   }
 
-  static Future<void> deleteRole({required String uid}) async {
+  /// Returns a user-facing message if this role cannot be deleted
+  /// (reserved role, or currently mapped to one or more employees),
+  /// or null if it is safe to delete. Call this before showing a
+  /// delete confirmation so the user only sees "are you sure?" when
+  /// the delete can actually succeed.
+  static Future<String?> getRoleDeletionBlocker(String uid) async {
     try {
-      var cid = await Spdb.getCid();
+      if (uid.isEmpty) return null;
 
+      final role = await getRole(uid: uid);
+      if (role.isSuperAdmin) {
+        return 'Cannot delete the ${RoleModel.superAdminRoleName} role';
+      }
+
+      var cid = await Spdb.getCid();
       var employeeAssignedDocs = await firebase.users
           .doc(cid)
           .collection(Collections.employees.name)
           .where('role', isEqualTo: uid)
+          .limit(1)
           .get();
 
       if (employeeAssignedDocs.docs.isNotEmpty) {
-        throw 'This role is assigned to a employee. Please delete the employee first.';
+        return 'This role is already mapped to an employee. Please reassign or update that employee before deleting this role.';
       }
+
+      return null;
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      return null;
+    }
+  }
+
+  static Future<void> deleteRole({required String uid}) async {
+    try {
+      final blocker = await getRoleDeletionBlocker(uid);
+      if (blocker != null) {
+        throw blocker;
+      }
+
+      var cid = await Spdb.getCid();
 
       var docRef = await firebase.users
           .doc(cid)
@@ -147,10 +176,6 @@ class RoleService {
           .doc(uid)
           .get();
       final data = docRef.data() as Map<String, dynamic>;
-      final roleModel = RoleModel.fromMap(docRef.id, data);
-      if (roleModel.isSuperAdmin) {
-        throw 'Cannot delete the ${RoleModel.superAdminRoleName} role';
-      }
       await TrashService.moveToTrash(
         docRef: docRef.reference,
         docData: data,

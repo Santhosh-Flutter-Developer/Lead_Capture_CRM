@@ -338,6 +338,27 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
                       onPressed: () async {
                         if (_selectedDepartments.isEmpty) return;
 
+                        final blockedNames = <String>[];
+                        for (var dept in _selectedDepartments) {
+                          final blocker =
+                              await DepartmentService.getDepartmentDeletionBlocker(
+                                dept.uid ?? '',
+                              );
+                          if (blocker != null) blockedNames.add(dept.name);
+                        }
+                        if (!context.mounted) return;
+                        if (blockedNames.isNotEmpty) {
+                          FlushBar.show(
+                            context,
+                            '${blockedNames.join(', ')} '
+                            '${blockedNames.length > 1 ? 'are' : 'is'} already '
+                            'mapped to a sub department or employee. Please '
+                            'reassign those before deleting.',
+                            isSuccess: false,
+                          );
+                          return;
+                        }
+
                         final result = await showDialog<bool>(
                           context: context,
                           builder: (context) => ConfirmDialog(
@@ -484,6 +505,16 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
                       color: AppColors.danger,
                       splashRadius: 20,
                       onPressed: () async {
+                        final blocker =
+                            await DepartmentService.getDepartmentDeletionBlocker(
+                              department.uid ?? '',
+                            );
+                        if (!context.mounted) return;
+                        if (blocker != null) {
+                          FlushBar.show(context, blocker, isSuccess: false);
+                          return;
+                        }
+
                         final result = await showDialog<bool>(
                           context: context,
                           builder: (context) => ConfirmDialog(

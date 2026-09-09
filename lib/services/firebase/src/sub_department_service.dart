@@ -120,19 +120,43 @@ class SubDepartmentService {
     }
   }
 
-  static Future<void> deleteSubDepartment({required String uid}) async {
+  /// Returns a user-facing message if this sub department cannot be
+  /// deleted (currently mapped to one or more employees), or null if
+  /// it is safe to delete. Call this before showing a delete
+  /// confirmation so the user only sees "are you sure?" when the
+  /// delete can actually succeed.
+  static Future<String?> getSubDepartmentDeletionBlocker(String uid) async {
     try {
-      var cid = await Spdb.getCid();
+      if (uid.isEmpty) return null;
 
+      var cid = await Spdb.getCid();
       var employeeAssignedDocs = await firebase.users
           .doc(cid)
           .collection(Collections.employees.name)
           .where('subDepartment', isEqualTo: uid)
+          .limit(1)
           .get();
 
       if (employeeAssignedDocs.docs.isNotEmpty) {
-        throw 'This sub department is assigned to a employee. Please delete the employee first.';
+        return 'This sub department is already mapped to an employee. Please reassign or update that employee before deleting this sub department.';
       }
+
+      return null;
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      return null;
+    }
+  }
+
+  static Future<void> deleteSubDepartment({required String uid}) async {
+    try {
+      final blocker = await getSubDepartmentDeletionBlocker(uid);
+      if (blocker != null) {
+        throw blocker;
+      }
+
+      var cid = await Spdb.getCid();
 
       var docRef = await firebase.users
           .doc(cid)

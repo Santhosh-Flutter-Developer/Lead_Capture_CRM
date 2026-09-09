@@ -256,6 +256,26 @@ class _RolesListingViewState extends State<RolesListingView> {
             ),
             icon: const Icon(Iconsax.trash),
             onPressed: () async {
+              final blockedNames = <String>[];
+              for (var i in _selectedRoles) {
+                final blocker = await RoleService.getRoleDeletionBlocker(
+                  i.uid ?? '',
+                );
+                if (blocker != null) blockedNames.add(i.name);
+              }
+              if (!context.mounted) return;
+              if (blockedNames.isNotEmpty) {
+                FlushBar.show(
+                  context,
+                  '${blockedNames.join(', ')} '
+                  '${blockedNames.length > 1 ? 'are' : 'is'} already mapped '
+                  'to an employee. Please reassign those employees before '
+                  'deleting.',
+                  isSuccess: false,
+                );
+                return;
+              }
+
               var result = await showDialog(
                 context: context,
                 builder: (context) => ConfirmDialog(
@@ -340,6 +360,15 @@ class _RolesListingViewState extends State<RolesListingView> {
                 color: AppColors.danger,
                 splashRadius: 20,
                 onPressed: () async {
+                  final blocker = await RoleService.getRoleDeletionBlocker(
+                    role.uid ?? '',
+                  );
+                  if (!context.mounted) return;
+                  if (blocker != null) {
+                    FlushBar.show(context, blocker, isSuccess: false);
+                    return;
+                  }
+
                   final result = await showDialog<bool>(
                     context: context,
                     builder: (context) => ConfirmDialog(

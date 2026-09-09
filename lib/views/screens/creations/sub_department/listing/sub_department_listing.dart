@@ -781,6 +781,27 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
 
 
 
+                        final blockedNames = <String>[];
+                        for (var sd in _selectedSubDepartments) {
+                          final blocker =
+                              await SubDepartmentService.getSubDepartmentDeletionBlocker(
+                                sd.uid ?? '',
+                              );
+                          if (blocker != null) blockedNames.add(sd.name);
+                        }
+                        if (!context.mounted) return;
+                        if (blockedNames.isNotEmpty) {
+                          FlushBar.show(
+                            context,
+                            '${blockedNames.join(', ')} '
+                            '${blockedNames.length > 1 ? 'are' : 'is'} already '
+                            'mapped to an employee. Please reassign those '
+                            'employees before deleting.',
+                            isSuccess: false,
+                          );
+                          return;
+                        }
+
                         final result = await showDialog<bool>(
 
                           context: context,
@@ -1096,6 +1117,16 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
                       splashRadius: 20,
 
                       onPressed: () async {
+
+                        final blocker =
+                            await SubDepartmentService.getSubDepartmentDeletionBlocker(
+                              subDepartment.uid ?? '',
+                            );
+                        if (!context.mounted) return;
+                        if (blocker != null) {
+                          FlushBar.show(context, blocker, isSuccess: false);
+                          return;
+                        }
 
                         final result = await showDialog<bool>(
 

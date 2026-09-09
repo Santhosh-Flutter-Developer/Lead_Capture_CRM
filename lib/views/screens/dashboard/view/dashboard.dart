@@ -1455,7 +1455,7 @@ class KpiCard extends StatelessWidget {
                     child: Icon(icon, color: Colors.white, size: 22),
                   ),
 
-                  if (trend != null)
+                  /*if (trend != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -1487,7 +1487,7 @@ class KpiCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                    ),
+                    ),*/
                 ],
               ),
 

@@ -94,28 +94,57 @@ class DepartmentService {
     }
   }
 
-  static Future<void> deleteDepartment({required String uid}) async {
+  /// Returns a user-facing message if this department cannot be
+  /// deleted (currently mapped to one or more sub departments or
+  /// employees), or null if it is safe to delete. Call this before
+  /// showing a delete confirmation so the user only sees
+  /// "are you sure?" when the delete can actually succeed.
+  static Future<String?> getDepartmentDeletionBlocker(String uid) async {
     try {
+      if (uid.isEmpty) return null;
+
       var cid = await Spdb.getCid();
 
       var subDepartmentAssignedDocs = await firebase.users
           .doc(cid)
           .collection(Collections.subDepartments.name)
           .where('department', isEqualTo: uid)
+          .limit(1)
           .get();
 
       if (subDepartmentAssignedDocs.docs.isNotEmpty) {
-        throw 'This department is assigned to a sub department. Please delete the sub department first.';
+        return 'This department has a sub department mapped to it. Please reassign or delete the sub department before deleting this department.';
       }
+
+      // employee.department is stored as a list of department ids,
+      // so this must use arrayContains rather than isEqualTo.
       var employeeAssignedDocs = await firebase.users
           .doc(cid)
           .collection(Collections.employees.name)
-          .where('department', isEqualTo: uid)
+          .where('department', arrayContains: uid)
+          .limit(1)
           .get();
 
       if (employeeAssignedDocs.docs.isNotEmpty) {
-        throw 'This department is assigned to a employee. Please delete the employee first.';
+        return 'This department is already mapped to an employee. Please reassign or update that employee before deleting this department.';
       }
+
+      return null;
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      return null;
+    }
+  }
+
+  static Future<void> deleteDepartment({required String uid}) async {
+    try {
+      final blocker = await getDepartmentDeletionBlocker(uid);
+      if (blocker != null) {
+        throw blocker;
+      }
+
+      var cid = await Spdb.getCid();
 
       var docRef = await firebase.users
           .doc(cid)
