@@ -50,17 +50,30 @@ class _TaskStatusPieChartState extends State<TaskStatusPieChart> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isDesktop = constraints.maxWidth > 600;
+          final theme = Theme.of(context);
+          final bool isLight = theme.brightness == Brightness.light;
 
           return Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: isLight ? Colors.white : theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(
+                  alpha: 0.5,
+                ),
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0xFF2B3674).withValues(alpha: 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
@@ -68,15 +81,34 @@ class _TaskStatusPieChartState extends State<TaskStatusPieChart> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  "Task Distribution",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF10B981), Color(0xFF6EE7B7)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.donut_large_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      "Task Distribution",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   "Progress overview for $totalTasks active tasks",
                   style: TextStyle(
@@ -138,27 +170,56 @@ class _TaskStatusPieChartState extends State<TaskStatusPieChart> {
   }
 
   Widget _buildPieChart(int notStarted, int ongoing, int completed) {
-    return PieChart(
-      PieChartData(
-        pieTouchData: PieTouchData(
-          touchCallback: (FlTouchEvent event, pieTouchResponse) {
-            setState(() {
-              if (!event.isInterestedForInteractions ||
-                  pieTouchResponse == null ||
-                  pieTouchResponse.touchedSection == null) {
-                touchedIndex = -1;
-                return;
-              }
-              touchedIndex =
-                  pieTouchResponse.touchedSection!.touchedSectionIndex;
-            });
-          },
+    final total = notStarted + ongoing + completed;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        PieChart(
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
+          PieChartData(
+            pieTouchData: PieTouchData(
+              touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                setState(() {
+                  if (!event.isInterestedForInteractions ||
+                      pieTouchResponse == null ||
+                      pieTouchResponse.touchedSection == null) {
+                    touchedIndex = -1;
+                    return;
+                  }
+                  touchedIndex =
+                      pieTouchResponse.touchedSection!.touchedSectionIndex;
+                });
+              },
+            ),
+            borderData: FlBorderData(show: false),
+            sectionsSpace: 4,
+            centerSpaceRadius: 60,
+            sections: _generateSections(notStarted, ongoing, completed),
+          ),
         ),
-        borderData: FlBorderData(show: false),
-        sectionsSpace: 4,
-        centerSpaceRadius: 60,
-        sections: _generateSections(notStarted, ongoing, completed),
-      ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              total.toString(),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              "Tasks",
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

@@ -9,7 +9,8 @@ import '/views/views.dart';
 class DesktopColors {
   static const Color primary = AppColors.primary;
   static const Color sidebarBackground = Color(0xFF1E293B);
-  static const Color selectionTile = Color(0xFF334155);
+  static const Color sidebarBackgroundDeep = Color(0xFF0B1220);
+  static const Color selectionTile = Color(0x262E5EAA);
   static const Color lightText = Color(0xFFF1F5F9);
   static const Color lightTextSecondary = Color(0xFF94A3B8);
   static const Color white = AppColors.white;
@@ -43,23 +44,38 @@ class SidebarIconTile extends StatelessWidget {
       message: title,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         hoverColor: hoverColor ?? Colors.white.withValues(alpha: 0.1),
-        child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: isSelected ? selectedColor : null,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color:
-                iconColor ??
-                (isSelected
-                    ? DesktopColors.primary
-                    : DesktopColors.lightTextSecondary),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: isSelected
+                  ? const LinearGradient(
+                      colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                    )
+                  : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: DesktopColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: isSelected
+                  ? Colors.white
+                  : (iconColor ?? DesktopColors.lightTextSecondary),
+            ),
           ),
         ),
       ),
@@ -225,9 +241,20 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
         ? _collapsedWidth
         : _expandedWidth;
 
-    return Material(
-      color: DesktopColors.sidebarBackground,
-      child: AnimatedContainer(
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            DesktopColors.sidebarBackground,
+            DesktopColors.sidebarBackgroundDeep,
+          ],
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         width: sidebarWidth,
         decoration: BoxDecoration(
@@ -250,10 +277,12 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                 child: FutureBuilder(
                   future: _future,
                   builder: (context, snapshot) {
+                    Widget content;
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const SizedBox.shrink();
+                      content = const SizedBox.shrink(key: ValueKey('empty'));
                     } else if (snapshot.hasError) {
-                      return Center(
+                      content = Center(
+                        key: const ValueKey('error'),
                         child: Text(
                           "Error loading menus",
                           style: Theme.of(
@@ -261,52 +290,62 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                           ).textTheme.bodySmall?.copyWith(color: Colors.red),
                         ),
                       );
-                    }
-                    return Scrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      interactive: true,
-                      trackVisibility: true,
-                      radius: const Radius.circular(8),
-                      thickness: 8,
-                      child: ListView(
+                    } else {
+                      content = Scrollbar(
+                        key: const ValueKey('menu'),
                         controller: _scrollController,
-                        children: _menus.asMap().entries.map((entry) {
-                          int index = entry.key;
-                          var menu = entry.value;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: menu.containsKey('children')
-                                ? buildExpandableMenu(
-                                    icon: menu['icon'] as IconData,
-                                    title: menu['title'] as String,
-                                    expanded: expandedIndex == index,
-                                    onToggle: () {
-                                      // setState(() {
-                                      setState(() {
-                                        expandedIndex = expandedIndex == index
-                                            ? -1
-                                            : index;
-                                      });
+                        thumbVisibility: true,
+                        interactive: true,
+                        trackVisibility: true,
+                        radius: const Radius.circular(8),
+                        thickness: 8,
+                        child: ListView(
+                          controller: _scrollController,
+                          children: _menus.asMap().entries.map((entry) {
+                            int index = entry.key;
+                            var menu = entry.value;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: menu.containsKey('children')
+                                  ? buildExpandableMenu(
+                                      icon: menu['icon'] as IconData,
+                                      title: menu['title'] as String,
+                                      expanded: expandedIndex == index,
+                                      onToggle: () {
+                                        // setState(() {
+                                        setState(() {
+                                          expandedIndex =
+                                              expandedIndex == index
+                                              ? -1
+                                              : index;
+                                        });
 
-                                      // if (widget.isCollapsed) {
-                                      //   widget.onCollapseChanged(false);
-                                      // }
-                                      // });
-                                    },
-                                    children: menu['children'] as List<dynamic>,
-                                  )
-                                : buildMenuItem(
-                                    menu['icon'] as IconData,
-                                    menu['title'] as String,
-                                    menu['trailing'],
-                                    onTap: menu.containsKey('onTap')
-                                        ? menu['onTap'] as bool
-                                        : true,
-                                  ),
-                          );
-                        }).toList(),
-                      ),
+                                        // if (widget.isCollapsed) {
+                                        //   widget.onCollapseChanged(false);
+                                        // }
+                                        // });
+                                      },
+                                      children:
+                                          menu['children'] as List<dynamic>,
+                                    )
+                                  : buildMenuItem(
+                                      menu['icon'] as IconData,
+                                      menu['title'] as String,
+                                      menu['trailing'],
+                                      onTap: menu.containsKey('onTap')
+                                          ? menu['onTap'] as bool
+                                          : true,
+                                    ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      child: content,
                     );
                   },
                 ),
@@ -315,6 +354,7 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
             _buildCollapseButton(),
           ],
         ),
+      ),
       ),
     );
   }
@@ -328,39 +368,62 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
           height: 70,
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 12.0,
+                horizontal: 16.0,
+              ),
               child: widget.isCollapsed
                   ? const Icon(Iconsax.buildings, size: 28, color: Colors.white)
                   : InkWell(
                       onTap: () =>
                           Navigate.routeReplace(context, RouteScreen()),
-                      child: (networkLogo != null && networkLogo.isNotEmpty)
-                          ? Image.network(
-                              networkLogo,
-                              height: 36,
-                              fit: BoxFit.contain,
-                              frameBuilder:
-                                  (
-                                    context,
-                                    child,
-                                    frame,
-                                    wasSynchronouslyLoaded,
-                                  ) {
-                                    return wasSynchronouslyLoaded
-                                        ? child
-                                        : AnimatedOpacity(
-                                            opacity: frame == null ? 0 : 1,
-                                            duration: const Duration(
-                                              seconds: 1,
-                                            ),
-                                            curve: Curves.easeOut,
-                                            child: child,
-                                          );
-                                  },
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildDefaultLogoAsset(),
-                            )
-                          : _buildDefaultLogoAsset(),
+                      child: Row(
+                        children: [
+                          (networkLogo != null && networkLogo.isNotEmpty)
+                              ? Image.network(
+                                  networkLogo,
+                                  height: 34,
+                                  fit: BoxFit.contain,
+                                  frameBuilder:
+                                      (
+                                        context,
+                                        child,
+                                        frame,
+                                        wasSynchronouslyLoaded,
+                                      ) {
+                                        return wasSynchronouslyLoaded
+                                            ? child
+                                            : AnimatedOpacity(
+                                                opacity: frame == null
+                                                    ? 0
+                                                    : 1,
+                                                duration: const Duration(
+                                                  seconds: 1,
+                                                ),
+                                                curve: Curves.easeOut,
+                                                child: child,
+                                              );
+                                      },
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      _buildDefaultLogoAsset(),
+                                )
+                              : _buildDefaultLogoAsset(),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "Lead Capture CRM",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: DesktopColors.lightText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
             ),
           ),
@@ -440,40 +503,60 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
       );
     }
 
-    return ListTile(
-      dense: true,
-      visualDensity: VisualDensity.comfortable,
-      minTileHeight: 20,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-      leading: Icon(icon, size: 20),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-          color: isSelected
-              ? DesktopColors.primary
-              : DesktopColors.lightTextSecondary.withValues(alpha: 0.7),
-        ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: isSelected
+            ? const LinearGradient(
+                colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              )
+            : null,
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: DesktopColors.primary.withValues(alpha: 0.4),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ]
+            : null,
       ),
-      trailing: trailing,
-      onTap: onTap
-          ? () {
-              widget.onMenuSelected(title);
-              setState(() => expandedIndex = -1);
-            }
-          : null,
-      selected: isSelected,
-      selectedColor: DesktopColors.primary,
-      selectedTileColor: DesktopColors.selectionTile,
-      iconColor: isSelected
-          ? DesktopColors.primary
-          : DesktopColors.lightTextSecondary,
-      textColor: isSelected
-          ? DesktopColors.primary
-          : DesktopColors.lightTextSecondary,
-      hoverColor: DesktopColors.hover,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      horizontalTitleGap: 8,
+      child: ListTile(
+        dense: true,
+        visualDensity: VisualDensity.comfortable,
+        minTileHeight: 20,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 0,
+        ),
+        leading: Icon(
+          icon,
+          size: 20,
+          color: isSelected ? Colors.white : DesktopColors.lightTextSecondary,
+        ),
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected
+                ? Colors.white
+                : DesktopColors.lightTextSecondary.withValues(alpha: 0.75),
+          ),
+        ),
+        trailing: trailing,
+        onTap: onTap
+            ? () {
+                widget.onMenuSelected(title);
+                setState(() => expandedIndex = -1);
+              }
+            : null,
+        hoverColor: isSelected ? Colors.transparent : DesktopColors.hover,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        horizontalTitleGap: 10,
+      ),
     );
   }
 

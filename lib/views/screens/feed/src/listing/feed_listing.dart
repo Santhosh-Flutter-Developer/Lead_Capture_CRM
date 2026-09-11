@@ -59,6 +59,7 @@ class _FeedListingState extends State<FeedListing> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
+    final bool isNarrow = screenWidth < 700;
     final crossAxisCount = isDesktop
         ? 3
         : 2; // Pro dashboard often uses 3 on wide screens
@@ -99,9 +100,27 @@ class _FeedListingState extends State<FeedListing> {
               ),
             )
           : null,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        elevation: 4,
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         onPressed: () async {
           if (kIsMobile) {
             final result = await Sheet.showSheet(
@@ -122,6 +141,7 @@ class _FeedListingState extends State<FeedListing> {
           }
         },
         child: const Icon(Iconsax.add, color: Colors.white),
+        ),
       ),
       body: BlocBuilder<FeedBloc, FeedState>(
         builder: (context, state) {
@@ -132,7 +152,42 @@ class _FeedListingState extends State<FeedListing> {
 
           if (state is FeedLoaded) {
             if (state.feeds.isEmpty) {
-              return const Center(child: Text("No posts in the stream."));
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Iconsax.gallery,
+                        size: 40,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "No posts yet",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Be the first to share an update with the team.",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
 
             return RefreshIndicator(
@@ -140,25 +195,48 @@ class _FeedListingState extends State<FeedListing> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1200),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio:
-                          0.72, // Taller aspect ratio for Instagram-like feel with text
-                    ),
-                    itemCount: state.feeds.length,
-                    itemBuilder: (context, index) {
-                      return FeedCard(
-                        key: ValueKey(state.feeds[index].uid),
-                        feed: state.feeds[index],
-                        currentUserUid: _currentUserUid,
-                        onRefresh: _refreshFeed,
-                      );
-                    },
-                  ),
+                  child: isNarrow
+                      // Single column on mobile/narrow screens: a plain
+                      // list lets each card size itself to its own content
+                      // (image, poll, files, caption can all differ in
+                      // height), instead of forcing every card into the
+                      // same fixed-aspect-ratio box — which is what caused
+                      // the repeated overflow errors on narrow widths.
+                      ? ListView.separated(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: state.feeds.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            return FeedCard(
+                              key: ValueKey(state.feeds[index].uid),
+                              feed: state.feeds[index],
+                              currentUserUid: _currentUserUid,
+                              onRefresh: _refreshFeed,
+                              fixedMediaHeight: 280,
+                            );
+                          },
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(12),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio:
+                                    0.72, // Taller aspect ratio for Instagram-like feel with text
+                              ),
+                          itemCount: state.feeds.length,
+                          itemBuilder: (context, index) {
+                            return FeedCard(
+                              key: ValueKey(state.feeds[index].uid),
+                              feed: state.feeds[index],
+                              currentUserUid: _currentUserUid,
+                              onRefresh: _refreshFeed,
+                            );
+                          },
+                        ),
                 ),
               ),
             );
@@ -170,16 +248,43 @@ class _FeedListingState extends State<FeedListing> {
   }
 }
 
+/// Wraps the media section with either `Expanded` (grid/multi-column mode,
+/// where the parent always gives a bounded height via a fixed aspect
+/// ratio) or a fixed-height `SizedBox` (single-column list mode, where the
+/// parent gives unbounded height - `Expanded` there would crash Flutter's
+/// layout with "incoming height constraints are unbounded").
+class _MediaSectionWrapper extends StatelessWidget {
+  final double? fixedHeight;
+  final Widget child;
+
+  const _MediaSectionWrapper({required this.fixedHeight, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (fixedHeight != null) {
+      return SizedBox(height: fixedHeight, child: child);
+    }
+    return Expanded(child: child);
+  }
+}
+
 class FeedCard extends StatefulWidget {
   final FeedModel feed;
   final String? currentUserUid;
   final VoidCallback onRefresh;
+  // When null (grid/multi-column usage), the media section uses Expanded
+  // to fill whatever height the grid's fixed aspect ratio gives it. When
+  // set (single-column list usage, where the parent gives each item
+  // unbounded height), Expanded would crash - so a fixed intrinsic height
+  // is used instead.
+  final double? fixedMediaHeight;
 
   const FeedCard({
     super.key,
     required this.feed,
     this.currentUserUid,
     required this.onRefresh,
+    this.fixedMediaHeight,
   });
 
   @override
@@ -382,15 +487,17 @@ class FeedCardState extends State<FeedCard> {
                   ),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Header
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                          padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
                           child: Row(
                             children: [
                               InkWell(
@@ -399,7 +506,7 @@ class FeedCardState extends State<FeedCard> {
                                   widget.feed.authorId,
                                 ),
                                 child: CircleAvatar(
-                                  radius: 16,
+                                  radius: 18,
                                   backgroundColor: Theme.of(
                                     context,
                                   ).scaffoldBackgroundColor,
@@ -410,7 +517,7 @@ class FeedCardState extends State<FeedCard> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,8 +529,8 @@ class FeedCardState extends State<FeedCard> {
                                       child: Text(
                                         postAuthorName,
                                         style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
                                           color: Theme.of(
                                             context,
                                           ).colorScheme.onSurface,
@@ -442,9 +549,26 @@ class FeedCardState extends State<FeedCard> {
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () => Navigator.pop(dialogContext),
-                                icon: const Icon(Icons.close),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () => Navigator.pop(dialogContext),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest
+                                        .withValues(alpha: 0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -716,7 +840,11 @@ class FeedCardState extends State<FeedCard> {
                                           );
                                         }),
                                         const SizedBox(height: 6),
-                                        Row(
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           children: [
                                             if (widget.currentUserUid != null)
                                               ElevatedButton(
@@ -794,7 +922,6 @@ class FeedCardState extends State<FeedCard> {
                                                       : 'Participate',
                                                 ),
                                               ),
-                                            const SizedBox(width: 8),
                                             if (widget.currentUserUid ==
                                                 widget.feed.authorId)
                                               OutlinedButton(
@@ -1479,36 +1606,73 @@ class FeedCardState extends State<FeedCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isLight = theme.brightness == Brightness.light;
+    final Color accent = _accentColorForName(_postAuthorName);
+
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: isLight ? Colors.white : theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Colorful accent spine - gives every author's posts a distinct,
+          // vibrant identity instead of a flat uniform white card top.
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [accent, accent.withValues(alpha: 0.4)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+          ),
           // Header - Condensed
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
             child: Row(
               children: [
                 InkWell(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                   onTap: () =>
                       _openUserProfileFromComment(widget.feed.authorId),
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    backgroundImage: NetworkImage(
-                      _postAuthorAvatar.isNotEmpty
-                          ? _postAuthorAvatar
-                          : AppStrings.emptyProfilePhotoUrl,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: accent, width: 1.5),
+                    ),
+                    child: CircleAvatar(
+                      radius: 15,
+                      backgroundColor: theme.scaffoldBackgroundColor,
+                      backgroundImage: NetworkImage(
+                        _postAuthorAvatar.isNotEmpty
+                            ? _postAuthorAvatar
+                            : AppStrings.emptyProfilePhotoUrl,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1522,15 +1686,15 @@ class FeedCardState extends State<FeedCard> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 12.5,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
                       Text(
                         _buildTimeLabel(widget.feed),
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 10,
                         ),
                       ),
@@ -1550,7 +1714,10 @@ class FeedCardState extends State<FeedCard> {
                     icon: Icon(
                       Iconsax.more,
                       size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     onSelected: (value) async {
                       if (value == 'edit') {
@@ -1578,7 +1745,8 @@ class FeedCardState extends State<FeedCard> {
           ),
 
           // Media Section - Instagram Like
-          Expanded(
+          _MediaSectionWrapper(
+            fixedHeight: widget.fixedMediaHeight,
             child: InkWell(
               onTap: () =>
                   _openPostPreview(initialImageIndex: _currentImageIndex),
@@ -1608,8 +1776,17 @@ class FeedCardState extends State<FeedCard> {
                   else if (widget.feed.content.isNotEmpty)
                     Container(
                       width: double.infinity,
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            accent.withValues(alpha: 0.14),
+                            accent.withValues(alpha: 0.03),
+                          ],
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(16),
                       alignment: Alignment.center,
                       child: Text(
                         widget.feed.content,
@@ -1617,10 +1794,10 @@ class FeedCardState extends State<FeedCard> {
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 13.5,
+                          height: 1.45,
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     )
@@ -1697,24 +1874,35 @@ class FeedCardState extends State<FeedCard> {
                   ),
                 if (widget.feed.attachments.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 2),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Iconsax.attach_circle,
-                          size: 12,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${widget.feed.attachments.length} file${widget.feed.attachments.length == 1 ? '' : 's'} attached',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.primary,
+                    padding: const EdgeInsets.only(top: 6, bottom: 2),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Iconsax.attach_circle,
+                            size: 12,
+                            color: accent,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '${widget.feed.attachments.length} file${widget.feed.attachments.length == 1 ? '' : 's'} attached',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: accent,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 const SizedBox(height: 6),
@@ -1724,28 +1912,35 @@ class FeedCardState extends State<FeedCard> {
                   children: [
                     _interactionIcon(
                       _isLiked ? Iconsax.heart5 : Iconsax.heart,
-                      _isLiked
-                          ? Colors.red
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      _isLiked ? Colors.red : theme.colorScheme.onSurfaceVariant,
                       _likeCount > 0 ? _likeCount.toString() : "",
                       _handleLike,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     _interactionIcon(
                       Iconsax.message,
-                      Theme.of(context).colorScheme.onSurfaceVariant,
+                      theme.colorScheme.onSurfaceVariant,
                       _commentCount > 0 ? _commentCount.toString() : "",
                       () => _showCommentSheet(),
                     ),
                     const Spacer(),
-                    InkWell(
-                      onTap: _handleSave,
-                      child: Icon(
-                        _isSaved ? Iconsax.archive_minus5 : Iconsax.archive_add,
-                        size: 18,
-                        color: _isSaved
-                            ? FeedAppColors.primary
-                            : FeedAppColors.textSecondary,
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: _handleSave,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            _isSaved
+                                ? Iconsax.archive_minus5
+                                : Iconsax.archive_add,
+                            size: 18,
+                            color: _isSaved
+                                ? FeedAppColors.primary
+                                : FeedAppColors.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1761,105 +1956,66 @@ class FeedCardState extends State<FeedCard> {
 
   Widget _buildAttachmentsPreview() {
     final attachments = widget.feed.attachments;
+    final theme = Theme.of(context);
+    final Color accent = _accentColorForName(_postAuthorName);
+    final bool isSingle = attachments.length == 1;
+
+    // Fixed-height summary instead of listing every file: a file list that
+    // grows with attachment count previously overflowed the card's media
+    // area on narrow (mobile grid) cells, since that area has a fixed
+    // height driven by the grid's aspect ratio.
     return Container(
       width: double.infinity,
-      color: Theme.of(context).scaffoldBackgroundColor,
-      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.16),
+            accent.withValues(alpha: 0.04),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
+              color: accent.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Iconsax.folder_open,
-                  size: 10,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'FILES',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
+            child: Icon(
+              isSingle ? Iconsax.document_text_1 : Iconsax.folder_open,
+              size: 26,
+              color: accent,
             ),
           ),
-          const SizedBox(height: 8),
-          ...attachments
-              .take(4)
-              .map(
-                (file) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          Iconsax.document,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              file.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            Text(
-                              _formatFileSize(file.size),
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          if (attachments.length > 4)
+          const SizedBox(height: 10),
+          Text(
+            isSingle ? attachments.first.name : '${attachments.length} files',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          if (isSingle) ...[
+            const SizedBox(height: 2),
             Text(
-              '+${attachments.length - 4} more files',
+              _formatFileSize(attachments.first.size),
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+          ],
         ],
       ),
     );
@@ -1871,26 +2027,54 @@ class FeedCardState extends State<FeedCard> {
     String count,
     VoidCallback onTap,
   ) {
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: color),
-          if (count.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: color),
+              if (count.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(
+                  count,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  /// Deterministic vibrant accent color per author name, used for the
+  /// card's top spine and avatar ring so the feed reads as colorful and
+  /// each author's posts feel visually distinct - purely presentational,
+  /// same author always gets the same color.
+  static const List<Color> _accentPalette = [
+    Color(0xFF4364F7), // blue
+    Color(0xFF10B981), // green
+    Color(0xFFF97316), // orange
+    Color(0xFF8B5CF6), // purple
+    Color(0xFFEC4899), // pink
+    Color(0xFF06B6D4), // cyan
+    Color(0xFFEF4444), // red
+    Color(0xFFF59E0B), // amber
+  ];
+
+  Color _accentColorForName(String name) {
+    if (name.isEmpty) return _accentPalette.first;
+    final int hash = name.codeUnits.fold(0, (a, b) => a + b);
+    return _accentPalette[hash % _accentPalette.length];
   }
 
   String _formatShortTime(DateTime dt) {

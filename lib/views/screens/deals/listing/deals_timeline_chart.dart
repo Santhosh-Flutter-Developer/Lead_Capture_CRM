@@ -45,6 +45,9 @@ class DealsTimelineChart extends StatelessWidget {
         dayCounts.values.fold(0, (max, e) => e > max ? e : max).toDouble() + 1;
     if (maxY < 5) maxY = 5; // Minimum scale for aesthetics
 
+    final theme = Theme.of(context);
+    final bool isLight = theme.brightness == Brightness.light;
+
     return GestureDetector(
       onTap: () {
         if (kIsMobile || width < 1000) {
@@ -54,15 +57,24 @@ class DealsTimelineChart extends StatelessWidget {
         }
       },
       child: Container(
-        padding: EdgeInsets.all(8),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: isLight ? Colors.white : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Color(0xFF2B3674).withValues(alpha: 0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
@@ -74,23 +86,54 @@ class DealsTimelineChart extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Deals $monthName Activity",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context).colorScheme.onSurface,
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(context).colorScheme.primary,
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.6),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.show_chart_rounded,
+                          color: Colors.white,
+                          size: 18,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Daily deal creation performance for the current month",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Deals $monthName Activity",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Daily deal creation performance for the current month",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -103,16 +146,32 @@ class DealsTimelineChart extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    "Live Data",
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Live Data",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -121,6 +180,8 @@ class DealsTimelineChart extends StatelessWidget {
             SizedBox(
               height: 320,
               child: LineChart(
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
                 LineChartData(
                   gridData: FlGridData(
                     show: true,

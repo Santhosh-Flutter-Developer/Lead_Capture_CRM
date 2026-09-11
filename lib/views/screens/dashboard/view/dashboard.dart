@@ -18,6 +18,44 @@ const Color kTextPrimary = Color(0xFF2B3674);
 const Color kTextSecondary = Color(0xFFA3AED0);
 const double kBorderRadius = 20.0;
 
+/// Shared "elevated card" look for the dashboard's own panels and tiles.
+///
+/// The page background and Material 3's generated `colorScheme.surface`
+/// can end up nearly identical in light mode, which made cards blend into
+/// the page with almost no visible separation. This forces a distinctly
+/// white card in light mode (page background is a light blue-grey, not
+/// pure white), keeps the theme's own surface color in dark mode, and adds
+/// a crisp hairline border plus a stronger, closer shadow so the card
+/// reads as elevated regardless of how close the fill colors are.
+BoxDecoration dashboardCardDecoration(
+  BuildContext context, {
+  double radius = kBorderRadius,
+}) {
+  final theme = Theme.of(context);
+  final bool isLight = theme.brightness == Brightness.light;
+
+  return BoxDecoration(
+    color: isLight ? Colors.white : theme.colorScheme.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(
+      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+      width: 1,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+        blurRadius: 18,
+        offset: const Offset(0, 6),
+      ),
+      BoxShadow(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
+        blurRadius: 4,
+        offset: const Offset(0, 1),
+      ),
+    ],
+  );
+}
+
 class Dashboard extends StatefulWidget {
   final bool isAdmin;
 
@@ -27,7 +65,8 @@ class Dashboard extends StatefulWidget {
   State<Dashboard> createState() => _DashboardState();
 }
 
-class _DashboardState extends State<Dashboard> {
+class _DashboardState extends State<Dashboard>
+    with SingleTickerProviderStateMixin {
   String _selectedFilter = "Today";
   final Map<String, PermissionModel?> _permissions = {};
   bool _permissionsLoaded = false;
@@ -40,10 +79,41 @@ class _DashboardState extends State<Dashboard> {
   bool get _canViewDashboard =>
       widget.isAdmin || (_permissions['Dashboard']?.canView ?? false);
 
+  // One-shot entrance animation for the dashboard content. Plays once when
+  // data first becomes available; fully settled/idle afterwards so it adds
+  // no ongoing rendering cost.
+  late final AnimationController _entranceController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+  late final Animation<double> _fadeAnimation = CurvedAnimation(
+    parent: _entranceController,
+    curve: Curves.easeOut,
+  );
+  late final Animation<Offset> _slideAnimation =
+      Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero).animate(
+        CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic),
+      );
+  bool _hasAnimatedIn = false;
+
+  void _playEntranceOnce() {
+    if (_hasAnimatedIn) return;
+    _hasAnimatedIn = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _entranceController.forward();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -95,8 +165,14 @@ class _DashboardState extends State<Dashboard> {
               return buildNoPermissionView(context);
             }
 
+            _playEntranceOnce();
+
             return SafeArea(
-              child: SingleChildScrollView(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,6 +321,8 @@ class _DashboardState extends State<Dashboard> {
                       },
                     ),
                   ],
+                ),
+                  ),
                 ),
               ),
             );
@@ -770,25 +848,38 @@ class _DashboardState extends State<Dashboard> {
   // }
 
   Widget _buildDateFilter(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
 
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xff303030) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300),
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(21),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             value: _selectedFilter,
-            icon: const Icon(Icons.arrow_drop_down),
-            borderRadius: BorderRadius.circular(12),
+            icon: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            borderRadius: BorderRadius.circular(14),
             elevation: 2,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
             items: const [
               DropdownMenuItem(value: "Today", child: Text("Today")),
               DropdownMenuItem(value: "This Week", child: Text("This Week")),
@@ -946,7 +1037,7 @@ Widget _buildKpiGrid(
   final adminCards = <Widget>[
     if (permissions['Leads']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Total Leads",
           value: data.totalLeads.toString(),
@@ -959,7 +1050,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Deals']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Converted",
           value: data.convertedLeads.toString(),
@@ -972,7 +1063,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Deals']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Ongoing Deals",
           value: data.ongoingDeals.toString(),
@@ -985,7 +1076,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Employees']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Active Staff",
           value: data.activeEmployees.toString(),
@@ -1000,7 +1091,7 @@ Widget _buildKpiGrid(
   final userCards = <Widget>[
     if (permissions['Tasks']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Assigned Tasks",
           value: data.assignedTasks.toString(),
@@ -1012,7 +1103,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Leads']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Pending Follow-ups",
           value: data.pendingFollowUps.toString(),
@@ -1024,7 +1115,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Leads']?.canView ?? false)
       SizedBox(
-        width: 200,
+        width: 212,
         child: KpiCard(
           title: "Leads Assigned",
           value: data.leadsAssigned.toString(),
@@ -1048,12 +1139,53 @@ Widget _buildKpiGrid(
         children: [
           for (var i = 0; i < cards.length; i++) ...[
             if (i > 0) const SizedBox(width: 10),
-            cards[i],
+            _StaggeredFadeIn(index: i, child: cards[i]),
           ],
         ],
       ),
     ),
   );
+}
+
+/// Wraps a widget with a short, one-shot delayed fade + rise-in. Used to
+/// stagger the KPI cards' entrance. Purely a local opacity/offset tween per
+/// card — no continuous animation once settled, so it costs nothing at
+/// steady state.
+class _StaggeredFadeIn extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const _StaggeredFadeIn({required this.index, required this.child});
+
+  @override
+  State<_StaggeredFadeIn> createState() => _StaggeredFadeInState();
+}
+
+class _StaggeredFadeInState extends State<_StaggeredFadeIn> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 60 * widget.index), () {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      child: AnimatedSlide(
+        offset: _visible ? Offset.zero : const Offset(0, 0.08),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 double _calculateProgress(int value, int maxValue) {
@@ -1071,19 +1203,7 @@ Widget _buildActivitySection(
 
   return Container(
     padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(kBorderRadius),
-      boxShadow: [
-        BoxShadow(
-          color: Theme.of(
-            context,
-          ).colorScheme.onSurface.withValues(alpha: 0.05),
-          blurRadius: 20,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
+    decoration: dashboardCardDecoration(context),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1148,7 +1268,7 @@ Widget _buildRightPanel(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 80, // controls card height
+            height: 52, // controls pill height
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -1158,11 +1278,8 @@ Widget _buildRightPanel(
                             : _userActions(context, permissions))
                         .map(
                           (card) => Padding(
-                            padding: const EdgeInsets.only(right: 15),
-                            child: SizedBox(
-                              width: 80, // fixed width per card
-                              child: card,
-                            ),
+                            padding: const EdgeInsets.only(right: 12),
+                            child: card,
                           ),
                         )
                         .toList(),
@@ -1177,7 +1294,11 @@ Widget _buildRightPanel(
           const SizedBox(height: 15),
 
           if (notifications.isEmpty)
-            _emptyText(context, "No new notifications.")
+            _emptyText(
+              context,
+              "No new notifications.",
+              icon: Icons.notifications_none_rounded,
+            )
           else
             ...notifications.map((msg) => NotificationTile(notification: msg)),
 
@@ -1188,7 +1309,11 @@ Widget _buildRightPanel(
             _sectionTitle(context, "Recent Tickets"),
             const SizedBox(height: 15),
             if (recentTickets.isEmpty)
-              _emptyText(context, "No tickets yet.")
+              _emptyText(
+                context,
+                "No tickets yet.",
+                icon: Icons.confirmation_number_outlined,
+              )
             else
               ...recentTickets.map(
                 (ticket) => TicketTile(
@@ -1209,7 +1334,11 @@ Widget _buildRightPanel(
             ),
             const SizedBox(height: 15),
             if (upcomingTasks.isEmpty)
-              _emptyText(context, "No upcoming tasks.")
+              _emptyText(
+                context,
+                "No upcoming tasks.",
+                icon: Icons.event_available_rounded,
+              )
             else
               ...upcomingTasks.map(
                 (item) => TaskReminderTile(
@@ -1249,20 +1378,52 @@ Future<void> _openUpcomingItem(
 }
 
 Widget _sectionTitle(BuildContext context, String text) {
-  return Text(
-    text,
-    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.bold,
-      color: Theme.of(context).colorScheme.onSurface,
-    ),
+  return Row(
+    children: [
+      Container(
+        width: 4,
+        height: 16,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+    ],
   );
 }
 
-Widget _emptyText(BuildContext context, String text) {
-  return Text(
-    text,
-    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
+Widget _emptyText(
+  BuildContext context,
+  String text, {
+  IconData icon = Icons.inbox_rounded,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: Column(
+      children: [
+        Icon(
+          icon,
+          size: 30,
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -1413,144 +1574,169 @@ class KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPositive = (trend ?? 0) >= 0;
 
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      child: Opacity(
-        opacity: enabled ? 1.0 : 0.5,
-        child: Container(
-          height: 200,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(24),
+        child: Opacity(
+          opacity: enabled ? 1.0 : 0.5,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors.last.withValues(alpha: 0.35),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
               ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              /// ─── HEADER ───────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Soft decorative circle for depth, purely static.
+                Positioned(
+                  right: -18,
+                  top: -26,
+                  child: Container(
+                    width: 90,
+                    height: 90,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: gradientColors),
-                      borderRadius: BorderRadius.circular(14),
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.08),
                     ),
-                    child: Icon(icon, color: Colors.white, size: 22),
                   ),
-
-                  /*if (trend != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isPositive
-                            ? Colors.green.withValues(alpha: 0.12)
-                            : Colors.red.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isPositive
-                                ? Icons.trending_up
-                                : Icons.trending_down,
-                            size: 16,
-                            color: isPositive ? Colors.green : Colors.red,
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    /// ─── HEADER ───────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(13),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "${trend!.abs()}%",
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: isPositive ? Colors.green : Colors.red,
+                          child: Icon(icon, color: Colors.white, size: 20),
+                        ),
+                        if (trend != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isPositive
+                                      ? Icons.trending_up
+                                      : Icons.trending_down,
+                                  size: 14,
+                                  color: Colors.white,
                                 ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  "${trend!.abs()}%",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    ),*/
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
-              /// ─── VALUE ───────────────────────────────
-              Text(
-                value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-
-              const Spacer(),
-
-              /// ─── PROGRESS ────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Target",
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ],
                     ),
-                  ),
-                  Text(
-                    "${(progress * 100).toInt()}%",
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: gradientColors.first,
+
+                    const SizedBox(height: 18),
+
+                    /// ─── VALUE ───────────────────────────────
+                    Text(
+                      value,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1,
+                          ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: progress),
-                  duration: const Duration(milliseconds: 800),
-                  builder: (context, value, _) {
-                    return LinearProgressIndicator(
-                      value: value,
-                      minHeight: 6,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).scaffoldBackgroundColor,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        gradientColors.first,
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w500,
                       ),
-                    );
-                  },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    /// ─── PROGRESS ────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Target",
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.75),
+                              ),
+                        ),
+                        Text(
+                          "${(progress * 100).toInt()}%",
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: progress),
+                        duration: const Duration(milliseconds: 800),
+                        builder: (context, value, _) {
+                          return LinearProgressIndicator(
+                            value: value,
+                            minHeight: 6,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.22,
+                            ),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1576,77 +1762,63 @@ class QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(18),
-        splashColor: enabled
-            ? color.withValues(alpha: 0.15)
-            : Colors.transparent,
-        highlightColor: enabled
-            ? color.withValues(alpha: 0.08)
-            : Colors.transparent,
-        child: Opacity(
-          opacity: enabled ? 1.0 : 0.5,
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Theme.of(context).colorScheme.surface,
-                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-                ],
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: enabled
+              ? color.withValues(alpha: 0.2)
+              : Colors.transparent,
+          highlightColor: enabled
+              ? color.withValues(alpha: 0.1)
+              : Colors.transparent,
+          child: Opacity(
+            opacity: enabled ? 1.0 : 0.5,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 10, 16, 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: color.withValues(alpha: 0.1),
+                border: Border.all(color: color.withValues(alpha: 0.25)),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   /// ICON
                   Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: [
-                          color.withValues(alpha: 0.9),
-                          color.withValues(alpha: 0.6),
+                          color.withValues(alpha: 0.95),
+                          color.withValues(alpha: 0.65),
                         ],
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: color.withValues(alpha: 0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: Icon(icon, size: 16, color: Colors.white),
                   ),
 
-                  const SizedBox(height: 6),
+                  const SizedBox(width: 10),
 
                   /// LABEL
                   Text(
                     label,
-                    textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      height: 1.25,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: color,
                     ),
                   ),
                 ],
@@ -1816,17 +1988,7 @@ class _NotificationTileState extends State<NotificationTile> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Theme.of(context).colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+        decoration: dashboardCardDecoration(context, radius: 16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1901,17 +2063,7 @@ class TaskReminderTile extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
+          decoration: dashboardCardDecoration(context, radius: 16),
           child: Row(
             children: [
               /// ICON
@@ -2041,17 +2193,7 @@ class TicketTile extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
+          decoration: dashboardCardDecoration(context, radius: 16),
           child: Row(
             children: [
               /// ICON
@@ -2139,6 +2281,7 @@ class ActivityTimelineTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2148,20 +2291,26 @@ class ActivityTimelineTile extends StatelessWidget {
               width: 12,
               height: 12,
               decoration: BoxDecoration(
-                color: isFirst ? Colors.blue : Colors.grey.shade300,
+                color: isFirst
+                    ? AppColors.primary
+                    : theme.colorScheme.outlineVariant,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: theme.colorScheme.surface, width: 2),
                 boxShadow: [
                   if (isFirst)
                     BoxShadow(
-                      color: Colors.blue.withValues(alpha: 0.4),
+                      color: AppColors.primary.withValues(alpha: 0.4),
                       blurRadius: 4,
                       spreadRadius: 2,
                     ),
                 ],
               ),
             ),
-            Container(width: 2, height: 20, color: Colors.grey.shade200),
+            Container(
+              width: 2,
+              height: 20,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
           ],
         ),
         const SizedBox(width: 12),

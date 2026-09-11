@@ -315,24 +315,7 @@ class _FeedEditState extends State<FeedEdit> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
-            child: ElevatedButton(
-              onPressed: _handleSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-              ),
-              child: Text(
-                "Post",
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.surface,
-                ),
-              ),
-            ),
+            child: _SaveButton(onPressed: _handleSubmit),
           ),
         ],
       ),
@@ -535,7 +518,20 @@ class _FeedEditState extends State<FeedEdit> {
       ),
       child: Row(
         children: [
-          Icon(Icons.description, color: Theme.of(context).colorScheme.primary),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.description,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -566,7 +562,9 @@ class _FeedEditState extends State<FeedEdit> {
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,6 +716,54 @@ class _FeedEditState extends State<FeedEdit> {
   }
 }
 
+class _SaveButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _SaveButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onPressed,
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Text(
+            "Save",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.white,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ToolbarIcon extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -733,13 +779,25 @@ class _ToolbarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(
-        icon,
-        color: isActive ? color : color.withValues(alpha: 0.8),
-        size: 24,
+    final bool disabled = onTap == null;
+    return MouseRegion(
+      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: isActive || !disabled ? 0.12 : 0.06),
+          ),
+          child: Icon(
+            icon,
+            color: disabled ? color.withValues(alpha: 0.4) : color,
+            size: 20,
+          ),
+        ),
       ),
-      onPressed: onTap,
     );
   }
 }
