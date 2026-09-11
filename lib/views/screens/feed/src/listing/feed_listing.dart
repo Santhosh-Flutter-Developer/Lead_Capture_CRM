@@ -66,7 +66,7 @@ class _FeedListingState extends State<FeedListing> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: kIsMobile
+      appBar: isNarrow
           ? AppBar(
               leading: Back(color: Theme.of(context).colorScheme.onSurface),
               backgroundColor: Theme.of(context).colorScheme.surface,
@@ -81,15 +81,27 @@ class _FeedListingState extends State<FeedListing> {
                 ),
               ),
               actions: [
-                IconButton(
-                  icon: Icon(
-                    Iconsax.refresh,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _refreshFeed,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Iconsax.refresh,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 18,
+                      ),
+                    ),
                   ),
-                  onPressed: _refreshFeed,
                 ),
-                const SizedBox(width: 8),
               ],
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(1),
@@ -478,19 +490,35 @@ class FeedCardState extends State<FeedCard> {
                   pollModel != null &&
                   pollModel.votedUserIds.contains(widget.currentUserUid);
 
+              final Color accent = _accentColorForName(postAuthorName);
+              final double screenWidth = MediaQuery.of(context).size.width;
+              final double screenHeight = MediaQuery.of(context).size.height;
+              final bool isNarrowDialog = screenWidth < 700;
+              // Image area scales with the viewport instead of a fixed
+              // 420px, which wasted a lot of space as black bars when an
+              // image's aspect ratio didn't match the fixed box.
+              final double imageAreaHeight = (screenHeight * 0.42).clamp(
+                260.0,
+                460.0,
+              );
+
               return Dialog(
-                // insetPadding: const EdgeInsets.all(16),
+                insetPadding: isNarrowDialog
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.all(24),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 820,
-                    maxHeight: 900,
+                  constraints: BoxConstraints(
+                    maxWidth: isNarrowDialog ? double.infinity : 820,
+                    maxHeight: isNarrowDialog ? double.infinity : 900,
                   ),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).brightness == Brightness.light
                           ? Colors.white
                           : Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: isNarrowDialog
+                          ? BorderRadius.zero
+                          : BorderRadius.circular(20),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,15 +533,25 @@ class FeedCardState extends State<FeedCard> {
                                 onTap: () => _openUserProfileFromComment(
                                   widget.feed.authorId,
                                 ),
-                                child: CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).scaffoldBackgroundColor,
-                                  backgroundImage: NetworkImage(
-                                    postAuthorAvatar.isNotEmpty
-                                        ? postAuthorAvatar
-                                        : AppStrings.emptyProfilePhotoUrl,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: accent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).scaffoldBackgroundColor,
+                                    backgroundImage: NetworkImage(
+                                      postAuthorAvatar.isNotEmpty
+                                          ? postAuthorAvatar
+                                          : AppStrings.emptyProfilePhotoUrl,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -575,9 +613,9 @@ class FeedCardState extends State<FeedCard> {
                         ),
                         const Divider(height: 1),
                         // Images section
-                        if (widget.feed.mediaImages.isNotEmpty)
+                        /*if (widget.feed.mediaImages.isNotEmpty)
                           SizedBox(
-                            height: 420,
+                            height: imageAreaHeight,
                             child: Stack(
                               children: [
                                 PageView.builder(
@@ -590,14 +628,189 @@ class FeedCardState extends State<FeedCard> {
                                   },
                                   itemBuilder: (context, index) {
                                     return Container(
-                                      color: Colors.black,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color.lerp(
+                                              Colors.black,
+                                              accent,
+                                              0.25,
+                                            )!,
+                                            Colors.black,
+                                          ],
+                                        ),
+                                      ),
                                       alignment: Alignment.center,
                                       child: Padding(
                                         padding: const EdgeInsets.all(12),
                                         child: Image.network(
                                           widget.feed.mediaImages[index].url,
                                           fit: BoxFit.contain,
-                                          height: 360,
+                                          width: double.infinity,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                if (widget.feed.mediaImages.length > 1)
+                                  Positioned(
+                                    left: 12,
+                                    right: 12,
+                                    bottom: 10,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Swipe to see all images',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: List.generate(
+                                              widget.feed.mediaImages.length,
+                                              (idx) => Container(
+                                                width: 6,
+                                                height: 6,
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: dialogImageIndex == idx
+                                                      ? Colors.white
+                                                      : Colors.white54,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (widget.feed.mediaImages.length > 1)
+                                  Positioned(
+                                    left: 6,
+                                    top: 0,
+                                    bottom: 0,
+                                    child: IconButton(
+                                      onPressed: dialogImageIndex == 0
+                                          ? null
+                                          : () {
+                                              dialogPageController.previousPage(
+                                                duration: const Duration(
+                                                  milliseconds: 220,
+                                                ),
+                                                curve: Curves.easeOut,
+                                              );
+                                            },
+                                      icon: const Icon(
+                                        Icons.chevron_left,
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  ),
+                                if (widget.feed.mediaImages.length > 1)
+                                  Positioned(
+                                    right: 6,
+                                    top: 0,
+                                    bottom: 0,
+                                    child: IconButton(
+                                      onPressed:
+                                          dialogImageIndex ==
+                                              widget.feed.mediaImages.length - 1
+                                          ? null
+                                          : () {
+                                              dialogPageController.nextPage(
+                                                duration: const Duration(
+                                                  milliseconds: 220,
+                                                ),
+                                                curve: Curves.easeOut,
+                                              );
+                                            },
+                                      icon: const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),*/
+                        // Text, Poll and Comments section
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Images section
+                        if (widget.feed.mediaImages.isNotEmpty)
+                          SizedBox(
+                            height: imageAreaHeight,
+                            child: Stack(
+                              children: [
+                                PageView.builder(
+                                  controller: dialogPageController,
+                                  itemCount: widget.feed.mediaImages.length,
+                                  onPageChanged: (index) {
+                                    setDialogState(() {
+                                      dialogImageIndex = index;
+                                    });
+                                  },
+                                  itemBuilder: (context, index) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color.lerp(
+                                              Colors.black,
+                                              accent,
+                                              0.25,
+                                            )!,
+                                            Colors.black,
+                                          ],
+                                        ),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Image.network(
+                                          widget.feed.mediaImages[index].url,
+                                          fit: BoxFit.contain,
                                           width: double.infinity,
                                         ),
                                       ),
@@ -718,13 +931,6 @@ class FeedCardState extends State<FeedCard> {
                               ],
                             ),
                           ),
-                        // Text, Poll and Comments section
-                        Expanded(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
                                 if (widget.feed.content.trim().isNotEmpty) ...[
                                   SelectableText(
                                     widget.feed.content,
@@ -742,31 +948,48 @@ class FeedCardState extends State<FeedCard> {
                                 if (pollModel != null) ...[
                                   Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.all(12),
+                                    padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(
-                                        context,
-                                      ).scaffoldBackgroundColor,
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: accent.withValues(alpha: 0.05),
+                                      borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: Theme.of(context).dividerColor,
+                                        color: accent.withValues(alpha: 0.3),
                                       ),
                                     ),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          pollModel.question,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                          ),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: accent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.bar_chart_rounded,
+                                                size: 13,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                pollModel.question,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 10),
+                                        const SizedBox(height: 12),
                                         ...pollModel.options.map((option) {
                                           final isSelected =
                                               selectedOptionId == option.optionId;
@@ -789,49 +1012,80 @@ class FeedCardState extends State<FeedCard> {
                                               margin: const EdgeInsets.only(
                                                 bottom: 8,
                                               ),
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 9,
-                                              ),
+                                              clipBehavior: Clip.antiAlias,
                                               decoration: BoxDecoration(
-                                                color: isSelected
-                                                    ? Theme.of(context)
-                                                          .colorScheme
-                                                          .primary
-                                                          .withValues(alpha: 0.1)
-                                                    : Colors.white,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.surface,
                                                 borderRadius:
-                                                    BorderRadius.circular(10),
+                                                    BorderRadius.circular(12),
                                                 border: Border.all(
                                                   color: isSelected
-                                                      ? Theme.of(
-                                                          context,
-                                                        ).colorScheme.primary
+                                                      ? accent
                                                       : Theme.of(
                                                           context,
-                                                        ).dividerColor,
+                                                        ).colorScheme.outlineVariant,
+                                                  width: isSelected ? 1.5 : 1,
                                                 ),
                                               ),
-                                              child: Row(
+                                              child: Stack(
                                                 children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      option.title,
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: FeedAppColors
-                                                            .textPrimary,
-                                                        fontWeight:
-                                                            FontWeight.w600,
+                                                  if (totalVotes > 0)
+                                                    Positioned.fill(
+                                                      child: FractionallySizedBox(
+                                                        alignment:
+                                                            Alignment.centerLeft,
+                                                        widthFactor: pct / 100,
+                                                        child: Container(
+                                                          color: accent
+                                                              .withValues(
+                                                                alpha: 0.14,
+                                                              ),
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                  Text(
-                                                    '${option.votes} votes${totalVotes > 0 ? ' ($pct%)' : ''}',
-                                                    style: const TextStyle(
-                                                      fontSize: 11,
-                                                      color: FeedAppColors
-                                                          .textSecondary,
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 9,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        if (isSelected) ...[
+                                                          Icon(
+                                                            Icons.check_circle,
+                                                            size: 15,
+                                                            color: accent,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                        ],
+                                                        Expanded(
+                                                          child: Text(
+                                                            option.title,
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: Theme.of(
+                                                                context,
+                                                              ).colorScheme.onSurface,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          '${option.votes} votes${totalVotes > 0 ? ' ($pct%)' : ''}',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: accent,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -940,15 +1194,25 @@ class FeedCardState extends State<FeedCard> {
                                 ],
                     
                                 if (widget.feed.attachments.isNotEmpty) ...[
-                                  Text(
-                                    'Attachments (${widget.feed.attachments.length})',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Iconsax.folder_open,
+                                        size: 15,
+                                        color: accent,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Attachments (${widget.feed.attachments.length})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 8),
                                   Container(
@@ -974,12 +1238,19 @@ class FeedCardState extends State<FeedCard> {
                                             widget.feed.attachments[index];
                                         return Row(
                                           children: [
-                                            Icon(
-                                              Iconsax.document,
-                                              size: 18,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
+                                            Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: accent.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                Iconsax.document,
+                                                size: 14,
+                                                color: accent,
+                                              ),
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
@@ -1029,15 +1300,25 @@ class FeedCardState extends State<FeedCard> {
                                 const Divider(height: 1),
                                 const SizedBox(height: 8),
                     
-                                Text(
-                                  'Comments (${dialogComments.length})',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
-                                  ),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Iconsax.message_text,
+                                      size: 15,
+                                      color: accent,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Comments (${dialogComments.length})',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                 SizedBox(

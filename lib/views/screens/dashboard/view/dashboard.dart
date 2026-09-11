@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/constants/src/enum.dart';
+import 'package:responsive_grid/responsive_grid.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '/models/models.dart';
 import '/utils/utils.dart';
@@ -191,6 +192,9 @@ class _DashboardState extends State<Dashboard>
                                 data,
                                 _permissions,
                               ),
+                              SizedBox(
+                                    height: 20,
+                                  ),
                               ValueListenableBuilder<bool>(
                                 valueListenable:
                                     AppSettingsNotifier.payrollEnabled,
@@ -256,6 +260,9 @@ class _DashboardState extends State<Dashboard>
                                     widget.isAdmin,
                                     data,
                                     _permissions,
+                                  ),
+                                  SizedBox(
+                                    height: 20,
                                   ),
                                   ValueListenableBuilder<bool>(
                                     valueListenable:
@@ -1037,7 +1044,7 @@ Widget _buildKpiGrid(
   final adminCards = <Widget>[
     if (permissions['Leads']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Total Leads",
           value: data.totalLeads.toString(),
@@ -1050,7 +1057,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Deals']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Converted",
           value: data.convertedLeads.toString(),
@@ -1063,7 +1070,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Deals']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Ongoing Deals",
           value: data.ongoingDeals.toString(),
@@ -1076,7 +1083,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Employees']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Active Staff",
           value: data.activeEmployees.toString(),
@@ -1091,7 +1098,7 @@ Widget _buildKpiGrid(
   final userCards = <Widget>[
     if (permissions['Tasks']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Assigned Tasks",
           value: data.assignedTasks.toString(),
@@ -1103,7 +1110,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Leads']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Pending Follow-ups",
           value: data.pendingFollowUps.toString(),
@@ -1115,7 +1122,7 @@ Widget _buildKpiGrid(
       ),
     if (permissions['Leads']?.canView ?? false)
       SizedBox(
-        width: 212,
+        width: 180,
         child: KpiCard(
           title: "Leads Assigned",
           value: data.leadsAssigned.toString(),
@@ -1265,25 +1272,29 @@ Widget _buildRightPanel(
   return LayoutBuilder(
     builder: (context, constraints) {
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            height: 52, // controls pill height
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children:
-                    (isAdmin
-                            ? _adminActions(context, permissions)
-                            : _userActions(context, permissions))
-                        .map(
-                          (card) => Padding(
-                            padding: const EdgeInsets.only(right: 12),
+            // height: 52, // controls pill height
+            child: ResponsiveGridRow(
+              children:
+                  (isAdmin
+                          ? _adminActions(context, permissions)
+                          : _userActions(context, permissions))
+                      .map(
+                        (card) => ResponsiveGridCol(
+                          xl: 6,
+                          lg: 6,
+                          md: 6,
+                          sm: 6,
+                          xs: 6,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12,bottom:12.0),
                             child: card,
                           ),
-                        )
-                        .toList(),
-              ),
+                        ),
+                      )
+                      .toList(),
             ),
           ),
 
