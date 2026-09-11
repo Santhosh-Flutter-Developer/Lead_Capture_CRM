@@ -480,6 +480,23 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
           ...EmployeeService.duplicateKeysForEmployee(emp),
       };
 
+      // Email and mobile number must be unique for one user across the
+      // WHOLE app, not just this company - so also pull in every
+      // employee and admin from every other company and merge their
+      // email/mobile keys. employeeId numbering is per-company, so it's
+      // deliberately left out of these global keys (see
+      // duplicateContactKeysForEmployee/duplicateContactKeysForAdmin).
+      final globalEmployees =
+          await EmployeeService.getAllEmployeesGlobalForDuplicateCheck();
+      final globalAdmins =
+          await EmployeeService.getAllAdminsGlobalForDuplicateCheck();
+      existingKeys.addAll([
+        for (final emp in globalEmployees)
+          ...EmployeeService.duplicateContactKeysForEmployee(emp),
+        for (final admin in globalAdmins)
+          ...EmployeeService.duplicateContactKeysForAdmin(admin),
+      ]);
+
       for (var i = 1; i < _rows.length; i++) {
         final row = _rows[i];
 

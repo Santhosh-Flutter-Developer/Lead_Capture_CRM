@@ -436,7 +436,8 @@ class _ChatBubbleCore extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 2),
                   child: Text(
-                    CacheService.adminByUid(message.senderId)?.name ?? 'User',
+                    CacheService.getUserByUid(message.senderId)?.name ??
+                        'User',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onSurface,
@@ -690,7 +691,7 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          CacheService.adminByUid(
+                          CacheService.getUserByUid(
                                 widget.replyChat!.senderId,
                               )?.name ??
                               'User',

@@ -40,6 +40,16 @@ class EmployeeService {
     }
   }
 
+  /// Checks a candidate employee record for duplicates.
+  ///
+  /// employeeId (e.g. "EMP001") is a per-company numbering scheme, so it
+  /// is only checked against the current company.
+  ///
+  /// Email and mobile number, on the other hand, must map to exactly one
+  /// user for the whole app: they are checked against every employee AND
+  /// every admin, in every company - not just the current one - since
+  /// either account type can log in with that email (see
+  /// AuthService.checkLogin, which already looks across all companies).
   static Future<String?> checkEmployeeExists({
     required String employeeId,
     required String email,
@@ -64,39 +74,105 @@ class EmployeeService {
       var idSnapshot = await idQuery.get();
       if (idSnapshot.docs.isNotEmpty) return 'Employee ID already exists';
 
-      var emailQuery = collection.where('email', isEqualTo: email.encrypt);
-      if (excludeUid != null) {
-        emailQuery = emailQuery.where(
-          FieldPath.documentId,
-          isNotEqualTo: excludeUid,
-        );
-      }
-      var emailSnapshot = await emailQuery.get();
-      if (emailSnapshot.docs.isNotEmpty) return 'Email already exists';
+      return await checkContactExists(
+        email: email,
+        mobileNumber: mobileNumber,
+        excludeUid: excludeUid,
+      );
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      throw 'Error checking employee: $e';
+    }
+  }
 
-      if (mobileNumber.isNotEmpty) {
-        var mobileQuery = collection.where(
-          'mobileNumber',
-          isEqualTo: mobileNumber.encrypt,
+  /// Standalone email/mobile uniqueness check, for flows that have no
+  /// employeeId to check (e.g. creating/editing an Admin from the same
+  /// Employees page). Shares the same global, cross-company, cross
+  /// employee-and-admin logic as [checkEmployeeExists].
+  static Future<String?> checkContactExists({
+    required String email,
+    required String mobileNumber,
+    String? excludeUid,
+  }) async {
+    try {
+      var trimmedEmail = email.trim();
+      if (trimmedEmail.isNotEmpty) {
+        var emailTaken = await _isEmailTakenGlobally(
+          email: trimmedEmail,
+          excludeUid: excludeUid,
         );
-        if (excludeUid != null) {
-          mobileQuery = mobileQuery.where(
-            FieldPath.documentId,
-            isNotEqualTo: excludeUid,
-          );
-        }
-        var mobileSnapshot = await mobileQuery.get();
-        if (mobileSnapshot.docs.isNotEmpty) {
-          return 'Mobile number already exists';
-        }
+        if (emailTaken) return 'Email already exists';
+      }
+
+      var trimmedMobile = mobileNumber.trim();
+      if (trimmedMobile.isNotEmpty) {
+        var mobileTaken = await _isMobileNumberTakenGlobally(
+          mobileNumber: trimmedMobile,
+          excludeUid: excludeUid,
+        );
+        if (mobileTaken) return 'Mobile number already exists';
       }
 
       return null;
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
-      throw 'Error checking employee: $e';
+      throw 'Error checking contact details: $e';
     }
+  }
+
+  /// True if [email] already belongs to any employee or admin, in any
+  /// company, other than [excludeUid] (the record currently being edited,
+  /// if any).
+  ///
+  /// Employee emails are stored encrypted, and have historically been
+  /// encrypted either as typed or lowercased first (see the same fallback
+  /// in AuthService.checkLogin), so both forms are checked. Admin emails
+  /// are stored as plain lowercase text.
+  static Future<bool> _isEmailTakenGlobally({
+    required String email,
+    String? excludeUid,
+  }) async {
+    var lowerEmail = email.toLowerCase();
+    var encryptedVariants = <String>{email.encrypt, lowerEmail.encrypt}.toList();
+
+    var employeeMatches = await FirebaseFirestore.instance
+        .collectionGroup(Collections.employees.name)
+        .where('email', whereIn: encryptedVariants)
+        .get();
+    if (employeeMatches.docs.any((doc) => doc.id != excludeUid)) return true;
+
+    var adminMatches = await FirebaseFirestore.instance
+        .collectionGroup(Collections.admins.name)
+        .where('email', isEqualTo: lowerEmail)
+        .get();
+    if (adminMatches.docs.any((doc) => doc.id != excludeUid)) return true;
+
+    return false;
+  }
+
+  /// True if [mobileNumber] already belongs to any employee or admin, in
+  /// any company, other than [excludeUid].
+  static Future<bool> _isMobileNumberTakenGlobally({
+    required String mobileNumber,
+    String? excludeUid,
+  }) async {
+    var encryptedMobile = mobileNumber.encrypt;
+
+    var employeeMatches = await FirebaseFirestore.instance
+        .collectionGroup(Collections.employees.name)
+        .where('mobileNumber', isEqualTo: encryptedMobile)
+        .get();
+    if (employeeMatches.docs.any((doc) => doc.id != excludeUid)) return true;
+
+    var adminMatches = await FirebaseFirestore.instance
+        .collectionGroup(Collections.admins.name)
+        .where('mobileNumber', isEqualTo: encryptedMobile)
+        .get();
+    if (adminMatches.docs.any((doc) => doc.id != excludeUid)) return true;
+
+    return false;
   }
 
   /// Builds a normalized set of dedupe keys from raw field values:
@@ -129,6 +205,16 @@ class EmployeeService {
         mobileNumber: employee.mobileNumber,
       );
 
+  /// Email/mobile-only dedupe keys (no employeeId) for a record from
+  /// ANOTHER company. employeeId numbering is per-company, so it must
+  /// never be compared across companies, but email and mobile number
+  /// must still map to one user for the whole app.
+  static List<String> duplicateContactKeysForEmployee(EmployeeModel employee) =>
+      duplicateKeysFor(email: employee.email, mobileNumber: employee.mobileNumber);
+
+  static List<String> duplicateContactKeysForAdmin(AdminModel admin) =>
+      duplicateKeysFor(email: admin.email, mobileNumber: admin.mobileNumber);
+
   /// Fetches every employee (active and inactive) so bulk import can
   /// detect duplicates against the full roster — not just currently
   /// active staff, which is all getAllEmployees() returns.
@@ -147,6 +233,45 @@ class EmployeeService {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
       throw 'Error fetching employees: $e';
+    }
+  }
+
+  /// Fetches every employee across EVERY company, for bulk import's
+  /// email/mobile dedupe set. Only feed the result through
+  /// [duplicateContactKeysForEmployee] - never [duplicateKeysForEmployee] -
+  /// since employeeId must stay scoped to a single company.
+  static Future<List<EmployeeModel>> getAllEmployeesGlobalForDuplicateCheck() async {
+    try {
+      var querySnapshot = await FirebaseFirestore.instance
+          .collectionGroup(Collections.employees.name)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => EmployeeModel.fromMap(doc.id, doc.data()))
+          .toList();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      throw 'Error fetching employees: $e';
+    }
+  }
+
+  /// Fetches every admin across EVERY company, for bulk import's
+  /// email/mobile dedupe set - an employee's email/mobile must not
+  /// collide with an admin's either.
+  static Future<List<AdminModel>> getAllAdminsGlobalForDuplicateCheck() async {
+    try {
+      var querySnapshot = await FirebaseFirestore.instance
+          .collectionGroup(Collections.admins.name)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => AdminModel.fromMap(doc.id, doc.data()))
+          .toList();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("${e.toString()}, ${st.toString()}");
+      throw 'Error fetching admins: $e';
     }
   }
 

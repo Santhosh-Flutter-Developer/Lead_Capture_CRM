@@ -1109,6 +1109,19 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
         if (isAdmin) {
           futureLoading(context);
 
+          var duplicateError = await EmployeeService.checkContactExists(
+            email: _emailController.text.trim(),
+            mobileNumber: _mobileNumberController.text.trim(),
+          );
+
+          if (duplicateError != null) {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+            FlushBar.show(context, duplicateError, isSuccess: false);
+            return;
+          }
+
           String? profileImageUrl;
           if (_selectedProfileImage != null) {
             profileImageUrl = await xFileToUploadUrl(
