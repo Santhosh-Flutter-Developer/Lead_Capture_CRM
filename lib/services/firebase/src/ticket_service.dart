@@ -46,15 +46,11 @@ class TicketService {
           .collection(Collections.ticketHistory.name)
           .add(ticketHistoryModel.toMap());
 
-      // Collect Users
-      List<String> users = [
-        ...ticket.assignTo,
-        ...ticket.participants,
-        ...ticket.createdBy,
-        ...ticket.observers,
-      ];
-
-      users = users.toSet().toList();
+      // Who should be notified: an employee-created ticket notifies the
+      // creator + every admin; an admin-created ticket notifies admins only.
+      List<String> users = await NotificationRecipientService.forRecord(
+        createdBy: ticket.ticketCreatedBy,
+      );
 
       List<String> toUids = List<String>.from(users);
       List<String> fcmIds = [];

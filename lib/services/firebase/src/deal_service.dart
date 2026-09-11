@@ -96,15 +96,11 @@ class DealService {
 
       await addDealHistory(dealUid: dealDoc.id, action: 'Deal Created');
 
-      // Collect workflow users for notifications
-      List<String> users = deal.workFlow.toSet().toList();
-      
-      // Also notify users with deal create/view permissions
-      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
-        page: 'Deals',
-        permissionCheck: (perm) => perm.canCreate || perm.canView,
+      // Who should be notified: an employee-created deal notifies the
+      // creator + every admin; an admin-created deal notifies admins only.
+      List<String> users = await NotificationRecipientService.forRecord(
+        createdBy: deal.createdBy,
       );
-      users.addAll(usersWithPermission);
 
       List<String> fcmIds = [];
       List<String> toUids = [];

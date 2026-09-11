@@ -31,10 +31,12 @@ class EventService {
       );
       final createdEvent = event.copyWith(uid: ref.id);
 
-      final users = <String>{
-        ...event.eventAttendes,
-        event.createdBy.uid,
-      }.where((e) => e.isNotEmpty).toList();
+      // Events are private: only the person who created it (employee or
+      // admin) can see it or be notified about it — never other attendees
+      // or the rest of the admin team.
+      final users = NotificationRecipientService.forEvent(
+        createdBy: event.createdBy,
+      );
 
       final fcmIds = <String>[];
       for (var i in users) {
@@ -111,10 +113,10 @@ class EventService {
       // existing reminder in place instead of creating a duplicate that
       // would fire twice (requirement: no duplicate notifications, and
       // edited/rescheduled events must reschedule their reminder).
-      final users = <String>{
-        ...event.eventAttendes,
-        event.createdBy.uid,
-      }.where((e) => e.isNotEmpty).toList();
+      // Events are private: only the creator gets reminders for it.
+      final users = NotificationRecipientService.forEvent(
+        createdBy: event.createdBy,
+      );
 
       final reminderTime = event.eventDateTime.subtract(
         const Duration(minutes: 15),

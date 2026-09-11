@@ -41,3 +41,4 @@ export 'src/holiday_service.dart';
 export 'src/leave_request_service.dart';
 export 'src/attendance_export_service.dart';
 export 'src/ticket_service.dart';
+export 'src/notification_recipient_service.dart';

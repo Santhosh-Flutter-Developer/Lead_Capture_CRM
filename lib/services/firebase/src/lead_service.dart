@@ -107,17 +107,11 @@ class LeadService {
 
       await addLeadHistory(leadUid: leadDoc.id, action: 'Lead Created');
 
-      // Collect workflow users for notifications
-      List<String> users = lead.workflow.toSet().toList();
-      
-      // Also notify users with lead create/view permissions
-      List<String> usersWithPermission = await RoleService.getUsersWithPermission(
-        page: 'Leads',
-        permissionCheck: (perm) => perm.canCreate || perm.canView,
+      // Who should be notified: an employee-created lead notifies the
+      // creator + every admin; an admin-created lead notifies admins only.
+      List<String> toUids = await NotificationRecipientService.forRecord(
+        createdBy: lead.createdBy,
       );
-      users.addAll(usersWithPermission);
-      
-      List<String> toUids = users.toSet().toList();
       List<String> fcmIds = [];
 
       for (var i in toUids) {

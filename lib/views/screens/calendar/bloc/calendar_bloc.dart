@@ -27,8 +27,27 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
     emit(CalendarLoading());
 
     final cid = await Spdb.getCid();
+    final currentUser = await Spdb.getUser();
+    final isAdmin = currentUser.userType == UserType.admin;
 
     await LeadService.backfillLeadActivitiesToCalendar();
+
+    // Visibility rule for tasks/leads/deals/tickets:
+    //  - Admin logins can see every record, whether it was created by an
+    //    admin or by an employee.
+    //  - An employee login can only see records that they themselves
+    //    created (records created by an admin, or by other employees,
+    //    stay hidden from them).
+    bool isRecordVisible(UserDataModel createdBy) {
+      if (isAdmin) return true;
+      return createdBy.uid == currentUser.uid;
+    }
+
+    // Visibility rule for events: only the person who created the event
+    // (admin or employee) can see it — never anyone else, admin included.
+    bool isEventVisible(UserDataModel createdBy) {
+      return createdBy.uid == currentUser.uid;
+    }
 
     final eventsStream = firestore
         .collection(Collections.users.name)
@@ -39,6 +58,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
         .map(
           (snapshot) => snapshot.docs
               .map((d) => EventModel.fromMap(d.id, d.data()))
+              .where((e) => isEventVisible(e.createdBy))
               .toList(),
         );
 
@@ -51,6 +71,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
         .map(
           (snapshot) => snapshot.docs
               .map((d) => TaskModel.fromMap(d.id, d.data()))
+              .where((t) => isRecordVisible(t.taskCreatedBy))
               .toList(),
         );
 
@@ -63,6 +84,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
         .map(
           (snapshot) => snapshot.docs
               .map((d) => LeadModel.fromMap(d.id, d.data()))
+              .where((l) => isRecordVisible(l.createdBy))
               .toList(),
         );
 
@@ -75,6 +97,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
         .map(
           (snapshot) => snapshot.docs
               .map((d) => DealModel.fromMap(d.id, d.data()))
+              .where((d) => isRecordVisible(d.createdBy))
               .toList(),
         );
 
@@ -87,6 +110,7 @@ class CalendarBloc extends Bloc<CalendarCalendar, CalendarState> {
         .map(
           (snapshot) => snapshot.docs
               .map((d) => CustomerTicketModel.fromMap(d.id, d.data()))
+              .where((t) => isRecordVisible(t.ticketCreatedBy))
               .toList(),
         );
 

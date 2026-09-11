@@ -44,15 +44,11 @@ class TaskService {
           .collection(Collections.taskHistory.name)
           .add(taskHistoryModel.toMap());
 
-      // Collect Users
-      List<String> users = [
-        ...task.assignees,
-        ...task.participants,
-        ...task.createdBy,
-        ...task.observers,
-      ];
-
-      users = users.toSet().toList();
+      // Who should be notified: an employee-created task notifies the
+      // creator + every admin; an admin-created task notifies admins only.
+      List<String> users = await NotificationRecipientService.forRecord(
+        createdBy: task.taskCreatedBy,
+      );
 
       List<String> toUids = List<String>.from(users);
       List<String> fcmIds = [];
