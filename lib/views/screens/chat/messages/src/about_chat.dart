@@ -155,41 +155,52 @@ class _AboutChatState extends State<AboutChat> {
             ),
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    _buildHeader(
-                      context,
-
-                      title,
-
-                      imageUrl,
-
-                      isSelfChat: isSelfChat,
+              child: Padding(
+                padding: const EdgeInsets.only(right:8.0),
+                child: Scrollbar(
+                                // controller: _scrollController,
+                                thumbVisibility: true,
+                                interactive: true,
+                                trackVisibility: true,
+                                radius: const Radius.circular(8),
+                                thickness: 8,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                  
+                      children: [
+                        _buildHeader(
+                          context,
+                  
+                          title,
+                  
+                          imageUrl,
+                  
+                          isSelfChat: isSelfChat,
+                        ),
+                  
+                        const SizedBox(height: 32),
+                  
+                        if (widget.chat.isGroupChat) ...[
+                          _buildSectionLabel("PARTICIPANTS"),
+                  
+                          const SizedBox(height: 12),
+                  
+                          _buildParticipantsCard(context),
+                  
+                          const SizedBox(height: 32),
+                        ],
+                  
+                        _buildSectionLabel("PREFERENCES & MEDIA"),
+                  
+                        const SizedBox(height: 12),
+                  
+                        _buildActionsCard(context),
+                      ],
                     ),
-
-                    const SizedBox(height: 32),
-
-                    if (widget.chat.isGroupChat) ...[
-                      _buildSectionLabel("PARTICIPANTS"),
-
-                      const SizedBox(height: 12),
-
-                      _buildParticipantsCard(context),
-
-                      const SizedBox(height: 32),
-                    ],
-
-                    _buildSectionLabel("PREFERENCES & MEDIA"),
-
-                    const SizedBox(height: 12),
-
-                    _buildActionsCard(context),
-                  ],
+                  ),
                 ),
               ),
             ),

@@ -123,14 +123,25 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
               builder: (context, constraints) {
                 final bool isDesktop = constraints.maxWidth > 600;
 
-                return SingleChildScrollView(
-                  child: Center(
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 1300),
-                      padding: EdgeInsets.all(isDesktop ? 24 : 16),
-                      child: isDesktop
-                          ? _buildDesktopLayout(context)
-                          : _buildMobileLayout(context),
+                return Padding(
+                  padding: const EdgeInsets.only(right:8.0),
+                  child: Scrollbar(
+                                  // controller: _scrollController,
+                                  thumbVisibility: true,
+                                  interactive: true,
+                                  trackVisibility: true,
+                                  radius: const Radius.circular(8),
+                                  thickness: 8,
+                    child: SingleChildScrollView(
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 1300),
+                          padding: EdgeInsets.all(isDesktop ? 24 : 16),
+                          child: isDesktop
+                              ? _buildDesktopLayout(context)
+                              : _buildMobileLayout(context),
+                        ),
+                      ),
                     ),
                   ),
                 );
