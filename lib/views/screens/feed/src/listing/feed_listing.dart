@@ -204,15 +204,26 @@ class _FeedListingState extends State<FeedListing> {
 
             return RefreshIndicator(
               onRefresh: () async => _refreshFeed(),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  child: isNarrow
-                      // Single column on mobile/narrow screens: a plain
-                      // list lets each card size itself to its own content
-                      // (image, poll, files, caption can all differ in
-                      // height), instead of forcing every card into the
-                      // same fixed-aspect-ratio box — which is what caused
+              child: ScrollConfiguration(
+                // The app shell (desktop_main_screen.dart) already wraps
+                // every page in its own Scrollbar. Flutter's default
+                // behavior additionally auto-draws a scrollbar on any
+                // Scrollable on web/desktop, which was showing up right
+                // next to the shell's one - two adjacent scrollbars for
+                // what looks like a single scroll region. This disables
+                // just the automatic one for Feed's own list/grid.
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1200),
+                    child: isNarrow
+                        // Single column on mobile/narrow screens: a plain
+                        // list lets each card size itself to its own content
+                        // (image, poll, files, caption can all differ in
+                        // height), instead of forcing every card into the
+                        // same fixed-aspect-ratio box — which is what caused
                       // the repeated overflow errors on narrow widths.
                       ? ListView.separated(
                           padding: const EdgeInsets.all(12),
@@ -249,6 +260,7 @@ class _FeedListingState extends State<FeedListing> {
                             );
                           },
                         ),
+                  ),
                 ),
               ),
             );
@@ -612,162 +624,7 @@ class FeedCardState extends State<FeedCard> {
                           ),
                         ),
                         const Divider(height: 1),
-                        // Images section
-                        /*if (widget.feed.mediaImages.isNotEmpty)
-                          SizedBox(
-                            height: imageAreaHeight,
-                            child: Stack(
-                              children: [
-                                PageView.builder(
-                                  controller: dialogPageController,
-                                  itemCount: widget.feed.mediaImages.length,
-                                  onPageChanged: (index) {
-                                    setDialogState(() {
-                                      dialogImageIndex = index;
-                                    });
-                                  },
-                                  itemBuilder: (context, index) {
-                                    return Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color.lerp(
-                                              Colors.black,
-                                              accent,
-                                              0.25,
-                                            )!,
-                                            Colors.black,
-                                          ],
-                                        ),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Image.network(
-                                          widget.feed.mediaImages[index].url,
-                                          fit: BoxFit.contain,
-                                          width: double.infinity,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                if (widget.feed.mediaImages.length > 1)
-                                  Positioned(
-                                    left: 12,
-                                    right: 12,
-                                    bottom: 10,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Swipe to see all images',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: List.generate(
-                                              widget.feed.mediaImages.length,
-                                              (idx) => Container(
-                                                width: 6,
-                                                height: 6,
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: dialogImageIndex == idx
-                                                      ? Colors.white
-                                                      : Colors.white54,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (widget.feed.mediaImages.length > 1)
-                                  Positioned(
-                                    left: 6,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: IconButton(
-                                      onPressed: dialogImageIndex == 0
-                                          ? null
-                                          : () {
-                                              dialogPageController.previousPage(
-                                                duration: const Duration(
-                                                  milliseconds: 220,
-                                                ),
-                                                curve: Curves.easeOut,
-                                              );
-                                            },
-                                      icon: const Icon(
-                                        Icons.chevron_left,
-                                        color: Colors.white,
-                                        size: 30,
-                                      ),
-                                    ),
-                                  ),
-                                if (widget.feed.mediaImages.length > 1)
-                                  Positioned(
-                                    right: 6,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: IconButton(
-                                      onPressed:
-                                          dialogImageIndex ==
-                                              widget.feed.mediaImages.length - 1
-                                          ? null
-                                          : () {
-                                              dialogPageController.nextPage(
-                                                duration: const Duration(
-                                                  milliseconds: 220,
-                                                ),
-                                                curve: Curves.easeOut,
-                                              );
-                                            },
-                                      icon: const Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.white,
-                                        size: 30,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),*/
+                        
                         // Text, Poll and Comments section
                         Expanded(
                           child: SingleChildScrollView(

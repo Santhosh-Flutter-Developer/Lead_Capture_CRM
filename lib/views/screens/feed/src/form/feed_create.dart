@@ -5,6 +5,7 @@ import '/services/services.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/models/models.dart';
+import '/theme/theme.dart';
 
 class FeedCreate extends StatefulWidget {
   const FeedCreate({super.key});
@@ -291,6 +292,15 @@ class _FeedCreateState extends State<FeedCreate> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(
+              alpha: 0.5,
+            ),
+          ),
+        ),
         // leading: IconButton(
         //   icon: const Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
         //   onPressed: () {
@@ -299,12 +309,32 @@ class _FeedCreateState extends State<FeedCreate> {
         //     }
         //   },
         // ),
-        title: Text(
-          "Create Post",
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                ),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Icon(
+                Icons.edit_note_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Create Post",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         actions: [
           Padding(
@@ -331,49 +361,117 @@ class _FeedCreateState extends State<FeedCreate> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundImage: NetworkImage(
-                                _currentAvatar ??
-                                    AppStrings.emptyProfilePhotoUrl,
-                              ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary.withValues(alpha: 0.08),
+                                AppColors.primary.withValues(alpha: 0.02),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              _currentName ?? 'N/A',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppColors.primary,
+                                    width: 1.5,
                                   ),
-                            ),
-                          ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 20,
+                                  backgroundImage: NetworkImage(
+                                    _currentAvatar ??
+                                        AppStrings.emptyProfilePhotoUrl,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _currentName ?? 'N/A',
+                                    style: Theme.of(context).textTheme.bodyMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.public,
+                                        size: 11,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Posting to Feed",
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
 
                         // Main Content Input
-                        TextField(
-                          controller: _contentController,
-                          maxLines: null,
-                          decoration: InputDecoration(
-                            hintText: "What's on your mind?",
-                            border: InputBorder.none,
-                            hintStyle: Theme.of(context).textTheme.bodyMedium
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: TextField(
+                            controller: _contentController,
+                            maxLines: null,
+                            minLines: 3,
+                            decoration: InputDecoration(
+                              hintText: "What's on your mind?",
+                              border: InputBorder.none,
+                              hintStyle: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onSurfaceVariant,
+                                  ).colorScheme.onSurface,
                                 ),
                           ),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
                         ),
 
                         const SizedBox(height: 20),
@@ -395,7 +493,21 @@ class _FeedCreateState extends State<FeedCreate> {
                                       width: 200,
                                       decoration: BoxDecoration(
                                         color: Theme.of(context).dividerColor,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outlineVariant,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.08,
+                                            ),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
                                         image: DecorationImage(
                                           image: MemoryImage(
                                             _selectedMedia[index].bytes!,
@@ -658,18 +770,21 @@ class _FeedCreateState extends State<FeedCreate> {
             children: [
               _ToolbarIcon(
                 icon: Icons.image_outlined,
+                label: "Photo",
                 color: Colors.green,
                 onTap: _pickImage,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 18),
               _ToolbarIcon(
                 icon: Icons.attach_file,
+                label: "File",
                 color: Colors.blue,
                 onTap: _pickFile,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 18),
               _ToolbarIcon(
                 icon: Icons.poll_outlined,
+                label: "Poll",
                 color: Colors.orange,
                 onTap: _isPollActive ? null : _togglePoll,
                 isActive: _isPollActive,
@@ -732,12 +847,14 @@ class _PostButton extends StatelessWidget {
 
 class _ToolbarIcon extends StatelessWidget {
   final IconData icon;
+  final String label;
   final Color color;
   final VoidCallback? onTap;
   final bool isActive;
 
   const _ToolbarIcon({
     required this.icon,
+    required this.label,
     required this.color,
     this.onTap,
     this.isActive = false,
@@ -749,18 +866,37 @@ class _ToolbarIcon extends StatelessWidget {
     return MouseRegion(
       cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: isActive || !disabled ? 0.12 : 0.06),
-          ),
-          child: Icon(
-            icon,
-            color: disabled ? color.withValues(alpha: 0.4) : color,
-            size: 20,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(
+                    alpha: isActive || !disabled ? 0.12 : 0.06,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  color: disabled ? color.withValues(alpha: 0.4) : color,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: disabled ? color.withValues(alpha: 0.4) : color,
+                ),
+              ),
+            ],
           ),
         ),
       ),
