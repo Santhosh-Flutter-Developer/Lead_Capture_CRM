@@ -230,12 +230,26 @@ class LeadStatusService {
         return LeadStatusModel.fromMap(doc.id, doc.data());
       }
 
+      var lastOrderNumber = 0;
+      var lastDoc = await firebase.users
+          .doc(cid)
+          .collection(Collections.leadStatus.name)
+          .orderBy('orderNumber', descending: true)
+          .limit(1)
+          .get();
+
+      if (lastDoc.docs.isNotEmpty) {
+        lastOrderNumber = lastDoc.docs.first.data()['orderNumber'] ?? 0;
+      }
+
+      lastOrderNumber = lastOrderNumber + 1;
+
       final newModel = LeadStatusModel(
         name: name,
         createdBy: await Spdb.getUser(),
         description: '',
         color: Colors.blue.toARGB32(),
-        orderNumber: 0,
+        orderNumber: lastOrderNumber,
       );
 
       final docRef = await firebase.users
