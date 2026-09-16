@@ -888,6 +888,7 @@ class _DashboardState extends State<Dashboard>
               color: theme.colorScheme.onSurface,
             ),
             items: const [
+               DropdownMenuItem(value: "All", child: Text("All")),
               DropdownMenuItem(value: "Today", child: Text("Today")),
               DropdownMenuItem(value: "This Week", child: Text("This Week")),
               DropdownMenuItem(value: "This Month", child: Text("This Month")),

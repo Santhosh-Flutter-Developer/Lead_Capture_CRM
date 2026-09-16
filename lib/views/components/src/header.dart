@@ -20,7 +20,6 @@ class Header extends StatefulWidget {
 
 class _HeaderState extends State<Header> {
   // String _selectedFilter = "Today";
-  DateTime _lastSyncTime = DateTime.now();
   bool _isRefreshing = false;
 
   String formatRelativeTime(DateTime lastSync) {
@@ -177,11 +176,25 @@ class _HeaderState extends State<Header> {
         ),
         const SizedBox(height: 2),
         // Last Sync Info
+         // Reads the REAL persisted sync timestamp (CacheService's meta box)
+        // on every tick, instead of a local "app opened" placeholder, so
+        // this label actually reflects whether/when a background or
+        // manual sync last completed.
         StreamBuilder(
           stream: Stream.periodic(const Duration(minutes: 1)),
           builder: (context, snapshot) {
-            final formattedTime = DateFormat('hh:mm a').format(_lastSyncTime);
-            final relativeTime = formatRelativeTime(_lastSyncTime);
+            final lastSync = CacheService().getLastSyncTime();
+            if (lastSync == null) {
+              return Text(
+                "Not synced yet",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.grey500,
+                  fontWeight: FontWeight.w500,
+                ),
+              );
+            }
+            final formattedTime = DateFormat('hh:mm a').format(lastSync);
+            final relativeTime = formatRelativeTime(lastSync);
             return Text(
               "Synced: $formattedTime ($relativeTime)",
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -384,8 +397,10 @@ class _HeaderState extends State<Header> {
       await PermissionService.savePermissions(role.permissions);
     }
 
-    _lastSyncTime = DateTime.now();
-
+ // The "Synced" label now reads CacheService().getLastSyncTime() directly,
+    // so there's no local timestamp field to update here anymore - the
+    // setState below is enough to make the StreamBuilder repaint with the
+    // fresh persisted value.
     setState(() => _isRefreshing = false);
 
     if (mounted) {

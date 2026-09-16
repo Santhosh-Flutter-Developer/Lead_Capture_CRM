@@ -166,23 +166,32 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   }
 
   List<String> statusItems(Box<Map<dynamic, dynamic>> box) {
-    return box.keys.map((key) {
-      final data = CacheService.normalizeFromCache(box.get(key) ?? {});
-      final model = LeadStatusModel.fromMap(key, data);
-      return model.name;
-    }).toList();
+    return [
+      'All',
+      ...box.keys.map((key) {
+        final data = CacheService.normalizeFromCache(box.get(key) ?? {});
+        final model = LeadStatusModel.fromMap(key, data);
+        return model.name;
+      }),
+    ];
   }
 
   List<String> categoryItems(Box<Map<dynamic, dynamic>> box) {
-    return box.keys.map((key) {
-      final data = CacheService.normalizeFromCache(box.get(key) ?? {});
-      final model = LeadCategoryModel.fromMap(key, data);
-      return model.name;
-    }).toList();
+    return [
+      'All',
+      ...box.keys.map((key) {
+        final data = CacheService.normalizeFromCache(box.get(key) ?? {});
+        final model = LeadCategoryModel.fromMap(key, data);
+        return model.name;
+      }),
+    ];
   }
 
   List<String> employeeItems(CacheService cache) {
-    return cache.getAllListenableEmployees().value.map((e) => e.name).toList();
+    return [
+      'All',
+      ...cache.getAllListenableEmployees().value.map((e) => e.name),
+    ];
   }
 
   Future<void> _refreshLeads(BuildContext context) async {
@@ -505,9 +514,21 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       return _buildSearchField(onSearchChanged);
     }
 
-    final statusBox = Hive.box<Map<dynamic, dynamic>>('leadStatus');
-    final categoryBox = Hive.box<Map<dynamic, dynamic>>('leadCategory');
-    final cache = CacheService();
+    // Wrapped in AnimatedBuilder so this row rebuilds automatically once the
+    // leadStatus/leadCategory/employees Hive boxes finish syncing (they can
+    // still be empty at first paint - CacheService populates them
+    // asynchronously), instead of freezing on whatever snapshot existed at
+    // the first build.
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        Hive.box<Map<dynamic, dynamic>>('leadStatus').listenable(),
+        Hive.box<Map<dynamic, dynamic>>('leadCategory').listenable(),
+        Hive.box<Map<dynamic, dynamic>>('employees').listenable(),
+      ]),
+      builder: (context, _) {
+        final statusBox = Hive.box<Map<dynamic, dynamic>>('leadStatus');
+        final categoryBox = Hive.box<Map<dynamic, dynamic>>('leadCategory');
+        final cache = CacheService();
 
     final filters = [
       _dateFilter(
@@ -555,9 +576,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   statusBox.get(_selectedStatus!) ?? {},
                 ),
               ).name
-            : null,
+            : 'All',
         items: statusItems(statusBox),
         onChanged: (v) {
+          if (v == null || v == 'All') {
+            setState(() => _selectedStatus = null);
+            _applyFilters();
+            return;
+          }
           final selectedModel = statusBox.keys.firstWhere(
             (key) =>
                 LeadStatusModel.fromMap(
@@ -582,9 +608,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   categoryBox.get(_selectedCategory!) ?? {},
                 ),
               ).name
-            : null,
+            : 'All',
         items: categoryItems(categoryBox),
         onChanged: (v) {
+          if (v == null || v == 'All') {
+            setState(() => _selectedCategory = null);
+            _applyFilters();
+            return;
+          }
           final selectedModel = categoryBox.keys.firstWhere(
             (key) =>
                 LeadCategoryModel.fromMap(
@@ -608,9 +639,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   .value
                   .firstWhere((e) => e.uid == _selectedCreatedBy)
                   .name
-            : null,
+            : 'All',
         items: employeeItems(cache),
         onChanged: (v) {
+          if (v == null || v == 'All') {
+            setState(() => _selectedCreatedBy = null);
+            _applyFilters();
+            return;
+          }
           final selectedEmployee = cache
               .getAllListenableEmployees()
               .value
@@ -689,6 +725,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -932,6 +970,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         label: label,
         items: items,
         initialItem: value,
+        allowClear: true,
         onChanged: (dynamic val) {
           onChanged(val as String?);
         },

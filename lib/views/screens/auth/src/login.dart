@@ -147,7 +147,13 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
         );
         // await _storeDeviceLocationOnLogin();
         await PermissionService.savePermissions(AppStrings.permissionsTrueMap);
-
+         // Admin branch was missing this - the employee branch above already
+        // syncs lookup data (lead/deal statuses, categories, employees,
+        // etc.) before navigating in. Without it here too, an admin's
+        // first-ever login of a session lands on a Leads/Deals page with
+        // empty filter dropdowns until something else (browser refresh,
+        // manual sync, 6-hour timer) triggers a real sync.
+        await CacheService.syncAllCollections();
         await AuthService.saveLoginLogs(
           log: LoginLogsModel(
             loginAlert: (await LoginAlertDeviceInfo.getLoginAlertInfo()),

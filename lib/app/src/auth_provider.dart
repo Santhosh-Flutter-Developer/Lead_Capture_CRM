@@ -44,6 +44,24 @@ class AuthProvider with ChangeNotifier {
 
         if (isLogin) {
           var isAdmin = await Spdb.isAdminLoggedIn();
+          // Refresh cached lookup data (lead/deal statuses, categories,
+          // employees, etc.) on every app start for an already-active
+          // session. Without this, a returning user only ever sees
+          // whatever was cached at their last explicit login (or has to
+          // wait for the 6-hour periodic timer / tap manual sync), which
+          // is why filter dropdowns can appear empty until a manual sync.
+          // Fire-and-forget so app boot isn't blocked on network sync.
+          // debugPrint calls are temporary - remove once confirmed working
+          // via console/log output.
+          debugPrint("AuthProvider: starting startup cache sync...");
+          // ignore: discarded_futures
+          CacheService.syncAllCollections()
+              .then((_) {
+                debugPrint("AuthProvider: startup cache sync completed.");
+              })
+              .catchError((e, st) {
+                debugPrint("AuthProvider: startup cache sync FAILED: $e");
+              });
           // Initialize static lead statuses
           // Web gets the same sidebar (desktop) layout as native desktop
           if (kIsDesktop || kIsWeb) {

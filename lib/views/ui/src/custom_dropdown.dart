@@ -21,6 +21,7 @@ class CustomSearchableDropdown<T> extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final Widget? emptyWidget;
   final bool showDoneButton; // show done to confirm selections in multi-select
+  final bool showClearButton; // show an "x" to clear the current selection (single-select only)
 
   const CustomSearchableDropdown({
     super.key,
@@ -37,6 +38,7 @@ class CustomSearchableDropdown<T> extends StatefulWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 10),
     this.emptyWidget,
     this.showDoneButton = true,
+    this.showClearButton = true,
   });
 
   @override
@@ -182,6 +184,13 @@ class _CustomSearchableDropdownState<T>
       _selected = item;
     });
     _close();
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selected = null;
+    });
+    widget.onChanged?.call(null);
   }
 
   void _onItemToggledMulti(T item) {
@@ -680,6 +689,18 @@ class _CustomSearchableDropdownState<T>
             child: Row(
               children: [
                 Expanded(child: _buildActivatorContent(displayText)),
+                if (!widget.multiSelect &&
+                    widget.showClearButton &&
+                    _selected != null) ...[
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _clearSelection,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2),
+                      child: Icon(Icons.clear, size: 16, color: Colors.grey),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 6),
                 Icon(
                   _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
@@ -713,6 +734,7 @@ class CustomFutureSearchableDropdown<T> extends StatefulWidget {
   final String? Function(T?)? validator;
   final String? label;
   final bool? isRequired;
+  final bool showClearButton; // show an "x" to clear the current selection (single-select only)
 
   const CustomFutureSearchableDropdown({
     super.key,
@@ -732,6 +754,7 @@ class CustomFutureSearchableDropdown<T> extends StatefulWidget {
     this.validator,
     this.label,
     this.isRequired = false,
+    this.showClearButton = true,
   });
 
   @override
@@ -904,6 +927,20 @@ class _CustomFutureSearchableDropdownState<T>
       });
       _close();
     }
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selected = null;
+    });
+    widget.onChanged?.call(null);
+  }
+
+  void _clearAllSelections() {
+    setState(() {
+      _selectedList = <T>{};
+    });
+    widget.onChangedList?.call(const []);
   }
 
   void _onSearchChanged() {
@@ -1138,20 +1175,36 @@ class _CustomFutureSearchableDropdownState<T>
             // Label
             if (widget.label != null) ...[
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.label!,
-                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        widget.label!,
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (widget.isRequired == true)
+                        Text(
+                          ' *',
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
                   ),
-                  if (widget.isRequired == true)
-                    Text(
-                      ' *',
-                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color: AppColors.danger,
-                        fontWeight: FontWeight.w500,
+                  if (widget.multiSelect && _selectedList.isNotEmpty)
+                    GestureDetector(
+                      onTap: _clearAllSelections,
+                      child: Text(
+                        'Clear',
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                 ],
@@ -1191,6 +1244,22 @@ class _CustomFutureSearchableDropdownState<T>
                               hasSelection,
                             ),
                           ),
+                          if (!widget.multiSelect &&
+                              widget.showClearButton &&
+                              _selected != null) ...[
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _clearSelection,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 2),
+                                child: Icon(
+                                  Icons.clear,
+                                  size: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(width: 6),
                           Icon(
                             _isOpen

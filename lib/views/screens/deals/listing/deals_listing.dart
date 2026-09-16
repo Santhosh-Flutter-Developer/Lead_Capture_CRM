@@ -106,15 +106,21 @@ class _DealsListingViewState extends State<DealsListingView> {
   }
 
   List<String> statusItems(Box<Map<dynamic, dynamic>> box) {
-    return box.keys.map((key) {
-      final data = CacheService.normalizeFromCache(box.get(key) ?? {});
-      final model = DealStatusModel.fromMap(key, data);
-      return model.name;
-    }).toList();
+    return [
+      'All',
+      ...box.keys.map((key) {
+        final data = CacheService.normalizeFromCache(box.get(key) ?? {});
+        final model = DealStatusModel.fromMap(key, data);
+        return model.name;
+      }),
+    ];
   }
 
   List<String> employeeItems(CacheService cache) {
-    return cache.getAllListenableEmployees().value.map((e) => e.name).toList();
+    return [
+      'All',
+      ...cache.getAllListenableEmployees().value.map((e) => e.name),
+    ];
   }
 
   Future<void> _refreshDeals(BuildContext context) async {
@@ -338,8 +344,18 @@ class _DealsListingViewState extends State<DealsListingView> {
       return _buildSearchField(onSearchChanged);
     }
 
-    final statusBox = Hive.box<Map<dynamic, dynamic>>('dealStatus');
-    final cache = CacheService();
+    // Wrapped in AnimatedBuilder so this row rebuilds automatically once the
+    // dealStatus/employees Hive boxes finish syncing (they can still be
+    // empty at first paint - CacheService populates them asynchronously),
+    // instead of freezing on whatever snapshot existed at the first build.
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        Hive.box<Map<dynamic, dynamic>>('dealStatus').listenable(),
+        Hive.box<Map<dynamic, dynamic>>('employees').listenable(),
+      ]),
+      builder: (context, _) {
+        final statusBox = Hive.box<Map<dynamic, dynamic>>('dealStatus');
+        final cache = CacheService();
 
     final filters = [
       /// From Date
@@ -385,9 +401,14 @@ class _DealsListingViewState extends State<DealsListingView> {
         label: "Status",
         value: _selectedStatus != null
             ? CacheService.dealStatusByUid(_selectedStatus!)?.name
-            : null,
+            : 'All',
         items: statusItems(statusBox),
         onChanged: (v) {
+          if (v == null || v == 'All') {
+            setState(() => _selectedStatus = null);
+            _applyFilters();
+            return;
+          }
           final selectedModel = statusBox.keys.firstWhere(
             (key) => CacheService.dealStatusByUid(key)?.name == v,
             orElse: () => '',
@@ -408,9 +429,14 @@ class _DealsListingViewState extends State<DealsListingView> {
                   .value
                   .firstWhere((e) => e.uid == _selectedCreatedBy)
                   .name
-            : null,
+            : 'All',
         items: employeeItems(cache),
         onChanged: (v) {
+          if (v == null || v == 'All') {
+            setState(() => _selectedCreatedBy = null);
+            _applyFilters();
+            return;
+          }
           final selectedEmployee = cache
               .getAllListenableEmployees()
               .value
@@ -491,6 +517,8 @@ class _DealsListingViewState extends State<DealsListingView> {
                 ),
         ],
       ),
+    );
+      },
     );
   }
 
@@ -728,6 +756,7 @@ class _DealsListingViewState extends State<DealsListingView> {
         label: label,
         items: items,
         initialItem: value,
+        allowClear: true,
         onChanged: (dynamic val) {
           onChanged(val as String?);
         },

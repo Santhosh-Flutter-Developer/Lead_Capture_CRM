@@ -212,12 +212,21 @@ class FormMultiDropdowns extends StatefulWidget {
 }
 
 class _FormMultiDropdownsState extends State<FormMultiDropdowns> {
+  late final MultiSelectController<Object> _controller =
+      MultiSelectController<Object>(widget.selectedItems ?? const []);
+
+  void _clearSelection() {
+    _controller.clear();
+    widget.onListChanged?.call(const []);
+  }
+
   @override
   Widget build(BuildContext context) {
     CustomDropdown field;
 
     field = CustomDropdown.multiSelectSearch(
       items: widget.items,
+      multiSelectController: _controller,
 
       closedHeaderPadding: const EdgeInsets.symmetric(
         horizontal: 12,
@@ -266,6 +275,16 @@ class _FormMultiDropdownsState extends State<FormMultiDropdowns> {
                   ],
                 ],
               ),
+              GestureDetector(
+                onTap: _clearSelection,
+                child: Text(
+                  'Clear',
+                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -285,6 +304,7 @@ class FormDropdownSearch extends StatefulWidget {
   final List<dynamic>? items;
   final Function(dynamic)? onChanged;
   final String? Function(dynamic)? validator;
+  final bool allowClear;
 
   const FormDropdownSearch({
     super.key,
@@ -294,6 +314,7 @@ class FormDropdownSearch extends StatefulWidget {
     this.initialItem,
     this.onChanged,
     this.validator,
+    this.allowClear = true,
   });
 
   @override
@@ -357,6 +378,7 @@ class _FormDropdownSearchState extends State<FormDropdownSearch> {
               initialValue: selectedValue,
               items: widget.items ?? [],
               itemAsString: (s) => s,
+              showClearButton: widget.allowClear,
               onChanged: (value) {
                 setState(() => selectedValue = value);
                 field.didChange(value);
