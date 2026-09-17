@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import '/services/services.dart';
 import '/models/models.dart';
+import '/theme/theme.dart';
 import '/views/views.dart';
 
 class DepartmentCreate extends StatefulWidget {
@@ -32,52 +34,23 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FormWidgets.buildHeader(
-              context: context,
-              title: "Create Department",
-            ),
+            _buildHeader(context, isEdit: false),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 16,
                 ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 500),
-                  child: Card(
-                    color: Theme.of(context).cardTheme.color,
-                    elevation: 7,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24.0,
-                        vertical: 24.0,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Department Information",
-                            style: Theme.of(context).textTheme.titleMedium!
-                                .copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                          ),
-                          const SizedBox(height: 10),
-                          Divider(color: Theme.of(context).colorScheme.outlineVariant, thickness: 1),
-                          const SizedBox(height: 20),
-                          LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildFormFields(constraints),
-                          ),
-                        ],
-                      ),
-                    ),
+                child: _sectionCard(
+                  context,
+                  icon: Iconsax.info_circle,
+                  title: "Department Information",
+                  subtitle: "Give this department a clear name and description",
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        _buildFormFields(constraints),
                   ),
                 ),
               ),
@@ -93,6 +66,133 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
     );
   }
 
+  Widget _buildHeader(BuildContext context, {required bool isEdit}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              isEdit ? Iconsax.edit : Iconsax.buildings_2,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEdit ? "Update Department" : "Create Department",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isEdit
+                      ? "Modify the department's name and description"
+                      : "Add a new department for your organization",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFormFields(BoxConstraints constraints) {
     final double currentWidth = constraints.maxWidth;
     const double horizontalSpacing = 16.0;
@@ -101,10 +201,10 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
     const double minColumnWidth = 220.0;
 
     final bool canShowGrid =
-        currentWidth >= (minColumnWidth * 3 + horizontalSpacing * (3 - 1));
+        currentWidth >= (minColumnWidth * 2 + horizontalSpacing);
 
     final double itemWidth = canShowGrid
-        ? (currentWidth - horizontalSpacing * (3 - 1)) / 3
+        ? (currentWidth - horizontalSpacing) / 2
         : currentWidth;
 
     return Form(
@@ -120,6 +220,7 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
               controller: _nameController,
               hintText: 'Enter department name',
               isRequired: true,
+              prefixIcon: const Icon(Iconsax.buildings_2, size: 18),
               valid: (input) => input == null || input.isEmpty
                   ? 'Department Name is required'
                   : null,
@@ -131,7 +232,7 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
               label: 'Description',
               controller: _descriptionController,
               hintText: 'Enter description (optional)',
-              maxLines: 4,
+              maxLines: 3,
               keyboardType: TextInputType.multiline,
             ),
           ),

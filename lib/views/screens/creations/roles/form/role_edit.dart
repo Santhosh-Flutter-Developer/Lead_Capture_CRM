@@ -1,5 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:leadcapture/views/screens/creations/roles/listing/role_permission_table.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -104,7 +106,7 @@ class _RoleEditState extends State<RoleEdit> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FormWidgets.buildHeader(context: context, title: "Update Role"),
+                _buildHeader(context),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
@@ -114,360 +116,26 @@ class _RoleEditState extends State<RoleEdit> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Card(
-                          color: Theme.of(context).cardTheme.color,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24.0,
-                              vertical: 20.0,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Role Information",
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium!
-                                      .copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                ),
-                                const SizedBox(height: 10),
-                                Divider(color: AppColors.grey300, thickness: 1),
-                                const SizedBox(height: 20),
-                                LayoutBuilder(
-                                  builder: (context, constraints) =>
-                                      _buildFormFields(constraints),
-                                ),
-                              ],
-                            ),
+                        const SizedBox(height: 4),
+                        _sectionCard(
+                          context,
+                          icon: Iconsax.info_circle,
+                          title: "Role Information",
+                          subtitle:
+                              "Give this role a clear name and description",
+                          child: LayoutBuilder(
+                            builder: (context, constraints) =>
+                                _buildFormFields(constraints),
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        Card(
-                          color: Theme.of(context).cardTheme.color,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Permissions",
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium!
-                                      .copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                ),
-                                const SizedBox(height: 10),
-                                Divider(color: AppColors.grey300, thickness: 1),
-                                const SizedBox(height: 20),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    columnSpacing: 24,
-                                    headingRowHeight: 40,
-                                    dataRowMinHeight: 40,
-                                    dataRowMaxHeight: 48,
-                                    columns: [
-                                      DataColumn(
-                                        label: Text(
-                                          'Page',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Select All',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'View',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Create',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Edit',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Delete',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Export',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Import',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                    ],
-                                    rows: List.generate(_rows.length, (index) {
-                                      final row = _rows[index];
-                                      final hasImportExport = AppStrings
-                                          .pagesWithImportExport
-                                          .contains(row.page);
-
-                                      List<DataCell> cells = [
-                                        DataCell(
-                                          Text(
-                                            row.page,
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.bodySmall,
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Checkbox(
-                                            value: row.selectAll,
-                                            onChanged: (val) {
-                                              if (val == null) return;
-                                              setState(() {
-                                                row.selectAll = val;
-                                                row.canView = val;
-                                                if (val) {
-                                                  row.canCreate = val;
-                                                  row.canEdit = val;
-                                                  row.canDelete = val;
-                                                  if (hasImportExport) {
-                                                    row.canExport = val;
-                                                    row.canImport = val;
-                                                  }
-                                                } else {
-                                                  row.canCreate = false;
-                                                  row.canEdit = false;
-                                                  row.canDelete = false;
-                                                  row.canExport = false;
-                                                  row.canImport = false;
-                                                }
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Checkbox(
-                                            value: row.canView,
-                                            onChanged: (val) {
-                                              if (val == null) return;
-                                              setState(() {
-                                                row.canView = val;
-                                                if (!val) {
-                                                  row.canCreate = false;
-                                                  row.canEdit = false;
-                                                  row.canDelete = false;
-                                                  row.canExport = false;
-                                                  row.canImport = false;
-                                                  row.selectAll = false;
-                                                } else {
-                                                  bool allSelected =
-                                                      row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate;
-                                                  if (hasImportExport) {
-                                                    allSelected =
-                                                        allSelected &&
-                                                        row.canExport &&
-                                                        row.canImport;
-                                                  }
-                                                  row.selectAll = allSelected;
-                                                }
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                      ];
-
-                                      if (row.canView) {
-                                        cells.addAll([
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.canCreate,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.canCreate = val;
-                                                  bool allSelected =
-                                                      row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate;
-                                                  if (hasImportExport) {
-                                                    allSelected =
-                                                        allSelected &&
-                                                        row.canExport &&
-                                                        row.canImport;
-                                                  }
-                                                  row.selectAll = allSelected;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.canEdit,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.canEdit = val;
-                                                  bool allSelected =
-                                                      row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate;
-                                                  if (hasImportExport) {
-                                                    allSelected =
-                                                        allSelected &&
-                                                        row.canExport &&
-                                                        row.canImport;
-                                                  }
-                                                  row.selectAll = allSelected;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Checkbox(
-                                              value: row.canDelete,
-                                              onChanged: (val) {
-                                                if (val == null) return;
-                                                setState(() {
-                                                  row.canDelete = val;
-                                                  bool allSelected =
-                                                      row.canEdit &&
-                                                      row.canDelete &&
-                                                      row.canCreate;
-                                                  if (hasImportExport) {
-                                                    allSelected =
-                                                        allSelected &&
-                                                        row.canExport &&
-                                                        row.canImport;
-                                                  }
-                                                  row.selectAll = allSelected;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ]);
-
-                                        if (hasImportExport) {
-                                          cells.addAll([
-                                            DataCell(
-                                              Checkbox(
-                                                value: row.canExport,
-                                                onChanged: (val) {
-                                                  if (val == null) return;
-                                                  setState(() {
-                                                    row.canExport = val;
-                                                    bool allSelected =
-                                                        row.canEdit &&
-                                                        row.canDelete &&
-                                                        row.canCreate &&
-                                                        row.canExport &&
-                                                        row.canImport;
-                                                    row.selectAll = allSelected;
-                                                  });
-                                                },
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Checkbox(
-                                                value: row.canImport,
-                                                onChanged: (val) {
-                                                  if (val == null) return;
-                                                  setState(() {
-                                                    row.canImport = val;
-                                                    bool allSelected =
-                                                        row.canEdit &&
-                                                        row.canDelete &&
-                                                        row.canCreate &&
-                                                        row.canExport &&
-                                                        row.canImport;
-                                                    row.selectAll = allSelected;
-                                                  });
-                                                },
-                                              ),
-                                            ),
-                                          ]);
-                                        } else {
-                                          cells.addAll([
-                                            const DataCell(SizedBox()),
-                                            const DataCell(SizedBox()),
-                                          ]);
-                                        }
-                                      } else {
-                                        cells.addAll([
-                                          const DataCell(SizedBox()),
-                                          const DataCell(SizedBox()),
-                                          const DataCell(SizedBox()),
-                                          const DataCell(SizedBox()),
-                                          const DataCell(SizedBox()),
-                                        ]);
-                                      }
-
-                                      return DataRow(cells: cells);
-                                    }),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        const SizedBox(height: 20),
+                        _sectionCard(
+                          context,
+                          icon: Iconsax.security_safe,
+                          title: "Permissions",
+                          subtitle:
+                              "Choose what this role can view, create, edit or delete on each page",
+                          child: RolePermissionTable(rows: _rows),
                         ),
                       ],
                     ),
@@ -486,6 +154,127 @@ class _RoleEditState extends State<RoleEdit> {
     );
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(Iconsax.edit, color: AppColors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Update Role",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Modify the role's details and access permissions",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFormFields(BoxConstraints constraints) {
     final double currentWidth = constraints.maxWidth;
     const double horizontalSpacing = 16.0;
@@ -494,10 +283,10 @@ class _RoleEditState extends State<RoleEdit> {
     const double minColumnWidth = 220.0;
 
     final bool canShowGrid =
-        currentWidth >= (minColumnWidth * 3 + horizontalSpacing * (3 - 1));
+        currentWidth >= (minColumnWidth * 2 + horizontalSpacing);
 
     final double itemWidth = canShowGrid
-        ? (currentWidth - horizontalSpacing * (3 - 1)) / 3
+        ? (currentWidth - horizontalSpacing) / 2
         : currentWidth;
 
     return Form(
@@ -513,6 +302,7 @@ class _RoleEditState extends State<RoleEdit> {
               controller: _roleNameController,
               hintText: 'Enter Role Name',
               isRequired: true,
+              prefixIcon: const Icon(Iconsax.shield, size: 18),
               valid: (val) =>
                   val == null || val.isEmpty ? 'Role name is required' : null,
             ),
