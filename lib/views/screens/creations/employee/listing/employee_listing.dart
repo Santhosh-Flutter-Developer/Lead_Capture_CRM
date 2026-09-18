@@ -125,10 +125,18 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
     final controllerWatch = context
         .watch<PaginatedDataController<UserRowModel>>();
     final width = MediaQuery.of(context).size.width;
+    final isWide = !kIsMobile && width >= 1000;
     return Scaffold(
-      appBar: kIsMobile || width < 1000
-          ? AppBar(leading: Back(), title: Text(_pageTitle))
-          : null,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: isWide
+          ? null
+          : AppBar(
+              leading: const Back(),
+              title: const Text(_pageTitle),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+            ),
       body: BlocListener<UsersBloc, UsersState>(
         listenWhen: (previous, current) => current is UsersLoaded,
         listener: (context, state) {
@@ -156,13 +164,42 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                 onRefresh: () => _refreshUsers(),
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24.0),
+                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
                   children: [
-                    _buildFilterRow(onSearchChanged: controllerRead.setSearch),
-                    const SizedBox(height: 10),
-
-                    _buildActionRow(),
-                    const SizedBox(height: 20),
+                    if (isWide) ...[
+                      _buildHeaderBanner(context, state.users.length),
+                      const SizedBox(height: 20),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.shadow.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildFilterRow(
+                            onSearchChanged: controllerRead.setSearch,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildActionRow(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     controllerWatch.paginatedItems.isEmpty
                         ? NoData(
                             text: state.users.isEmpty
@@ -172,15 +209,19 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                         : Container(
                             decoration: BoxDecoration(
                               color: Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.shadow.withValues(alpha: 0.1),
-                                  spreadRadius: 2,
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
+                                  ).colorScheme.shadow.withValues(alpha: 0.06),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
                             ),
@@ -205,11 +246,11 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                                           ),
                                           child: DataTable(
                                             showCheckboxColumn: true,
-                                            columnSpacing: 12,
-                                            horizontalMargin: 8,
-                                            // dataRowMinHeight: 40,
-                                            // dataRowMaxHeight: 40,
-                                            // headingRowHeight: 40,
+                                            columnSpacing: 24,
+                                            horizontalMargin: 16,
+                                            headingRowHeight: 48,
+                                            dataRowMinHeight: 56,
+                                            dataRowMaxHeight: 64,
                                             sortColumnIndex:
                                                 controllerWatch.sortColumnIndex,
                                             sortAscending:
@@ -219,16 +260,17 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                                                 WidgetStateProperty.all(
                                                   Theme.of(context)
                                                       .colorScheme
-                                                      .surfaceContainerHighest,
+                                                      .primary
+                                                      .withValues(alpha: 0.06),
                                                 ),
                                             headingTextStyle: Theme.of(context)
                                                 .textTheme
                                                 .bodySmall
                                                 ?.copyWith(
                                                   fontWeight: FontWeight.bold,
-                                                  color: context
-                                                      .colors
-                                                      .textPrimary,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
                                                 ),
                                             dataTextStyle: Theme.of(context)
                                                 .textTheme
@@ -241,188 +283,43 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
 
                                             columns: [
                                               DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        "Employee ID",
-                                                        style: Theme.of(
-                                                          context,
-                                                        ).textTheme.bodySmall,
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Icon(
-                                                        Icons.arrow_upward,
-                                                        size: 14,
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ],
-                                                  ),
+                                                label: const Text(
+                                                  "Employee ID",
                                                 ),
                                                 onSort: controllerRead.setSort,
                                               ),
-
                                               DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        "Name",
-                                                        style: Theme.of(
-                                                          context,
-                                                        ).textTheme.bodySmall,
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Icon(
-                                                        Icons.arrow_upward,
-                                                        size: 14,
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ],
-                                                  ),
+                                                label: const Text("Name"),
+                                                onSort: controllerRead.setSort,
+                                              ),
+                                              DataColumn(
+                                                label: const Text(
+                                                  "Department",
                                                 ),
                                                 onSort: controllerRead.setSort,
                                               ),
-
+                                              const DataColumn(
+                                                label: Text("Role"),
+                                              ),
                                               DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        "Department",
-                                                        style: Theme.of(
-                                                          context,
-                                                        ).textTheme.bodySmall,
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Icon(
-                                                        Icons.arrow_upward,
-                                                        size: 14,
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
+                                                label: const Text("Email"),
                                                 onSort: controllerRead.setSort,
                                               ),
-
-                                              DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Text(
-                                                    "Role",
-                                                    style: Theme.of(
-                                                      context,
-                                                    ).textTheme.bodySmall,
-                                                  ),
-                                                ),
+                                              const DataColumn(
+                                                label: Text("Mobile app"),
                                               ),
-
+                                              const DataColumn(
+                                                label: Text("Desktop app"),
+                                              ),
                                               DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        "Email",
-                                                        style: Theme.of(
-                                                          context,
-                                                        ).textTheme.bodySmall,
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Icon(
-                                                        Icons.arrow_upward,
-                                                        size: 14,
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
+                                                label: const Text("Status"),
                                                 onSort: controllerRead.setSort,
                                               ),
-
-                                              DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Text(
-                                                    "Mobile app",
-                                                    style: Theme.of(
-                                                      context,
-                                                    ).textTheme.bodySmall,
-                                                  ),
-                                                ),
+                                              const DataColumn(
+                                                label: Text("Created By"),
                                               ),
-
-                                              DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Text(
-                                                    "Desktop app",
-                                                    style: Theme.of(
-                                                      context,
-                                                    ).textTheme.bodySmall,
-                                                  ),
-                                                ),
-                                              ),
-
-                                              DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        "Status",
-                                                        style: Theme.of(
-                                                          context,
-                                                        ).textTheme.bodySmall,
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Icon(
-                                                        Icons.arrow_upward,
-                                                        size: 14,
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                onSort: controllerRead.setSort,
-                                              ),
-
-                                              DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Text(
-                                                    "Created By",
-                                                    style: Theme.of(
-                                                      context,
-                                                    ).textTheme.bodySmall,
-                                                  ),
-                                                ),
-                                              ),
-
-                                              DataColumn(
-                                                label: IntrinsicWidth(
-                                                  child: Text(
-                                                    "Action",
-                                                    style: Theme.of(
-                                                      context,
-                                                    ).textTheme.bodySmall,
-                                                  ),
-                                                ),
+                                              const DataColumn(
+                                                label: Text("Action"),
                                               ),
                                             ],
 
@@ -556,52 +453,93 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
     }
   }
 
-  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        SizedBox(
-          width: 250,
-          child: TextField(
-            onChanged: onSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'Search',
-              prefixIcon: const Icon(
-                Icons.search,
-                size: 20,
-                color: Colors.grey,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surfaceContainer,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 12.0,
-                horizontal: 16.0,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 1.5,
-                ),
-              ),
-              hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+  Widget _buildHeaderBanner(BuildContext context, int total) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
             ),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
+            child: const Icon(
+              Iconsax.people,
+              color: AppColors.white,
+              size: 30,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Employees",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Manage your team, their roles, and their access in one place",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '$total',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  total == 1 ? "Employee" : "Employees",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
+    return _EmployeeSearchField(onChanged: onSearchChanged);
   }
 
   Widget _buildActionRow() {
@@ -633,10 +571,18 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success,
                 foregroundColor: AppColors.white,
+                elevation: 0,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
               ),
             ),
           );
         }
+        if(width > 1000)
+        buttons.add(const SizedBox(width: 10));
 
         // Upload Button (Gated by canImport)
         if (permissions?.canImport ?? false) {
@@ -662,6 +608,12 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                elevation: 0,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
               ),
             ),
           );
@@ -683,10 +635,12 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               foregroundColor: Theme.of(context).colorScheme.primary,
               side: BorderSide(color: Theme.of(context).colorScheme.primary),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: const StadiumBorder(),
             ),
           ),
         );
-
+        if(width > 1000)
+buttons.add(const SizedBox(width: 10));
         buttons.add(
           OutlinedButton.icon(
             onPressed: () async {
@@ -702,11 +656,13 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               foregroundColor: Theme.of(context).colorScheme.secondary,
               side: BorderSide(color: Theme.of(context).colorScheme.secondary),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: const StadiumBorder(),
             ),
           ),
         );
         }
-
+        if(width > 1000)
+buttons.add(const SizedBox(width: 10));
         if (permissions?.canExport ?? false) {
         buttons.add(
           ElevatedButton.icon(
@@ -814,6 +770,9 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
               foregroundColor: Theme.of(context).colorScheme.onSurface,
+              elevation: 0,
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             ),
           ),
         );
@@ -871,7 +830,8 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
             ),
           ),
         );*/
-
+        if(width > 1000)
+buttons.add(const SizedBox(width: 10));
         if (_selectedEmployees.isNotEmpty && (permissions?.canDelete ?? false)) {
           buttons.add(
                   ElevatedButton.icon(
@@ -979,10 +939,18 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.danger,
                       foregroundColor: AppColors.white,
+                      elevation: 0,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
                     ),
                   ),
           );
         }
+        if(width > 1000)
+        buttons.add(const SizedBox(width: 10));
         if (_selectedEmployees.isNotEmpty) {
           // Chat Button
           buttons.add(
@@ -1206,10 +1174,17 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                 foregroundColor: Theme.of(
                   context,
                 ).colorScheme.onTertiaryContainer,
+                elevation: 0,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
               ),
             ),
           );
-
+          if(width > 1000)
+buttons.add(const SizedBox(width: 10));
           if (tasksPermissions?.canCreate ?? false) {
           buttons.add(
                 ElevatedButton.icon(
@@ -1235,6 +1210,12 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.success,
                       foregroundColor: AppColors.white,
+                      elevation: 0,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
                     ),
                   ),
           );
@@ -1245,22 +1226,37 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: kIsMobile || width < 1000
-                      ? Wrap(spacing: 10, runSpacing: 10, children: buttons)
+                      ? Wrap(spacing: 10, runSpacing: 12, children: buttons)
                       : SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(children: buttons),
                         ),
                 ),
-
-                IconButton(
-                  tooltip: "Refresh",
-                  icon: const Icon(Iconsax.refresh),
-                  onPressed: _refreshUsers,
-                  iconSize: 18,
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: "Refresh",
+                  child: Material(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _refreshUsers,
+                      child: Padding(
+                        padding: const EdgeInsets.all(11),
+                        child: Icon(
+                          Iconsax.refresh,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1429,6 +1425,16 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
 
     return DataRow(
       selected: isSelected,
+      color: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return Theme.of(context).colorScheme.primary.withValues(alpha: 0.08);
+        }
+        return index.isEven
+            ? Colors.transparent
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.35,
+              );
+      }),
       onSelectChanged: (selected) {
         controllerRead.onSelected(user.uid, selected);
         if (selected ?? false) {
@@ -1574,20 +1580,22 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               ? const NoData(text: "No matching records found")
               : Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
                     color: user.isActive
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.error,
-                    borderRadius: BorderRadius.circular(8),
+                        ? AppColors.success.withValues(alpha: 0.14)
+                        : AppColors.danger.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     user.isActive ? 'Active' : 'Inactive',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.w500,
+                      color: user.isActive
+                          ? AppColors.success
+                          : AppColors.danger,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -1601,10 +1609,14 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
           Row(
             children: [
               if (permissions?.canEdit ?? false)
-                    IconButton(
-                      icon: const Icon(Iconsax.edit),
-                      color: Theme.of(context).colorScheme.secondary,
-                      onPressed: () {
+                Tooltip(
+                  message: "Edit",
+                  child: Material(
+                    color: AppColors.info.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
                         if (kIsMobile || width < 1000) {
                           Sheet.showSheet(
                             context,
@@ -1623,20 +1635,158 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                           );
                         }
                       },
+                      child: const Padding(
+                        padding: EdgeInsets.all(9),
+                        child: Icon(Iconsax.edit, size: 17, color: AppColors.info),
+                      ),
                     ),
+                  ),
+                ),
+              const SizedBox(width: 6),
               if (!user.isAdmin)
                 if (permissions?.canDelete ?? false)
-                      IconButton(
-                        icon: const Icon(Iconsax.trash),
-                        color: Theme.of(context).colorScheme.error,
-                        onPressed: () async {
+                  Tooltip(
+                    message: "Delete",
+                    child: Material(
+                      color: AppColors.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
                           handleDelete(context, user);
                         },
+                        child: const Padding(
+                          padding: EdgeInsets.all(9),
+                          child: Icon(
+                            Iconsax.trash,
+                            size: 17,
+                            color: AppColors.danger,
+                          ),
+                        ),
                       ),
+                    ),
+                  ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------
+// A more polished, colorful search field for the Employees toolbar.
+// ---------------------------------------------------------------------
+class _EmployeeSearchField extends StatefulWidget {
+  final ValueChanged<String> onChanged;
+  const _EmployeeSearchField({required this.onChanged});
+
+  @override
+  State<_EmployeeSearchField> createState() => _EmployeeSearchFieldState();
+}
+
+class _EmployeeSearchFieldState extends State<_EmployeeSearchField> {
+  final TextEditingController _controller = TextEditingController();
+  bool _hasText = false;
+  bool _focused = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      setState(() => _focused = _focusNode.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 46,
+      constraints: const BoxConstraints(maxWidth: 320),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _focused
+              ? primary.withValues(alpha: 0.55)
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: _focused ? 1.4 : 1,
+        ),
+        boxShadow: _focused
+            ? [
+                BoxShadow(
+                  color: primary.withValues(alpha: 0.16),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        style: Theme.of(context).textTheme.bodySmall,
+        onChanged: (val) {
+          setState(() => _hasText = val.isNotEmpty);
+          widget.onChanged(val);
+        },
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search Employees',
+          hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(9),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(
+                  Iconsax.search_normal_1,
+                  size: 12,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          suffixIcon: _hasText
+              ? IconButton(
+                  splashRadius: 16,
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() => _hasText = false);
+                    widget.onChanged('');
+                  },
+                )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+        ),
+      ),
     );
   }
 }

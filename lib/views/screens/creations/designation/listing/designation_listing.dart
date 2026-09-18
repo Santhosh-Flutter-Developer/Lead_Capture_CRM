@@ -874,7 +874,7 @@ class _DesignationSearchFieldState extends State<_DesignationSearchField> {
       height: 46,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: _focused
               ? primary.withValues(alpha: 0.55)
