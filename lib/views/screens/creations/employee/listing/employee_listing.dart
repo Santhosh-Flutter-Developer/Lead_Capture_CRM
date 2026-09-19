@@ -587,7 +587,7 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
         // Upload Button (Gated by canImport)
         if (permissions?.canImport ?? false) {
           buttons.add(
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: () {
                 if (kIsMobile || width < 1000) {
                   Sheet.showSheet(context, widget: const EmployeeUploadPage());
@@ -598,27 +598,29 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                   );
                 }
               },
-              icon: const Icon(Iconsax.cloud_plus, size: 18),
+              icon: const Icon(Iconsax.cloud_plus, size: 16),
               label: Text(
                 "Upload",
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                elevation: 0,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 shape: const StadiumBorder(),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
+                  horizontal: 14,
+                  vertical: 8,
                 ),
               ),
             ),
           );
 
-        buttons.add(const SizedBox(width: 10));
+        buttons.add(const SizedBox(width: 8));
 
         buttons.add(
           OutlinedButton.icon(
@@ -629,18 +631,26 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
                 "Employee_Template.xlsx",
               );
             },
-            icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: const Text("Template"),
+            icon: const Icon(Icons.file_download_outlined, size: 16),
+            label: Text(
+              "Template",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(color: Theme.of(context).colorScheme.primary),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: const StadiumBorder(),
             ),
           ),
         );
         if(width > 1000)
-buttons.add(const SizedBox(width: 10));
+buttons.add(const SizedBox(width: 8));
         buttons.add(
           OutlinedButton.icon(
             onPressed: () async {
@@ -650,12 +660,20 @@ buttons.add(const SizedBox(width: 10));
                 "Employee_Sample_Data.xlsx",
               );
             },
-            icon: const Icon(Icons.contact_page_outlined, size: 18),
-            label: const Text("Sample Data"),
+            icon: const Icon(Icons.contact_page_outlined, size: 16),
+            label: Text(
+              "Sample Data",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.secondary,
-              side: BorderSide(color: Theme.of(context).colorScheme.secondary),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: const StadiumBorder(),
             ),
           ),
@@ -672,7 +690,7 @@ buttons.add(const SizedBox(width: 10));
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            icon: Icon(Iconsax.export_3),
+            icon: Icon(Iconsax.export_3, size: 16),
             onPressed: _employeesList.isEmpty
                 ? null
                 : () async {
@@ -772,7 +790,7 @@ buttons.add(const SizedBox(width: 10));
               foregroundColor: Theme.of(context).colorScheme.onSurface,
               elevation: 0,
               shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
           ),
         );
@@ -841,7 +859,7 @@ buttons.add(const SizedBox(width: 10));
                         context,
                       ).textTheme.bodySmall?.copyWith(color: AppColors.white),
                     ),
-                    icon: const Icon(Iconsax.trash),
+                    icon: const Icon(Iconsax.trash, size: 16),
                     onPressed: () async {
                       if (_selectedEmployees.isEmpty) return;
 
@@ -942,8 +960,8 @@ buttons.add(const SizedBox(width: 10));
                       elevation: 0,
                       shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
+                        horizontal: 14,
+                        vertical: 8,
                       ),
                     ),
                   ),
@@ -1158,10 +1176,10 @@ buttons.add(const SizedBox(width: 10));
                   );
                 }
               },
-              icon: const Icon(Icons.chat, size: 18),
+              icon: const Icon(Icons.chat, size: 16),
               label: Text(
                 _selectedEmployees.length == 1
-                    ? 'Chat with ${_selectedEmployees.first.name}'
+                    ? 'Chat'
                     : 'Group Chat (${_selectedEmployees.length})',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onTertiaryContainer,
@@ -1177,8 +1195,8 @@ buttons.add(const SizedBox(width: 10));
                 elevation: 0,
                 shape: const StadiumBorder(),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
+                  horizontal: 14,
+                  vertical: 8,
                 ),
               ),
             ),
@@ -1200,7 +1218,7 @@ buttons.add(const SizedBox(width: 10));
                         ),
                       );
                     },
-                    icon: const Icon(Icons.task, size: 18),
+                    icon: const Icon(Icons.task, size: 16),
                     label: Text(
                       "Create Task",
                       style: Theme.of(
@@ -1213,8 +1231,8 @@ buttons.add(const SizedBox(width: 10));
                       elevation: 0,
                       shape: const StadiumBorder(),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
+                        horizontal: 14,
+                        vertical: 8,
                       ),
                     ),
                   ),
@@ -1230,7 +1248,27 @@ buttons.add(const SizedBox(width: 10));
               children: [
                 Expanded(
                   child: kIsMobile || width < 1000
-                      ? Wrap(spacing: 10, runSpacing: 12, children: buttons)
+                      ? LayoutBuilder(
+                          builder: (context, innerConstraints) {
+                            const double spacing = 10.0;
+                            final double minItemWidth =
+                                (innerConstraints.maxWidth - spacing) / 2;
+                            return Wrap(
+                              spacing: spacing,
+                              runSpacing: 10,
+                              children: buttons
+                                  .map(
+                                    (b) => ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minWidth: minItemWidth,
+                                      ),
+                                      child: b,
+                                    ),
+                                  )
+                                  .toList(),
+                            );
+                          },
+                        )
                       : SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(children: buttons),

@@ -5,6 +5,7 @@ import '/services/services.dart';
 import '/models/models.dart';
 import '/views/views.dart';
 import '/constants/constants.dart';
+import '/theme/theme.dart';
 
 class EmployeeDetails extends StatefulWidget {
   final EmployeeModel employee;
@@ -17,11 +18,16 @@ class EmployeeDetails extends StatefulWidget {
 
 class _EmployeeDetailsState extends State<EmployeeDetails> {
   late Future _future;
-  final List<UserDataModel> _workflowUsers = [];
   int _taskCount = 0;
   int _projectCount = 0;
   int _leadsCount = 0;
   int _dealsCount = 0;
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -30,43 +36,6 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
   }
 
   Future<void> _init() async {
-    var result = await EmployeeService.getUserWorkflow(
-      userId: widget.employee.uid,
-    );
-    var subResultMap = {};
-    for (var i = 0; i < result.length; i++) {
-      subResultMap[i.toString()] = result[i];
-    }
-
-    for (var i in subResultMap.entries) {
-      var employee = await EmployeeService.getEmployee(uid: i.value);
-      if (employee != null) {
-        _workflowUsers.add(
-          UserDataModel(
-            uid: employee.uid ?? '',
-            name: employee.name,
-            desc:
-                CacheService.designationByUid(employee.designation)?.name ?? '',
-            userType: UserType.employee,
-            profilePic: employee.profileImageUrl,
-          ),
-        );
-      } else {
-        var admin = await AdminService.getAdmin(uid: i.value);
-        if (admin != null) {
-          _workflowUsers.add(
-            UserDataModel(
-              uid: admin.uid ?? '',
-              name: admin.name,
-              desc: admin.email,
-              userType: UserType.admin,
-              profilePic: admin.profileImageUrl,
-            ),
-          );
-        }
-      }
-    }
-
     final taskCount = await TaskService.getUserTaskCount(
       userId: widget.employee.uid ?? '',
     );
@@ -90,101 +59,128 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
     }
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Iconsax.medal_star,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Employee Portfolio",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Overview, activity and personal details",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        centerTitle: false,
-        automaticallyImplyLeading: false,
-        title: Text(
-          "Employee Portfolio",
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Theme.of(context).dividerColor, height: 1),
-        ),
-      ),
-      body: FutureBuilder(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const WaitingLoading();
-          } else if (snapshot.hasError) {
-            return ErrorDisplay(error: snapshot.error.toString());
-          } else {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final bool isDesktop = constraints.maxWidth > 600;
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(context),
+          Expanded(
+            child: FutureBuilder(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const WaitingLoading();
+                } else if (snapshot.hasError) {
+                  return ErrorDisplay(error: snapshot.error.toString());
+                } else {
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bool isDesktop = constraints.maxWidth > 600;
 
-                return Padding(
-                  padding: const EdgeInsets.only(right:8.0),
-                  child: Scrollbar(
-                                  // controller: _scrollController,
-                                  thumbVisibility: true,
-                                  interactive: true,
-                                  trackVisibility: true,
-                                  radius: const Radius.circular(8),
-                                  thickness: 8,
-                    child: SingleChildScrollView(
-                      child: Center(
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 1300),
-                          padding: EdgeInsets.all(isDesktop ? 24 : 16),
-                          child: isDesktop
-                              ? _buildDesktopLayout(context)
-                              : _buildMobileLayout(context),
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: Scrollbar(
+                          thumbVisibility: true,
+                          interactive: true,
+                          trackVisibility: true,
+                          radius: const Radius.circular(8),
+                          thickness: 8,
+                          child: SingleChildScrollView(
+                            child: Center(
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 1300,
+                                ),
+                                padding: EdgeInsets.all(isDesktop ? 20 : 16),
+                                child: isDesktop
+                                    ? _buildDesktopLayout(context)
+                                    : _buildMobileLayout(context),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                );
+                      );
+                    },
+                  );
+                }
               },
-            );
-          }
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
 
   /// DESKTOP LAYOUT: Dashboard Grid Arrangement
   Widget _buildDesktopLayout(BuildContext context) {
-    return Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top Section: Identity & Statistics
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 3, child: _buildIdentityCard(context)),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 5,
-              child: Column(
-                children: [
-                  _buildQuickStats(context),
-                  const SizedBox(height: 16),
-                  // _buildReportingStructure(context),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Bottom Section: Information Grid & Summary
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 5, child: _buildInformationGrid(context, 2)),
-            const SizedBox(width: 16),
-            Expanded(flex: 3, child: SizedBox()),
-            // Expanded(flex: 3, child: _buildOtherDetails(context)),
-          ],
+        Expanded(flex: 3, child: _buildIdentityCard(context)),
+        const SizedBox(width: 20),
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              _buildQuickStats(context),
+              const SizedBox(height: 20),
+              _buildInformationGrid(context, 2),
+            ],
+          ),
         ),
       ],
     );
@@ -195,14 +191,10 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
     return Column(
       children: [
         _buildIdentityCard(context),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _buildQuickStats(context),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _buildInformationGrid(context, 1),
-        const SizedBox(height: 16),
-        // _buildReportingStructure(context),
-        const SizedBox(height: 16),
-        // _buildOtherDetails(context),
       ],
     );
   }
@@ -225,13 +217,12 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
         children: [
           Container(
             padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.1),
-                width: 3,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: _brandGradient,
               ),
             ),
             child: CircleAvatar(
@@ -269,13 +260,13 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
               color: Theme.of(
                 context,
-              ).colorScheme.primary.withValues(alpha: 0.08),
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -297,7 +288,7 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
             ),
           ),
           const SizedBox(height: 20),
-          const Divider(height: 1),
+          Divider(color: AppColors.grey200, height: 1),
           const SizedBox(height: 20),
           _buildCompactTile(
             Iconsax.personalcard,
@@ -318,30 +309,78 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
   /// QUICK STATS SECTION
   Widget _buildQuickStats(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: _glassDecoration(context),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _statItem("Tasks", _taskCount, Colors.orange),
-          _vDivider(),
-          _statItem("Projects", _projectCount, Colors.blue),
-          _vDivider(),
-          _statItem("Leads", _leadsCount, Colors.red),
-          _vDivider(),
-          _statItem("Deals", _dealsCount, Colors.brown),
+          Text(
+            "Activity Overview",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            "A snapshot of this employee's workload",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              _statItem(
+                "Tasks",
+                _taskCount,
+                AppColors.orange,
+                Iconsax.task_square,
+              ),
+              _vDivider(),
+              _statItem(
+                "Projects",
+                _projectCount,
+                Theme.of(context).colorScheme.primary,
+                Iconsax.briefcase,
+              ),
+              _vDivider(),
+              _statItem(
+                "Leads",
+                _leadsCount,
+                AppColors.secondary,
+                Iconsax.chart_2,
+              ),
+              _vDivider(),
+              _statItem(
+                "Deals",
+                _dealsCount,
+                AppColors.success,
+                Iconsax.dollar_circle,
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _statItem(String label, int value, Color color) {
+  Widget _statItem(String label, int value, Color color, IconData icon) {
     return Expanded(
       child: Column(
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(height: 8),
           Text(
             value.toString(),
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -396,178 +435,50 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
 
     return _buildSectionCard(
       title: "Personal Information",
+      subtitle: "Basic details on file for this employee",
       icon: Iconsax.personalcard,
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 20,
-          childAspectRatio: columns == 1 ? 5 : 3.5,
-        ),
-        itemCount: infoItems.length,
-        itemBuilder: (context, index) {
-          final item = infoItems[index];
-          return _buildDataPoint(
-            item["label"].toString(),
-            item["value"].toString(),
-            item["icon"] as IconData,
+      accentColor: AppColors.secondary,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const double spacing = 20.0;
+          final double itemWidth = columns <= 1
+              ? constraints.maxWidth
+              : (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+          return Wrap(
+            spacing: spacing,
+            runSpacing: 18,
+            children: infoItems
+                .map(
+                  (item) => SizedBox(
+                    width: itemWidth,
+                    child: _buildDataPoint(
+                      item["label"].toString(),
+                      item["value"].toString(),
+                      item["icon"] as IconData,
+                    ),
+                  ),
+                )
+                .toList(),
           );
         },
       ),
     );
   }
 
-  /// REPORTING STRUCTURE
-  /*Widget _buildReportingStructure(BuildContext context) {
-    return _buildSectionCard(
-      title: "Reporting Structure",
-      icon: Iconsax.hierarchy,
-      child: Column(
-        children: [
-          if (_workflowUsers.isEmpty)
-            Text(
-              "No supervisors assigned",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            )
-          else ...[
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _workflowUsers.length,
-              itemBuilder: (context, index) {
-                return IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            if (!(index == _workflowUsers.length - 1))
-                              Expanded(
-                                child: Container(
-                                  width: 1,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.outlineVariant,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 32),
-                          child: CreatedByWidget(
-                            userData: _workflowUsers[index],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }*/
-
-  /*Widget _buildOtherDetails(BuildContext context) {
-    return _buildSectionCard(
-      title: "Professional Summary",
-      icon: Iconsax.info_circle,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "About",
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            widget.employee.about.isEmpty
-                ? "No bio provided"
-                : widget.employee.about,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            "Skills & Expertise",
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: (widget.employee.skills.split(','))
-                .map(
-                  (s) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Text(
-                      s.trim(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }*/
-
   // --- REUSABLE WIDGETS ---
   Widget _buildSectionCard({
     required String title,
+    required String subtitle,
     required IconData icon,
     required Widget child,
+    Color? accentColor,
   }) {
+    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: _glassDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,30 +486,37 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
+                  color: badgeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                child: Icon(icon, size: 18, color: badgeColor),
               ),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          Divider(color: AppColors.grey200, thickness: 1),
+          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -610,7 +528,7 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical:8.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Icon(
             icon,
             size: 16,
@@ -686,20 +604,20 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       boxShadow: [
         BoxShadow(
           color: isDark
               ? Colors.transparent
-              : Colors.black.withValues(alpha: 0.02),
-          blurRadius: 15,
-          offset: const Offset(0, 8),
+              : Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
         ),
       ],
     );
   }
 
   Widget _vDivider() =>
-      Container(width: 1, height: 24, color: Theme.of(context).dividerColor);
+      Container(width: 1, height: 40, color: Theme.of(context).dividerColor);
 }

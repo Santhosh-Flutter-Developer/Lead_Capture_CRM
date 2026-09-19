@@ -23,6 +23,12 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
   List<List<String>> _rows = [];
   bool _loading = false;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   Future<void> _pickAndParse() async {
     setState(() => _loading = true);
 
@@ -88,6 +94,196 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
     return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.maybePop(context),
+            icon: const Icon(Iconsax.arrow_left_2, color: AppColors.white),
+            tooltip: 'Back',
+          ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Iconsax.document_upload,
+              color: AppColors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Import Employees',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Bulk-add employees from a CSV or Excel file',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Iconsax.more, color: AppColors.white),
+            tooltip: 'Options',
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onSelected: (value) async {
+              if (value == 'template') {
+                await Download.downloadFromAsset(
+                  context,
+                  "assets/templates/employee_upload_template.xlsx",
+                  "Employee_Template.xlsx",
+                );
+              } else if (value == 'sample') {
+                await Download.downloadFromAsset(
+                  context,
+                  "assets/templates/employee_upload_template_with_data.xlsx",
+                  "Employee_Sample_Data.xlsx",
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'template',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.file_download_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Employee Template',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'sample',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.contact_page_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Sample Employee Data',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    Color? accentColor,
+  }) {
+    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: badgeColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -97,122 +293,91 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
       ),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          // leading: IconButton(
-          //   icon: const Icon(Iconsax.close_circle, color: AppColors.text),
-          //   onPressed: () => Navigator.of(context).pop(),
-          //   tooltip: 'Close',
-          // ),
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          elevation: 0,
-          title: Text(
-            'Import Employees',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              height: 1,
-            ),
-          ),
-          centerTitle: false,
-          actions: [
-            IconButton(
-              icon: Icon(
-                Iconsax.more,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              onPressed: () {
-                showCustomMenu(context);
-              },
-              tooltip: "Options",
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Upload Employee List',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-                  Text(
-                    'Upload Employee List',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Upload Zone or File Info
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _fileName == null
-                        ? _buildUploadZone()
-                        : _buildFileInfoCard(),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Preview Section (Only visible if data exists)
-                  if (_rows.isNotEmpty) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1000),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'Data Preview (${_rows.length - 1} entries)',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                        _buildSectionCard(
+                          icon: Iconsax.document_upload,
+                          accentColor: Theme.of(context).colorScheme.primary,
+                          title: 'Upload Employee List',
+                          subtitle:
+                              'Select a CSV or Excel file with your employee records',
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: _fileName == null
+                                ? _buildUploadZone()
+                                : _buildFileInfoCard(),
+                          ),
                         ),
-                        if (_rows.length > 50)
-                          Chip(
-                            label: Text(
-                              'Showing first 50',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+
+                        // Preview Section (Only visible if data exists)
+                        if (_rows.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          _buildSectionCard(
+                            icon: Iconsax.task_square,
+                            accentColor: AppColors.success,
+                            title:
+                                'Data Preview (${_rows.length - 1} entries)',
+                            subtitle:
+                                'Review the records before completing the import',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (_rows.length > 50)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: Chip(
+                                        label: Text(
+                                          'Showing first 50',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).scaffoldBackgroundColor,
+                                        side: BorderSide(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outlineVariant,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).scaffoldBackgroundColor,
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
+                                _buildPreviewTable(),
+                                const SizedBox(height: 20),
+                                _buildActionButtons(),
+                              ],
                             ),
                           ),
+                        ],
+                        const SizedBox(height: 20),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildPreviewTable(),
-                    const SizedBox(height: 32),
-                    _buildActionButtons(),
-                  ],
-                ],
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -677,152 +842,56 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        ElevatedButton.icon(
-          onPressed: _uploadEmployeeData,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: _brandGradient,
             ),
-            elevation: 0,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          icon: Icon(
-            Icons.check,
-            size: 18,
-            color: Theme.of(context).colorScheme.onPrimary,
-          ),
-          label: Text(
-            'Complete Import',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onPrimary,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _uploadEmployeeData,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 15,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Iconsax.tick_circle,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Complete Import',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ],
-    );
-  }
-
-  void showCustomMenu(BuildContext context) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '',
-      barrierColor: Theme.of(
-        context,
-      ).colorScheme.shadow.withValues(alpha: 0.3), // light dim background
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (_, _, _) {
-        return const SizedBox.shrink();
-      },
-      transitionBuilder: (context, animation, secAnimation, child) {
-        return Transform.translate(
-          offset: Offset(0, 30 * (1 - animation.value)), // slide up
-          child: Opacity(
-            opacity: animation.value,
-            child: Stack(
-              children: [
-                Positioned(right: 16, top: 70, child: _CustomMenuCard()),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CustomMenuCard extends StatelessWidget {
-  const _CustomMenuCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: Container(
-        width: 180,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(
-                context,
-              ).colorScheme.shadow.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _menuItem(
-              context,
-              icon: Icons.file_download_outlined,
-              iconColor: Theme.of(context).colorScheme.primary,
-              label: "Employee Template",
-              onTap: () async {
-                if (Navigator.canPop(context)) Navigator.pop(context);
-                await Download.downloadFromAsset(
-                  context,
-                  "assets/templates/employee_upload_template.xlsx",
-                  "Employee_Template.xlsx",
-                );
-              },
-            ),
-            _menuItem(
-              context,
-              icon: Icons.contact_page_outlined,
-              iconColor: Theme.of(context).colorScheme.secondary,
-              label: "Sample Employee Data",
-              onTap: () async {
-                if (Navigator.canPop(context)) Navigator.pop(context);
-                await Download.downloadFromAsset(
-                  context,
-                  "assets/templates/employee_upload_template_with_data.xlsx",
-                  "Employee_Sample_Data.xlsx",
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _menuItem(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    Color? iconColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: iconColor ?? Theme.of(context).colorScheme.onSurface,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
