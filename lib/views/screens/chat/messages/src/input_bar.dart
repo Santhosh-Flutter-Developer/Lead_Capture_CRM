@@ -484,7 +484,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.add_circle_outline),
+                icon: Icon(
+                  Icons.add_circle_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 onPressed: () async {
                   // var result = await Sheet.showSheet(context,
                   //     widget: const PickOption(uploadDoc: true), size: 0.3);
@@ -585,7 +588,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           fillColor: AppColors.transparent,
                           suffixIcon: !hasText && _pickedFiles.isEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.image_outlined),
+                                  icon: Icon(
+                                    Icons.image_outlined,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
                                   onPressed: _pickFiles,
                                 )
                               : null,
@@ -599,12 +605,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 if (kIsMobile) ...[
                   if (!_isRecording) ...[
                     IconButton(
-                      icon: const Icon(Icons.mic_rounded),
+                      icon: Icon(
+                        Icons.mic_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       onPressed: _startRecording,
                     ),
                   ] else ...[
                     IconButton(
-                      icon: const Icon(Icons.stop_rounded),
+                      icon: const Icon(Icons.stop_rounded, color: AppColors.danger),
                       onPressed: _stopRecording,
                     ),
                   ],

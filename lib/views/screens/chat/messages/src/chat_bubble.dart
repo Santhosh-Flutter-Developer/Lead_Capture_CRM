@@ -642,30 +642,42 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: widget.isSender
-                  ? Theme.of(context).colorScheme.primaryContainer
-                  : Theme.of(context).cardTheme.color,
+                  ? null
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              gradient: widget.isSender
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF0052D4),
+                        Color(0xFF4364F7),
+                        Color(0xFF6FB1FC),
+                      ],
+                    )
+                  : null,
               borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
                 bottomLeft: widget.isSender
-                    ? const Radius.circular(16)
+                    ? const Radius.circular(18)
                     : const Radius.circular(4),
                 bottomRight: widget.isSender
                     ? const Radius.circular(4)
-                    : const Radius.circular(16),
+                    : const Radius.circular(18),
               ),
               boxShadow: [
-                if (!widget.isSender)
-                  BoxShadow(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.shadow.withValues(alpha: 0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
+                BoxShadow(
+                  color: widget.isSender
+                      ? const Color(0xFF4364F7).withValues(alpha: 0.28)
+                      : Theme.of(
+                          context,
+                        ).colorScheme.shadow.withValues(alpha: 0.06),
+                  blurRadius: widget.isSender ? 10 : 4,
+                  offset: const Offset(0, 3),
+                ),
               ],
             ),
             child: Column(
@@ -732,9 +744,12 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
   }
 
   Widget _buildMessageWithMentions(BuildContext context, String text) {
+    final Color textColor = widget.isSender
+        ? Theme.of(context).colorScheme.onPrimary
+        : Theme.of(context).colorScheme.onSurface;
     final mentions = widget.message.mentions ?? [];
     if (mentions.isEmpty) {
-      return Text(text);
+      return Text(text, style: TextStyle(color: textColor));
     }
 
     final spans = <InlineSpan>[];
@@ -762,7 +777,7 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
         spans.add(
           TextSpan(
             text: text.substring(currentIndex, start),
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            style: TextStyle(color: textColor),
           ),
         );
       }
@@ -825,7 +840,7 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
       spans.add(
         TextSpan(
           text: text.substring(currentIndex),
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          style: TextStyle(color: textColor),
         ),
       );
     }

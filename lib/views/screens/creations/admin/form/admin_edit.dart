@@ -1,11 +1,11 @@
 import 'dart:typed_data';
-import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
+import '/theme/theme.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 
@@ -28,9 +28,16 @@ class _AdminUpdateState extends State<AdminUpdate> {
   final TextEditingController _mobileController = TextEditingController();
 
   XFile? _newProfileImage;
+  Uint8List? _newProfileImageBytes;
   String? _existingProfileUrl;
 
   bool _passwordVisible = false;
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -52,73 +59,282 @@ class _AdminUpdateState extends State<AdminUpdate> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              FormWidgets.buildHeader(context: context, title: "Update Admin"),
-              const SizedBox(height: 20),
-
-              _buildSectionCard(
-                title: "Admin Details",
-                child: LayoutBuilder(
-                  builder: (context, constraints) =>
-                      _buildAdminDetails(constraints, 2),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              _buildSectionCard(
-                title: "Profile Picture",
-                child: Center(
-                  child: _buildProfileImageUploaded("Upload Profile"),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
         ),
       ),
-      bottomNavigationBar: FormWidgets.buildBottomBar(
-        context: context,
-        onSubmit: _updateAdmin,
-        isEdit: true,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(Iconsax.edit, color: AppColors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Update Admin",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Update this administrator's account details",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionCard({required String title, required Widget child}) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    Color? accentColor,
+  }) {
+    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: badgeColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Divider(color: Theme.of(context).colorScheme.outlineVariant),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
             const SizedBox(height: 16),
             child,
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(16),
+        bottomLeft: Radius.circular(16),
+      ),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        _buildSectionCard(
+                          icon: Iconsax.gallery,
+                          title: "Profile Picture",
+                          subtitle:
+                              "Update this administrator's profile picture",
+                          child: Center(child: _buildProfileUploader()),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildSectionCard(
+                          icon: Iconsax.personalcard,
+                          accentColor: AppColors.secondary,
+                          title: "Admin Details",
+                          subtitle: "Account name, login and contact details",
+                          child: LayoutBuilder(
+                            builder: (context, constraints) =>
+                                _buildAdminDetails(constraints, 2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: _buildBottomBar(),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Cancel",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: _brandGradient,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _updateAdmin,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Iconsax.edit, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Update",
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -148,6 +364,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
             label: "Name",
             controller: _nameController,
             isRequired: true,
+            prefixIcon: const Icon(Iconsax.user, size: 18),
             valid: (value) {
               if (value == null || value.trim().isEmpty) {
                 return "Name is required";
@@ -163,6 +380,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
             label: "Email",
             controller: _emailController,
             isRequired: true,
+            prefixIcon: const Icon(Iconsax.sms, size: 18),
             valid: (value) {
               if (value == null || value.trim().isEmpty) {
                 return "Email is required";
@@ -182,6 +400,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
             controller: _passwordController,
             isRequired: true,
             obsecureText: !_passwordVisible,
+            prefixIcon: const Icon(Iconsax.lock, size: 18),
             valid: (value) {
               if (value == null || value.trim().isEmpty) {
                 return "Password is required";
@@ -212,6 +431,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
             label: "Mobile Number",
             controller: _mobileController,
             isRequired: true,
+            prefixIcon: const Icon(Iconsax.mobile, size: 18),
             valid: (value) {
               if (value == null || value.trim().isEmpty) {
                 return "Mobile number is required";
@@ -228,134 +448,145 @@ class _AdminUpdateState extends State<AdminUpdate> {
     );
   }
 
-  // PROFILE IMAGE UPLOAD
-  Widget _buildProfileImageUploaded(String label) {
-    // If new image selected
-    if (_newProfileImage != null) {
-      return Stack(
-        alignment: Alignment.topRight,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              height: 140,
-              width: 140,
-              child: FutureBuilder<Uint8List>(
-                future: _newProfileImage!.readAsBytes(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    );
-                  }
-                  return Image.memory(
-                    snapshot.data!,
-                    height: 140,
-                    width: 140,
-                    fit: BoxFit.cover,
-                  );
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: () => setState(() => _newProfileImage = null),
-              child: CircleAvatar(
-                radius: 13,
-                backgroundColor: Theme.of(context).colorScheme.error,
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
+  // PROFILE IMAGE UPLOAD — circular gradient-ring avatar, matching the
+  // Employee create/edit uploader style, with a remove/replace badge.
+  Widget _buildProfileUploader() {
+    final bool hasImage =
+        _newProfileImage != null ||
+        (_existingProfileUrl != null && _existingProfileUrl!.isNotEmpty);
 
-    // If existing image available
-    if (_existingProfileUrl != null && _existingProfileUrl!.isNotEmpty) {
-      return Stack(
-        alignment: Alignment.topRight,
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              _existingProfileUrl!,
-              height: 140,
-              width: 140,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Iconsax.gallery_slash,
-                    size: 40,
-                    color: Colors.grey,
-                  ),
-                );
-              },
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: () async {
-                final picked = await PickImage.selectImage(context);
-                if (picked != null) {
-                  setState(() {
-                    _existingProfileUrl = null;
-                    _newProfileImage = picked;
-                  });
-                }
-              },
-              child: CircleAvatar(
-                radius: 13,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                child: const Icon(Icons.edit, size: 16, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return GestureDetector(
-      onTap: () async {
-        final image = await PickImage.selectImage(context);
-        if (image != null) setState(() => _newProfileImage = image);
-      },
-      child: DottedBorder(
-        options: RectDottedBorderOptions(),
-        child: Container(
-          height: 140,
-          width: 140,
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.all(Radius.circular(10)),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          GestureDetector(
+            onTap: () async {
+              final picked = await PickImage.selectImage(context);
+              if (picked == null) return;
+              final bytes = await picked.readAsBytes();
+              setState(() {
+                _newProfileImage = picked;
+                _newProfileImageBytes = bytes;
+                _existingProfileUrl = null;
+              });
+            },
+            child: Stack(
+              alignment: Alignment.bottomRight,
               children: [
-                Icon(
-                  Iconsax.gallery,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Upload Profile",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                Container(
+                  width: 108,
+                  height: 108,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: hasImage
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: _brandGradient,
+                          )
+                        : null,
+                    border: hasImage
+                        ? null
+                        : Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                            width: 1.4,
+                          ),
+                  ),
+                  child: ClipOval(
+                    child: Container(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: _newProfileImageBytes != null
+                          ? Image.memory(
+                              _newProfileImageBytes!,
+                              fit: BoxFit.cover,
+                            )
+                          : (_existingProfileUrl != null &&
+                                _existingProfileUrl!.isNotEmpty)
+                          ? Image.network(
+                              _existingProfileUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                    Iconsax.gallery_slash,
+                                    size: 32,
+                                  ),
+                            )
+                          : Icon(
+                              Iconsax.user,
+                              size: 44,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.6),
+                            ),
+                    ),
                   ),
                 ),
+                if (hasImage)
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _newProfileImage = null;
+                        _newProfileImageBytes = null;
+                        _existingProfileUrl = null;
+                      });
+                    },
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(context).colorScheme.error,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Theme.of(context).colorScheme.secondary,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Iconsax.camera,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Text(
+            hasImage ? 'Tap to change photo' : 'Tap to add photo',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

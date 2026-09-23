@@ -20,6 +20,12 @@ class _AdminProfileState extends State<AdminProfile> {
   PermissionModel? _permissions;
   late AdminModel _admin;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +138,7 @@ class _AdminProfileState extends State<AdminProfile> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Remove Profile Photo"),
         content: const Text("Are you sure you want to remove this photo?"),
         actions: [
@@ -139,8 +146,15 @@ class _AdminProfileState extends State<AdminProfile> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text("Cancel"),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             child: const Text("Remove"),
           ),
         ],
@@ -241,6 +255,67 @@ class _AdminProfileState extends State<AdminProfile> {
     );
   }
 
+  Widget _buildHeader(BuildContext context, bool canEdit, double width) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            const Back(color: Colors.white),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Iconsax.shield_tick,
+                color: AppColors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Admin Profile',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    _admin.isActive ? 'Active administrator' : 'Inactive administrator',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (canEdit)
+              IconButton(
+                onPressed: () => _openEdit(width: width),
+                tooltip: 'Edit Admin',
+                icon: const Icon(Iconsax.edit, color: Colors.white),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -251,48 +326,23 @@ class _AdminProfileState extends State<AdminProfile> {
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
-            leading: Back(color: Theme.of(context).colorScheme.onSurface),
-            title: Text(
-              "Admin Profile",
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 18,
-              ),
-            ),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child: Container(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                height: 1,
-              ),
-            ),
-            actions: [
-              if (canEdit)
-                IconButton(
-                  onPressed: () {
-                    _openEdit(width: width);
-                  },
-                  tooltip: 'Edit Admin',
-                  icon: Icon(
-                    Iconsax.edit,
-                    color: Theme.of(context).colorScheme.onSurface,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context, canEdit, width),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildProfileCard(context, canEdit),
+                      const SizedBox(height: 20),
+                      _buildDetailsCard(context),
+                    ],
                   ),
                 ),
+              ),
             ],
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildProfileCard(context, canEdit),
-                const SizedBox(height: 22),
-                _buildDetailsCard(context),
-              ],
-            ),
           ),
         );
       },
@@ -303,141 +353,220 @@ class _AdminProfileState extends State<AdminProfile> {
     final image = _admin.profileImageUrl;
     final hasImage = image != null && image.isNotEmpty;
 
-    return Card(
-      elevation: 4,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      shadowColor: AppColors.black26,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-        child: Column(
-          children: [
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                GestureDetector(
-                  onTap: hasImage ? () => _viewFullImage(image, canEdit: canEdit) : null,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.1),
-                        width: 4,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainer,
-                      backgroundImage: hasImage
-                          ? NetworkImage(image)
-                          : const NetworkImage(AppStrings.emptyProfilePhotoUrl)
-                                as ImageProvider,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              GestureDetector(
+                onTap: hasImage
+                    ? () => _viewFullImage(image, canEdit: canEdit)
+                    : null,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: _brandGradient,
                     ),
                   ),
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
+                    backgroundImage: hasImage
+                        ? NetworkImage(image)
+                        : const NetworkImage(AppStrings.emptyProfilePhotoUrl)
+                              as ImageProvider,
+                  ),
                 ),
-                if (canEdit)
-                  Material(
-                    color: Theme.of(context).colorScheme.primary,
+              ),
+              if (canEdit)
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).colorScheme.secondary,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
                     shape: const CircleBorder(),
                     child: InkWell(
                       onTap: _changeProfileImage,
                       customBorder: const CircleBorder(),
                       child: const Padding(
-                        padding: EdgeInsets.all(10.0),
+                        padding: EdgeInsets.all(9.0),
                         child: Icon(
-                          Iconsax.image,
+                          Iconsax.camera,
                           color: Colors.white,
-                          size: 20,
+                          size: 18,
                         ),
                       ),
                     ),
                   ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          Text(
+            _admin.name,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+
+          const SizedBox(height: 10),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: _admin.isActive ? AppColors.success : AppColors.danger,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _admin.isActive
+                      ? Iconsax.tick_circle
+                      : Iconsax.close_circle,
+                  size: 14,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _admin.isActive ? 'Active' : 'Inactive',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              _admin.name,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-
-            const SizedBox(height: 10),
-
-            Chip(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              label: Text(
-                _admin.isActive ? 'Active' : 'Inactive',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              backgroundColor: _admin.isActive
-                  ? AppColors.success
-                  : AppColors.danger,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDetailsCard(BuildContext context) {
-    return Card(
-      elevation: 3,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      shadowColor: AppColors.black12,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionTitle(context, "Admin Details"),
-            const SizedBox(height: 12),
-
-            _detailRow(
-              context: context,
-              icon: Icons.email_outlined,
-              label: 'Email',
-              value: _admin.email,
-            ),
-            _divider(),
-
-            _detailRow(
-              context: context,
-              icon: Icons.phone,
-              label: 'Mobile Number',
-              value: _admin.mobileNumber,
-            ),
-            _divider(),
-
-            _detailRow(
-              context: context,
-              icon: Icons.verified_user_outlined,
-              label: 'Status',
-              value: _admin.isActive ? 'Active' : 'Inactive',
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-    );
-  }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Iconsax.personalcard,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Admin Details",
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      "Contact details and account status",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(color: AppColors.grey200, thickness: 1),
+          const SizedBox(height: 8),
 
-  Widget _sectionTitle(BuildContext context, String title) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.primary,
+          _detailRow(
+            context: context,
+            icon: Iconsax.sms,
+            accentColor: AppColors.secondary,
+            label: 'Email',
+            value: _admin.email,
+          ),
+          _divider(),
+
+          _detailRow(
+            context: context,
+            icon: Iconsax.call,
+            accentColor: AppColors.orange,
+            label: 'Mobile Number',
+            value: _admin.mobileNumber.isEmpty ? '-' : _admin.mobileNumber,
+          ),
+          _divider(),
+
+          _detailRow(
+            context: context,
+            icon: Iconsax.shield_tick,
+            accentColor: _admin.isActive ? AppColors.success : AppColors.danger,
+            label: 'Status',
+            value: _admin.isActive ? 'Active' : 'Inactive',
+          ),
+        ],
       ),
     );
   }
@@ -445,6 +574,7 @@ class _AdminProfileState extends State<AdminProfile> {
   Widget _detailRow({
     required BuildContext context,
     required IconData icon,
+    required Color accentColor,
     required String label,
     required String value,
   }) {
@@ -453,7 +583,14 @@ class _AdminProfileState extends State<AdminProfile> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 17, color: accentColor),
+          ),
           const SizedBox(width: 12),
 
           Expanded(
@@ -462,17 +599,17 @@ class _AdminProfileState extends State<AdminProfile> {
               children: [
                 Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   value,
                   style: Theme.of(
                     context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -484,8 +621,8 @@ class _AdminProfileState extends State<AdminProfile> {
 
   Widget _divider() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Divider(color: Theme.of(context).dividerColor),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Divider(color: AppColors.grey200),
     );
   }
 }

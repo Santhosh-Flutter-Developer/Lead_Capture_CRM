@@ -237,18 +237,28 @@ class _ChatListingViewState extends State<ChatListingView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Iconsax.message_search,
-              size: 80,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              "Select a Conversation",
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.08),
+              ),
+              child: Icon(
+                Iconsax.message_search,
+                size: 56,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
+            const SizedBox(height: 20),
+            Text(
+              "Select a Conversation",
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
             Text(
               "Click on a chat from the list to view messages.",
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -429,7 +439,9 @@ class _ChatListPanelState extends State<ChatListPanel> {
     return Container(
       width: kIsMobile || width < 1000 ? double.infinity : 320,
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
+        border: Border(
+          right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
         color: Theme.of(context).colorScheme.surface,
       ),
       child: Column(
@@ -443,14 +455,24 @@ class _ChatListPanelState extends State<ChatListPanel> {
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Search all users or existing chats',
-                      prefixIcon: const Icon(Iconsax.search_normal, size: 18),
+                      prefixIcon: Icon(
+                        Iconsax.search_normal,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                     ),
                     onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   ),
@@ -459,11 +481,16 @@ class _ChatListPanelState extends State<ChatListPanel> {
                 if (kIsDesktop || (kIsWeb && width >= 1000)) ...[
                   const SizedBox(width: 8),
                   Material(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(10),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                     child: IconButton(
                       tooltip: "Refresh",
-                      icon: const Icon(Iconsax.refresh),
+                      icon: Icon(
+                        Iconsax.refresh,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       iconSize: 18,
                       onPressed: () async {
                         await widget.onRefresh?.call();
@@ -471,24 +498,52 @@ class _ChatListPanelState extends State<ChatListPanel> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Material(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(10),
-                    child: IconButton(
-                      tooltip: "Create Chat",
-                      icon: Icon(
-                        Iconsax.message_add,
-                        color: Theme.of(context).colorScheme.surface,
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF0052D4),
+                          Color(0xFF4364F7),
+                          Color(0xFF6FB1FC),
+                        ],
                       ),
-                      onPressed: () =>
-                          Sheet.showSheet(context, widget: const CreateChat()),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF4364F7,
+                          ).withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      child: IconButton(
+                        tooltip: "Create Chat",
+                        icon: const Icon(
+                          Iconsax.message_add,
+                          color: Colors.white,
+                        ),
+                        onPressed: () => Sheet.showSheet(
+                          context,
+                          widget: const CreateChat(),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: widget.onRefresh ?? () async {},
@@ -840,16 +895,30 @@ class _ChatListItemState extends State<_ChatListItem> {
     final bool nameValid = name.isNotEmpty;
     final bool avatarValid = imageUrl.isNotEmpty;
 
-    return Material(
-      color: widget.isSelected
-          ? Theme.of(context).colorScheme.secondaryContainer
-          : Colors.transparent,
-      child: InkWell(
-        onTap: widget.onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: widget.isSelected
+            ? Theme.of(context).colorScheme.secondaryContainer
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: widget.onTap,
+          child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Row(
             children: [
+              if (widget.isSelected)
+                Container(
+                  width: 3,
+                  height: 36,
+                  margin: const EdgeInsets.only(right: 9),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
               chat.isGroupChat
                   ? CircleAvatar(
                       backgroundColor: AppColors.blue,
@@ -976,19 +1045,40 @@ class _ChatListItemState extends State<_ChatListItem> {
                         builder: (context, snapshot) {
                           final count = snapshot.data ?? 0;
                           if (count == 0) return const SizedBox.shrink();
-                          return CircleAvatar(
-                            radius: 10,
-                            backgroundColor: AppColors.blue.withValues(
-                              alpha: 0.8,
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            constraints: const BoxConstraints(minWidth: 20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF0052D4),
+                                  Color(0xFF4364F7),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF4364F7,
+                                  ).withValues(alpha: 0.35),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
                             child: Text(
-                              count.toString(),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.surface,
-                                  ),
+                              count > 99 ? '99+' : count.toString(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           );
                         },
@@ -1102,6 +1192,7 @@ class _ChatListItemState extends State<_ChatListItem> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

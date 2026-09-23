@@ -72,7 +72,16 @@ class ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
     }
 
     return AppBar(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+          ),
+        ),
+      ),
       elevation: 2,
       titleSpacing: 0,
       title: isSearching
@@ -351,6 +360,12 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       centerTitle: false,
+      shape: Border(
+        bottom: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 1,
+        ),
+      ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
       toolbarHeight: 56,

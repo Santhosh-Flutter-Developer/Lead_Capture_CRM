@@ -10,6 +10,7 @@ import '/services/services.dart';
 import 'bloc/lead_category_bloc.dart';
 
 const String _pageTitle = "Lead Category";
+const double _wideBreakpoint = 900;
 
 class LeadCategoryListing extends StatelessWidget {
   const LeadCategoryListing({super.key});
@@ -63,7 +64,6 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
   final List<LeadCategoryModel> _selectedLeadCategories = [];
   PermissionModel? permissions;
   bool _permissionsLoaded = false;
-  bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
 
   @override
@@ -74,27 +74,36 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
-    _isAdmin = await Spdb.isAdminLoggedIn();
     _permissionsLoaded = true;
     setState(() {});
   }
 
-  Future<void> _refreshLeadCategory(BuildContext context) async {
+  Future<void> _refreshLeadCategory() async {
     context.read<LeadCategoryBloc>().add(StreamLeadCategory());
   }
 
+  bool _isWide(BuildContext context) =>
+      !kIsMobile && MediaQuery.of(context).size.width >= _wideBreakpoint;
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final controllerRead = context
-        .read<PaginatedDataController<LeadCategoryModel>>();
-    final controllerWatch = context
-        .watch<PaginatedDataController<LeadCategoryModel>>();
+    final controllerRead =
+        context.read<PaginatedDataController<LeadCategoryModel>>();
+    final controllerWatch =
+        context.watch<PaginatedDataController<LeadCategoryModel>>();
+    final isWide = _isWide(context);
 
     return Scaffold(
-      appBar: kIsMobile || width < 1000
-          ? AppBar(leading: Back(), title: Text("Category"))
-          : null,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: isWide
+          ? null
+          : AppBar(
+              leading: const Back(),
+              title: const Text(_pageTitle),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+            ),
       body: BlocListener<LeadCategoryBloc, LeadCategoryState>(
         listenWhen: (previous, current) => current is LeadCategoryLoaded,
         listener: (context, state) {
@@ -116,159 +125,44 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                 return buildNoPermissionView(context);
               }
               return RefreshIndicator(
-                onRefresh: () => _refreshLeadCategory(context),
+                onRefresh: _refreshLeadCategory,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24.0),
+                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
                   children: [
-                    _buildFilterRow(onSearchChanged: controllerRead.setSearch),
-                    const SizedBox(height: 10),
-                    _buildActionRow(context),
-                    const SizedBox(height: 20),
+                    if (isWide) ...[
+                      _buildHeaderBanner(context, state.leadCategory.length),
+                      const SizedBox(height: 20),
+                    ],
+                    _buildToolbar(
+                      context,
+                      controllerRead,
+                      state.leadCategory.length,
+                    ),
+                    const SizedBox(height: 18),
                     controllerWatch.paginatedItems.isEmpty
                         ? NoData(
                             text: state.leadCategory.isEmpty
                                 ? "No lead categories available"
                                 : "No matching records found",
                           )
-                        : Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.shadow.withValues(alpha: 0.1),
-                              spreadRadius: 2,
-                              blurRadius: 5,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                return Scrollbar(
-                                  controller: _hScrollController,
-                                  thumbVisibility: true,
-                                  trackVisibility: true,
-                                  thickness: 4,
-                                  radius: const Radius.circular(6),
-                                  scrollbarOrientation:
-                                      ScrollbarOrientation.bottom,
-                                  child: SingleChildScrollView(
-                                    controller: _hScrollController,
-                                    scrollDirection: Axis.horizontal,
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        minWidth: constraints.maxWidth,
-                                      ),
-                                      child: DataTable(
-                                        showCheckboxColumn: true,
-                                        sortColumnIndex:
-                                            controllerWatch.sortColumnIndex,
-                                        sortAscending:
-                                            controllerWatch.sortAscending,
-                                        headingRowColor:
-                                            WidgetStateProperty.all(
-                                              Theme.of(context)
-                                                  .colorScheme
-                                                  .surfaceContainerHighest,
-                                            ),
-                                        headingTextStyle: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurface,
-                                            ),
-                                        columns: [
-                                          DataColumn(
-                                            label: Row(
-                                              children: [
-                                                Text("Name"),
-                                                const SizedBox(width: 4),
-                                                Icon(
-                                                  Icons.arrow_upward,
-                                                  size: 14,
-                                                  color: AppColors.grey400,
-                                                ),
-                                              ],
-                                            ),
-                                            onSort: controllerRead.setSort,
-                                          ),
-                                          DataColumn(
-                                            label: Row(
-                                              children: [
-                                                Text("Desc"),
-                                                const SizedBox(width: 4),
-                                                Icon(
-                                                  Icons.arrow_upward,
-                                                  size: 14,
-                                                  color: AppColors.grey400,
-                                                ),
-                                              ],
-                                            ),
-                                            onSort: controllerRead.setSort,
-                                          ),
-                                          DataColumn(
-                                            label: Row(
-                                              children: [
-                                                Text("Created"),
-                                                const SizedBox(width: 4),
-                                                Icon(
-                                                  Icons.arrow_upward,
-                                                  size: 14,
-                                                  color: AppColors.grey400,
-                                                ),
-                                              ],
-                                            ),
-                                            onSort: controllerRead.setSort,
-                                          ),
-                                          const DataColumn(
-                                            label: Text("Created By"),
-                                          ),
-                                          const DataColumn(
-                                            label: Text("Action"),
-                                          ),
-                                        ],
-                                        rows: controllerWatch.paginatedItems
-                                            .map(
-                                              (leadCategories) => _buildDataRow(
-                                                context,
-                                                leadCategories,
-                                                controllerWatch,
-                                                controllerRead,
-                                              ),
-                                            )
-                                            .toList(),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical: 12.0,
-                              ),
-                              child: PaginationControls<LeadCategoryModel>(),
-                            ),
-                          ],
-                        ),
-                      ),
+                        : _buildTableCard(
+                            context,
+                            controllerWatch,
+                            controllerRead,
+                          ),
                   ],
                 ),
               );
             }
 
             if (state is LeadCategoryError) {
-              return Center(child: Text(state.message));
+              return Center(
+                child: Text(
+                  state.message,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              );
             }
             return const SizedBox.shrink();
           },
@@ -277,168 +171,440 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
     );
   }
 
-  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [_searchBox(onSearchChanged: onSearchChanged)],
+  // ---------------------------------------------------------------------
+  // Header banner (desktop only)
+  // ---------------------------------------------------------------------
+  Widget _buildHeaderBanner(BuildContext context, int totalCategories) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Iconsax.category,
+              color: AppColors.white,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Lead Category Management",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Organize and classify your leads with custom categories",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '$totalCategories',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  totalCategories == 1 ? "Category" : "Categories",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildActionRow(context) {
-    final width = MediaQuery.of(context).size.width;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            if (permissions?.canCreate ?? false)
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      if (kIsMobile || width < 1000) {
-                        Sheet.showSheet(
-                          context,
-                          widget: const LeadCategoryCreate(),
-                        );
-                      } else {
-                        GeneralDialog.showRTLSheet(
-                          context,
-                          const LeadCategoryCreate(),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(
-                      "Add $_pageTitle",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary,
+  // ---------------------------------------------------------------------
+  // Toolbar: search + add + delete + refresh
+  // ---------------------------------------------------------------------
+  Widget _buildToolbar(
+    BuildContext context,
+    PaginatedDataController<LeadCategoryModel> controllerRead,
+    int totalCategories,
+  ) {
+    final isWide = _isWide(context);
+
+    final buttons = <Widget>[
+      (permissions?.canCreate ?? false)
+          ? _gradientButton(
+              context: context,
+              icon: Icons.add_rounded,
+              label: "Add $_pageTitle",
+              colors: const [
+                Color(0xFF0052D4),
+                Color(0xFF4364F7),
+                Color(0xFF6FB1FC),
+              ],
+              onPressed: () {
+                if (kIsMobile || !isWide) {
+                  Sheet.showSheet(context, widget: const LeadCategoryCreate());
+                } else {
+                  GeneralDialog.showRTLSheet(
+                    context,
+                    const LeadCategoryCreate(),
+                  );
+                }
+              },
+            )
+          : _disabledButton(
+              context,
+              icon: Icons.add_rounded,
+              label: "Add $_pageTitle",
+            ),
+      if (_selectedLeadCategories.isNotEmpty &&
+          (permissions?.canDelete ?? false))
+        _gradientButton(
+          context: context,
+          icon: Iconsax.trash,
+          label: "Delete (${_selectedLeadCategories.length})",
+          colors: const [Color(0xFFDC3545), Color(0xFFFF6B6B)],
+          onPressed: _bulkDelete,
+        ),
+      if (isWide)
+        _iconCircleButton(
+          context,
+          icon: Iconsax.refresh,
+          tooltip: "Refresh",
+          background: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.1),
+          iconColor: Theme.of(context).colorScheme.primary,
+          onPressed: _refreshLeadCategory,
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: isWide
+          ? Row(
+              children: [
+                SizedBox(width: 260, child: _searchBox()),
+                const SizedBox(width: 16),
+                _categoryCountChip(context, totalCategories),
+                const Spacer(),
+                Wrap(spacing: 10, runSpacing: 10, children: buttons),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _searchBox(),
+                const SizedBox(height: 12),
+                Wrap(spacing: 10, runSpacing: 10, children: buttons),
+              ],
+            ),
+    );
+  }
+
+  Widget _categoryCountChip(BuildContext context, int totalCategories) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Iconsax.category,
+            size: 15,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            "$totalCategories total",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _searchBox() {
+    return _LeadCategorySearchField(
+      pageTitle: _pageTitle,
+      onChanged:
+          context.read<PaginatedDataController<LeadCategoryModel>>().setSearch,
+    );
+  }
+
+  Widget _gradientButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required List<Color> colors,
+    required VoidCallback onPressed,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: colors.first.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: AppColors.white),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _disabledButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.grey200,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: AppColors.grey500),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconCircleButton(
+    BuildContext context, {
+    required IconData icon,
+    required String tooltip,
+    required Color background,
+    required Color iconColor,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _avatarCircle(String name, {double size = 38}) {
+    final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final color = LetterColors.getColor(letter);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        letter,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.42,
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Desktop / wide layout: table card
+  // ---------------------------------------------------------------------
+  Widget _buildTableCard(
+    BuildContext context,
+    PaginatedDataController<LeadCategoryModel> controllerWatch,
+    PaginatedDataController<LeadCategoryModel> controllerRead,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Scrollbar(
+                  controller: _hScrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  thickness: 4,
+                  radius: const Radius.circular(6),
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  child: SingleChildScrollView(
+                    controller: _hScrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: DataTable(
+                        showCheckboxColumn: true,
+                        sortColumnIndex: controllerWatch.sortColumnIndex,
+                        sortAscending: controllerWatch.sortAscending,
+                        headingRowColor: WidgetStateProperty.all(
+                          Theme.of(context).colorScheme.primary.withValues(
+                            alpha: 0.06,
+                          ),
+                        ),
+                        headingTextStyle: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                        columns: [
+                          DataColumn(
+                            label: const Text("Name"),
+                            onSort: controllerRead.setSort,
+                          ),
+                          DataColumn(
+                            label: const Text("Description"),
+                            onSort: controllerRead.setSort,
+                          ),
+                          DataColumn(
+                            label: const Text("Created"),
+                            onSort: controllerRead.setSort,
+                          ),
+                          const DataColumn(label: Text("Created By")),
+                          const DataColumn(label: Text("Action")),
+                        ],
+                        rows: List.generate(
+                          controllerWatch.paginatedItems.length,
+                          (index) {
+                            final leadCategory =
+                                controllerWatch.paginatedItems[index];
+                            return _buildDataRow(
+                              context,
+                              leadCategory,
+                              controllerWatch,
+                              controllerRead,
+                              index,
+                            );
+                          },
+                        ),
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    ),
                   ),
-            const SizedBox(width: 10),
-            if (_selectedLeadCategories.isNotEmpty) ...[
-              if (permissions?.canDelete ?? false)
-                    ElevatedButton.icon(
-                      label: const Text("Delete"),
-                      icon: const Icon(Iconsax.trash),
-                      onPressed: () async {
-                        if (_selectedLeadCategories.isEmpty) return;
-
-                        // ✅ STEP 0: Check assignment
-                        for (var category in _selectedLeadCategories) {
-                          final isAssigned =
-                              await LeadCategoryService.isLeadCategoryAssigned(
-                                category.uid ?? '',
-                              );
-
-                          if (isAssigned) {
-                            await showDialog(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: const Text('Cannot Delete'),
-                                content: const Text(
-                                  'One or more selected categories are associated with leads.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('OK'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            return;
-                          }
-                        }
-
-                        // ✅ STEP 1: Confirm
-                        final result = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => ConfirmDialog(
-                            title: 'Delete $_pageTitle',
-                            content:
-                                'Are you sure you want to delete selected $_pageTitle?',
-                          ),
-                        );
-
-                        if (result != true) return;
-
-                        try {
-                          // ✅ STEP 2: Backup (IMPORTANT — deep copy)
-                          final deletedCategories = _selectedLeadCategories
-                              .map((e) => e.copyWith())
-                              .toList();
-
-                          // ✅ STEP 3: Loader
-                          futureLoading(context);
-
-                          // ✅ STEP 4: Delete
-                          for (var category in deletedCategories) {
-                            await LeadCategoryService.deleteLeadCategory(
-                              uid: category.uid ?? '',
-                            );
-                          }
-
-                          // ✅ STEP 5: Close loader
-                          if (Navigator.canPop(context)) Navigator.pop(context);
-
-                          // ✅ STEP 6: Clear selection
-                          _selectedLeadCategories.clear();
-                          setState(() {});
-
-                          // ✅ STEP 7: UNDO
-                          FlushBar.show(
-                            context,
-                            '$_pageTitle deleted successfully',
-                            actionLabel: 'UNDO',
-                            onActionPressed: () async {
-                              for (var category in deletedCategories) {
-                                if (category.uid == null) continue;
-
-                                await LeadCategoryService.restoreLeadCategory(
-                                  category,
-                                );
-                              }
-
-                              if (!context.mounted) return;
-
-                              // 🔥 refresh list
-                              context.read<LeadCategoryBloc>().add(
-                                StreamLeadCategory(),
-                              );
-                            },
-                            // Optional (same as your leads pattern)
-                            // onDismissed: () {
-                            //   context.read<LeadCategoryBloc>().add(StreamLeadCategory());
-                            // },
-                          );
-                        } catch (e, st) {
-                          if (Navigator.canPop(context)) Navigator.pop(context);
-
-                          await ErrorService.recordError(e, st);
-
-                          FlushBar.show(
-                            context,
-                            'Failed to delete $_pageTitle: $e',
-                            isSuccess: false,
-                          );
-                        }
-                      },
-                    ),
-            ],
-          ],
-        ),
-        if (kIsDesktop)
-          IconButton(
-            tooltip: "Refresh",
-            icon: const Icon(Iconsax.refresh),
-            onPressed: () => _refreshLeadCategory(context),
-            iconSize: 18,
+                );
+              },
+            ),
           ),
-      ],
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: PaginationControls<LeadCategoryModel>(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -447,11 +613,21 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
     LeadCategoryModel leadCategory,
     PaginatedDataController<LeadCategoryModel> controllerWatch,
     PaginatedDataController<LeadCategoryModel> controllerRead,
+    int index,
   ) {
-    final width = MediaQuery.of(context).size.width;
-    bool isSelected = controllerWatch.selectedIds.contains(leadCategory.uid);
+    final isSelected = controllerWatch.selectedIds.contains(leadCategory.uid);
     return DataRow(
       selected: isSelected,
+      color: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return Theme.of(context).colorScheme.primary.withValues(alpha: 0.08);
+        }
+        return index.isEven
+            ? Colors.transparent
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.35,
+              );
+      }),
       onSelectChanged: (selected) {
         controllerRead.onSelected(leadCategory.uid ?? '', selected);
         if (selected ?? false) {
@@ -463,129 +639,90 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
       },
       cells: [
         DataCell(
-          Text(
-            leadCategory.name,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _avatarCircle(leadCategory.name, size: 32),
+              const SizedBox(width: 10),
+              Text(
+                leadCategory.name,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
           ),
         ),
-        DataCell(Text(leadCategory.description)),
-        DataCell(Text(leadCategory.createdAt.listingDateTime)),
+        DataCell(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Text(
+              leadCategory.description.isNotEmpty
+                  ? leadCategory.description
+                  : "—",
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Iconsax.calendar_1,
+                size: 13,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                leadCategory.createdAt.listingDateTime,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
         DataCell(CreatedByWidget(userData: leadCategory.createdBy)),
         DataCell(
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (permissions?.canEdit ?? false)
-                    IconButton(
-                      icon: const Icon(Iconsax.edit),
-                      onPressed: () {
-                        if (kIsMobile || width < 1000) {
-                          Sheet.showSheet(
-                            context,
-                            widget: LeadCategoryEdit(
-                              uid: leadCategory.uid ?? '',
-                            ),
-                          );
-                        } else {
-                          GeneralDialog.showRTLSheet(
-                            context,
-                            LeadCategoryEdit(uid: leadCategory.uid ?? ''),
-                          );
-                        }
-                      },
-                      color: Theme.of(context).colorScheme.primary,
-                      splashRadius: 20,
+              (permissions?.canEdit ?? false)
+                  ? _iconCircleButton(
+                      context,
+                      icon: Iconsax.edit,
+                      tooltip: "Edit",
+                      background: AppColors.info.withValues(alpha: 0.12),
+                      iconColor: AppColors.info,
+                      onPressed: () => _onEditTap(leadCategory),
+                    )
+                  : _iconCircleButton(
+                      context,
+                      icon: Iconsax.edit,
+                      tooltip: "No permission",
+                      background: AppColors.grey200,
+                      iconColor: AppColors.grey400,
+                      onPressed: () {},
                     ),
-              if (permissions?.canDelete ?? false)
-                    IconButton(
-                      icon: const Icon(Iconsax.trash),
-                      color: Theme.of(context).colorScheme.error,
-                      splashRadius: 20,
-                      tooltip: 'Delete $_pageTitle',
-                      onPressed: () async {
-                        // ✅ STEP 0: check assignment
-                        final isAssigned =
-                            await LeadCategoryService.isLeadCategoryAssigned(
-                              leadCategory.uid ?? '',
-                            );
-
-                        if (isAssigned) {
-                          await showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('Cannot Delete'),
-                              content: const Text(
-                                'This lead category is associated with one or more leads and cannot be deleted.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                          return;
-                        }
-
-                        // ✅ STEP 1: confirm
-                        final result = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => ConfirmDialog(
-                            title: 'Delete $_pageTitle',
-                            content:
-                                'Are you sure you want to delete this $_pageTitle?',
-                          ),
-                        );
-
-                        if (result != true) return;
-
-                        try {
-                          // ✅ STEP 2: BACKUP (VERY IMPORTANT)
-                          final deletedCategory = leadCategory.copyWith();
-
-                          // ✅ STEP 3: DELETE
-                          await LeadCategoryService.deleteLeadCategory(
-                            uid: leadCategory.uid ?? '',
-                          );
-
-                          if (!context.mounted) return;
-
-                          // ✅ STEP 4: UNDO (same as Lead)
-                          FlushBar.show(
-                            context,
-                            '$_pageTitle deleted successfully',
-                            actionLabel: 'UNDO',
-                            onActionPressed: () async {
-                              if (deletedCategory.uid == null) return;
-
-                              await LeadCategoryService.restoreLeadCategory(
-                                deletedCategory,
-                              );
-
-                              if (!context.mounted) return;
-
-                              // ✅ refresh list
-                              context.read<LeadCategoryBloc>().add(
-                                StreamLeadCategory(),
-                              );
-                            },
-                            // Optional consistency with lead
-                            // onDismissed: () {
-                            //   context.read<LeadCategoryBloc>().add(StreamLeadCategory());
-                            // },
-                          );
-                        } catch (e, st) {
-                          await ErrorService.recordError(e, st);
-
-                          FlushBar.show(
-                            context,
-                            e.toString(),
-                            isSuccess: false,
-                          );
-                        }
-                      },
+              const SizedBox(width: 8),
+              (permissions?.canDelete ?? false)
+                  ? _iconCircleButton(
+                      context,
+                      icon: Iconsax.trash,
+                      tooltip: "Delete",
+                      background: AppColors.danger.withValues(alpha: 0.12),
+                      iconColor: AppColors.danger,
+                      onPressed: () => _onDeleteTap(leadCategory),
+                    )
+                  : _iconCircleButton(
+                      context,
+                      icon: Iconsax.trash,
+                      tooltip: "No permission",
+                      background: AppColors.grey200,
+                      iconColor: AppColors.grey400,
+                      onPressed: () {},
                     ),
             ],
           ),
@@ -594,12 +731,296 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
     );
   }
 
-  Widget _searchBox({required ValueChanged<String> onSearchChanged}) {
-    return SizedBox(
-      width: 200,
-      child: ListingSearchField(
-        onChanged: onSearchChanged,
-        pageTitle: _pageTitle,
+  // ---------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------
+  void _onEditTap(LeadCategoryModel leadCategory) {
+    final isWide = _isWide(context);
+    if (!isWide) {
+      Sheet.showSheet(
+        context,
+        widget: LeadCategoryEdit(uid: leadCategory.uid ?? ''),
+      );
+    } else {
+      GeneralDialog.showRTLSheet(
+        context,
+        LeadCategoryEdit(uid: leadCategory.uid ?? ''),
+      );
+    }
+  }
+
+  Future<void> _onDeleteTap(LeadCategoryModel leadCategory) async {
+    final isAssigned = await LeadCategoryService.isLeadCategoryAssigned(
+      leadCategory.uid ?? '',
+    );
+
+    if (isAssigned) {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cannot Delete'),
+          content: const Text(
+            'This lead category is associated with one or more leads and cannot be deleted.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Delete $_pageTitle',
+        content: 'Are you sure you want to delete this $_pageTitle?',
+      ),
+    );
+
+    if (result != true) return;
+    if (!mounted) return;
+
+    try {
+      final deletedCategory = leadCategory.copyWith();
+
+      await LeadCategoryService.deleteLeadCategory(
+        uid: leadCategory.uid ?? '',
+      );
+
+      if (!mounted) return;
+
+      FlushBar.show(
+        context,
+        '$_pageTitle deleted successfully',
+        actionLabel: 'UNDO',
+        onActionPressed: () async {
+          if (deletedCategory.uid == null) return;
+          await LeadCategoryService.restoreLeadCategory(deletedCategory);
+          if (!mounted) return;
+          context.read<LeadCategoryBloc>().add(StreamLeadCategory());
+        },
+      );
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (!mounted) return;
+      FlushBar.show(context, e.toString(), isSuccess: false);
+    }
+  }
+
+  Future<void> _bulkDelete() async {
+    if (_selectedLeadCategories.isEmpty) return;
+
+    for (var category in _selectedLeadCategories) {
+      final isAssigned = await LeadCategoryService.isLeadCategoryAssigned(
+        category.uid ?? '',
+      );
+
+      if (isAssigned) {
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cannot Delete'),
+            content: const Text(
+              'One or more selected categories are associated with leads.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Delete $_pageTitle',
+        content: 'Are you sure you want to delete selected $_pageTitle?',
+      ),
+      barrierDismissible: false,
+    );
+
+    if (result != true) return;
+    if (!mounted) return;
+
+    try {
+      final deletedCategories = _selectedLeadCategories
+          .map((e) => e.copyWith())
+          .toList();
+
+      futureLoading(context);
+
+      for (var category in deletedCategories) {
+        await LeadCategoryService.deleteLeadCategory(uid: category.uid ?? '');
+      }
+
+      if (Navigator.canPop(context)) Navigator.pop(context);
+
+      _selectedLeadCategories.clear();
+      setState(() {});
+
+      if (!mounted) return;
+
+      FlushBar.show(
+        context,
+        '$_pageTitle deleted successfully',
+        actionLabel: 'UNDO',
+        onActionPressed: () async {
+          for (var category in deletedCategories) {
+            if (category.uid == null) continue;
+            await LeadCategoryService.restoreLeadCategory(category);
+          }
+          if (!mounted) return;
+          context.read<LeadCategoryBloc>().add(StreamLeadCategory());
+        },
+      );
+    } catch (e, st) {
+      if (Navigator.canPop(context)) Navigator.pop(context);
+      await ErrorService.recordError(e, st);
+      if (!mounted) return;
+      FlushBar.show(
+        context,
+        'Failed to delete $_pageTitle: $e',
+        isSuccess: false,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------
+// A more polished, colorful search field for the Lead Category toolbar.
+// ---------------------------------------------------------------------
+class _LeadCategorySearchField extends StatefulWidget {
+  final String pageTitle;
+  final ValueChanged<String> onChanged;
+  const _LeadCategorySearchField({
+    required this.pageTitle,
+    required this.onChanged,
+  });
+
+  @override
+  State<_LeadCategorySearchField> createState() =>
+      _LeadCategorySearchFieldState();
+}
+
+class _LeadCategorySearchFieldState extends State<_LeadCategorySearchField> {
+  final TextEditingController _controller = TextEditingController();
+  bool _hasText = false;
+  bool _focused = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      setState(() => _focused = _focusNode.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 46,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _focused
+              ? primary.withValues(alpha: 0.55)
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: _focused ? 1.4 : 1,
+        ),
+        boxShadow: _focused
+            ? [
+                BoxShadow(
+                  color: primary.withValues(alpha: 0.16),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        style: Theme.of(context).textTheme.bodySmall,
+        onChanged: (val) {
+          setState(() => _hasText = val.isNotEmpty);
+          widget.onChanged(val);
+        },
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search ${widget.pageTitle}',
+          hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(9),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(
+                  Iconsax.search_normal_1,
+                  size: 12,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
+          ),
+          suffixIcon: _hasText
+              ? IconButton(
+                  splashRadius: 16,
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() => _hasText = false);
+                    widget.onChanged('');
+                  },
+                )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 4,
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+        ),
       ),
     );
   }

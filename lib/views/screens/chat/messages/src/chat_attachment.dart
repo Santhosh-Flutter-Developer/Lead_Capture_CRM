@@ -78,42 +78,62 @@ class _ChatAttachmentState extends State<ChatAttachment> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Theme.of(context).cardTheme.color,
+          backgroundColor: Colors.transparent,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0052D4),
+                  Color(0xFF4364F7),
+                  Color(0xFF6FB1FC),
+                ],
+              ),
+            ),
+          ),
           elevation: 0,
           centerTitle: false,
           automaticallyImplyLeading: false,
-          // leading: IconButton(
-          //   onPressed: () => Navigator.pop(context),
-          //   icon: const Icon(
-          //     Iconsax.arrow_left,
-          //     color: Theme.of(context).colorScheme.onSurface,
-          //     size: 20,
-          //   ),
-          // ),
-          title: Text(
+          title: const Text(
             'Media & Assets',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Colors.white,
               fontSize: 18,
             ),
           ),
-          bottom: TabBar(
-            labelColor: Theme.of(context).colorScheme.primary,
-            unselectedLabelColor: Theme.of(
-              context,
-            ).colorScheme.onSurfaceVariant,
-            indicatorColor: Theme.of(context).colorScheme.primary,
-            indicatorWeight: 3,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TabBar(
+                  indicator: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelColor: Theme.of(context).colorScheme.primary,
+                  unselectedLabelColor: Colors.white,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Media'),
+                    Tab(text: 'Links'),
+                    Tab(text: 'Docs'),
+                  ],
+                ),
+              ),
             ),
-            tabs: const [
-              Tab(text: 'Media'),
-              Tab(text: 'Links'),
-              Tab(text: 'Docs'),
-            ],
           ),
         ),
         body: _loading

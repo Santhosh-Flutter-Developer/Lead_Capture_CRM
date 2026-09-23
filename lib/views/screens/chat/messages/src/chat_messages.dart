@@ -170,10 +170,12 @@ class _ChatMessagesState extends State<ChatMessages> {
               ),
         body: SafeArea(
           child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-            ),
-            // The StreamBuilder is now the *only* thing responsible for UI data
+            // WhatsApp-style wallpaper base tone: a warm tan in light mode,
+            // a deep slate in dark mode, matching the reference rather
+            // than the app's neutral scaffold color.
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF0B141A)
+                : const Color(0xFFE5DDD5),
             child: StreamBuilder<List<MessagesModel>>(
               stream: _stream,
               builder: (context, snapshot) {
@@ -230,11 +232,11 @@ class _ChatMessagesState extends State<ChatMessages> {
                   ],
                 );
               },
+                ),
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 

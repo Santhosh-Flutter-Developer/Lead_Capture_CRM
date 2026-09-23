@@ -171,14 +171,35 @@ class _AboutChatState extends State<AboutChat> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                   
                       children: [
-                        _buildHeader(
-                          context,
-                  
-                          title,
-                  
-                          imageUrl,
-                  
-                          isSelfChat: isSelfChat,
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 28),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF0052D4),
+                                Color(0xFF4364F7),
+                                Color(0xFF6FB1FC),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF4364F7,
+                                ).withValues(alpha: 0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: _buildHeader(
+                            context,
+                            title,
+                            imageUrl,
+                            isSelfChat: isSelfChat,
+                          ),
                         ),
                   
                         const SizedBox(height: 32),
@@ -231,9 +252,7 @@ class _AboutChatState extends State<AboutChat> {
               shape: BoxShape.circle,
 
               border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.1),
+                color: Colors.white.withValues(alpha: 0.6),
 
                 width: 2,
               ),
@@ -288,25 +307,23 @@ class _AboutChatState extends State<AboutChat> {
               child: CircleAvatar(
                 radius: 48,
 
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.08),
+                backgroundColor: Colors.white.withValues(alpha: 0.22),
 
                 child: widget.chat.isGroupChat
-                    ? Icon(
+                    ? const Icon(
                         Iconsax.people,
 
                         size: 40,
 
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Colors.white,
                       )
                     : isSelfChat
-                    ? Icon(
+                    ? const Icon(
                         Iconsax.save_2,
 
                         size: 40,
 
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Colors.white,
                       )
                     : avatarValid
                     ? ClipOval(
@@ -320,9 +337,7 @@ class _AboutChatState extends State<AboutChat> {
                           fit: BoxFit.cover,
 
                           placeholder: (context, url) => Container(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.1),
+                            color: Colors.white.withValues(alpha: 0.18),
                           ),
 
                           errorWidget: (context, url, error) =>
@@ -332,12 +347,12 @@ class _AboutChatState extends State<AboutChat> {
                     : Text(
                         title.isNotEmpty ? title[0].toUpperCase() : '?',
 
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 32,
 
                           fontWeight: FontWeight.w900,
 
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.white,
                         ),
                       ),
               ),
@@ -351,12 +366,12 @@ class _AboutChatState extends State<AboutChat> {
 
             textAlign: TextAlign.center,
 
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 22,
 
               fontWeight: FontWeight.w800,
 
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Colors.white,
             ),
           ),
 
@@ -372,9 +387,7 @@ class _AboutChatState extends State<AboutChat> {
                 ),
 
                 decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.1),
+                  color: Colors.white.withValues(alpha: 0.22),
 
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -382,12 +395,12 @@ class _AboutChatState extends State<AboutChat> {
                 child: Text(
                   '${widget.chat.participants.length} Active Members',
 
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
 
                     fontWeight: FontWeight.bold,
 
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -425,6 +438,14 @@ class _AboutChatState extends State<AboutChat> {
         borderRadius: BorderRadius.circular(20),
 
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
 
       child: ConstrainedBox(
@@ -484,15 +505,25 @@ class _AboutChatState extends State<AboutChat> {
               ),
 
               subtitle: uid == widget.chat.createdBy
-                  ? Text(
-                      "Group Owner",
-
-                      style: TextStyle(
-                        fontSize: 11,
-
-                        color: Theme.of(context).colorScheme.primary,
-
-                        fontWeight: FontWeight.bold,
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          "Group Owner",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     )
                   : Text(
@@ -505,12 +536,19 @@ class _AboutChatState extends State<AboutChat> {
                       ),
                     ),
 
-              trailing: Icon(
-                Iconsax.message,
-
-                size: 18,
-
-                color: Theme.of(context).colorScheme.outlineVariant,
+              trailing: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Iconsax.message,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             );
           },
@@ -580,6 +618,14 @@ class _AboutChatState extends State<AboutChat> {
         borderRadius: BorderRadius.circular(20),
 
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
 
       child: Column(
@@ -615,7 +661,7 @@ class _AboutChatState extends State<AboutChat> {
 
             icon: widget.chat.isPinnedForUser(widget.userUid) == true
                 ? Icons.push_pin
-                : Iconsax.percentage_circle,
+                : Icons.push_pin_outlined,
 
             iconColor: Colors.orangeAccent,
 
@@ -708,6 +754,9 @@ class _AboutChatState extends State<AboutChat> {
                 context: context,
 
                 builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   title: const Text('Delete chat'),
 
                   content: const Text(
@@ -723,6 +772,13 @@ class _AboutChatState extends State<AboutChat> {
 
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: AppColors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
 
                       child: const Text('Delete'),
                     ),
