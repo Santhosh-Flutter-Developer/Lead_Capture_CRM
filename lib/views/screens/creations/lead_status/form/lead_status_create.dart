@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import '/utils/utils.dart';
 import '/services/services.dart';
 import '/models/models.dart';
@@ -15,17 +16,143 @@ class LeadStatusCreate extends StatefulWidget {
 class _LeadStatusCreateState extends State<LeadStatusCreate> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _colorController = TextEditingController();
   Color _selectedColor = const Color(0xFF64748B);
   bool _isFinal = false;
   bool _showFinalWarning = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Iconsax.status_up,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Create Lead Status",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Add a new stage to track your leads through",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    Color? accentColor,
+  }) {
+    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: badgeColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -39,55 +166,19 @@ class _LeadStatusCreateState extends State<LeadStatusCreate> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(
           children: [
-            FormWidgets.buildHeader(
-              context: context,
-              title: "Create Lead Status",
-            ),
+            _buildHeader(context),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 500),
-                  child: Center(
-                    child: FractionallySizedBox(
-                      widthFactor: 0.7,
-                      child: Card(
-                        color: Theme.of(context).colorScheme.surface,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24.0,
-                            vertical: 24.0,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Status Information",
-                                style: Theme.of(context).textTheme.titleMedium!
-                                    .copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
-                                    ),
-                              ),
-                              const SizedBox(height: 10),
-                              Divider(color: Theme.of(context).colorScheme.outlineVariant, thickness: 1),
-                              const SizedBox(height: 20),
-                              LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildFormFields(constraints),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: _buildSectionCard(
+                    icon: Iconsax.status_up,
+                    title: "Status Information",
+                    subtitle: "Give this status a name, color and description",
+                    child: LayoutBuilder(
+                      builder: (context, constraints) =>
+                          _buildFormFields(constraints),
                     ),
                   ),
                 ),
@@ -95,67 +186,284 @@ class _LeadStatusCreateState extends State<LeadStatusCreate> {
             ),
           ],
         ),
-        bottomNavigationBar: FormWidgets.buildBottomBar(
-          context: context,
+        bottomNavigationBar: _buildBottomBar(
+          label: "Create",
+          icon: Iconsax.add,
           onSubmit: _submitForm,
-          isEdit: false,
         ),
       ),
     );
   }
 
-  Widget _buildFormFields(BoxConstraints constraints) {
-    // final double currentWidth = constraints.maxWidth;
-    // const double minWidth = 300.0;
-    // const double horizontalSpacing = 20.0;
-
-    // final bool twoCols = currentWidth >= (minWidth * 2 + horizontalSpacing);
-    // final double fieldWidth =
-    //     twoCols ? (currentWidth - horizontalSpacing) / 2 : currentWidth;
-
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildBottomBar({
+    required String label,
+    required IconData icon,
+    required VoidCallback onSubmit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          FormFields(
+          Expanded(
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Cancel",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: _brandGradient,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onSubmit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(icon, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormFields(BoxConstraints constraints) {
+    final double currentWidth = constraints.maxWidth;
+    const double horizontalSpacing = 16.0;
+    const double verticalSpacing = 8.0;
+
+    const double minColumnWidth = 220.0;
+
+    final bool canShowGrid =
+        currentWidth >= (minColumnWidth * 2 + horizontalSpacing);
+
+    final double itemWidth = canShowGrid
+        ? (currentWidth - horizontalSpacing) / 2
+        : currentWidth;
+
+    return Wrap(
+      spacing: horizontalSpacing,
+      runSpacing: verticalSpacing,
+      children: [
+        SizedBox(
+          width: itemWidth,
+          child: FormFields(
             label: 'Status Name',
             controller: _nameController,
             hintText: 'Enter Status name',
             isRequired: true,
+            prefixIcon: const Icon(Iconsax.status_up, size: 18),
             valid: (input) => input == null || input.isEmpty
                 ? 'Status Name is required'
                 : null,
           ),
-          const SizedBox(height: 20),
-          FormFields(
+        ),
+        SizedBox(width: itemWidth, child: _buildColorPicker()),
+        SizedBox(
+          width: currentWidth,
+          child: FormFields(
             label: 'Description',
             controller: _descriptionController,
             hintText: 'Enter description (optional)',
             maxLines: 4,
             keyboardType: TextInputType.multiline,
+            prefixIcon: const Icon(Iconsax.document_text, size: 18),
           ),
-          const SizedBox(height: 20),
-          FormFields(
-            label: 'Color',
-            controller: _colorController,
-            fillColor: Color(_selectedColor.toARGB32()),
+        ),
+        SizedBox(width: currentWidth, child: _buildFinalToggle()),
+      ],
+    );
+  }
+
+  // A clear, always-visible color swatch trigger.
+  Widget _buildColorPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Color",
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
             onTap: () async {
-              Color? selectedColor = await pickColor(context, _selectedColor);
-              if (selectedColor != null) {
-                _selectedColor = selectedColor;
-                setState(() {});
+              final picked = await pickColor(context, _selectedColor);
+              if (picked != null) {
+                setState(() => _selectedColor = picked);
               }
             },
-            readOnly: true,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: _selectedColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    "Tap to choose a color",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Iconsax.arrow_right_3,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinalToggle() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _isFinal
+            ? AppColors.success.withValues(alpha: 0.08)
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.35,
+              ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: _isFinal
+              ? AppColors.success.withValues(alpha: 0.35)
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
-              Checkbox(
+              Icon(
+                Iconsax.tick_circle,
+                size: 18,
+                color: _isFinal
+                    ? AppColors.success
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Final Lead Status',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Switch(
                 value: _isFinal,
                 onChanged: (val) async {
-                  if (val == true) {
+                  if (val) {
                     bool exists = await LeadStatusService.hasFinalStatus();
                     if (exists) {
                       setState(() {
@@ -167,15 +475,10 @@ class _LeadStatusCreateState extends State<LeadStatusCreate> {
                   }
 
                   setState(() {
-                    _isFinal = val ?? false;
+                    _isFinal = val;
                     _showFinalWarning = false;
                   });
                 },
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Final Lead Status',
-                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),
@@ -185,7 +488,7 @@ class _LeadStatusCreateState extends State<LeadStatusCreate> {
               'Final status is already assigned',
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.red),
+              ).textTheme.bodySmall?.copyWith(color: AppColors.danger),
             ),
           ],
         ],

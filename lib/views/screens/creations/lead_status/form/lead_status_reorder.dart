@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 import '/models/models.dart';
 import '/services/firebase/firebase.dart';
@@ -16,6 +17,11 @@ class LeadStatusReorder extends StatefulWidget {
 class _LeadStatusReorderState extends State<LeadStatusReorder> {
   // Local list to manage the reordering
   final List<LeadStatusModel> _leadStatusList = [];
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF7B2FF7),
+    Color(0xFFB620E0),
+  ];
 
   @override
   void initState() {
@@ -37,6 +43,57 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
     }
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Iconsax.arrange_circle,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Reorder Lead Status",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Drag to change the order leads move through",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -49,17 +106,12 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FormWidgets.buildHeader(
-              context: context,
-              title: "Reorder Lead Status",
-            ),
-
-            const SizedBox(height: 8),
+            _buildHeader(context),
 
             // --- LIST VIEW ---
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.all(16),
                 child: ReorderableListView(
                   physics: const BouncingScrollPhysics(),
                   buildDefaultDragHandles: false,
@@ -76,22 +128,38 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
 
                   children: [
                     for (final (index, status) in _leadStatusList.indexed)
-                      Card(
+                      Container(
                         key: ValueKey(status.uid),
                         margin: const EdgeInsets.symmetric(vertical: 6),
-                        elevation: 2,
-                        shadowColor: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.shadow.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
+                            vertical: 6,
                             horizontal: 16,
                           ),
-                          leading: CircleAvatar(
-                            radius: 22,
-                            backgroundColor: Color(status.color),
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Color(status.color),
+                              shape: BoxShape.circle,
+                            ),
                             child: Text(
                               status.orderNumber.toString(),
                               style: Theme.of(context).textTheme.bodySmall
@@ -105,24 +173,70 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
                                   ),
                             ),
                           ),
-                          title: Text(
-                            status.name,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                          title: Row(
+                            children: [
+                              Text(
+                                status.name,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                              ),
+                              if (status.isFinal) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.success.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    "Final",
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: AppColors.success,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
                                 ),
+                              ],
+                            ],
                           ),
                           subtitle: Text(
                             "Drag to reorder",
                             style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                           ),
                           trailing: ReorderableDragStartListener(
                             index: index,
-                            child: Icon(
-                              Icons.drag_indicator_rounded,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.drag_indicator_rounded,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                         ),
@@ -133,79 +247,124 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
             ),
 
             // --- FOOTER BUTTON ---
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.transparent 
-                        : Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    label: Text(
-                      "Cancel",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      foregroundColor: Theme.of(context).colorScheme.onSurface,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Theme.of(context).colorScheme.outline),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  ElevatedButton.icon(
-                    onPressed: _submitForm,
-                    icon: const Icon(Icons.add, size: 20),
-                    label: Text(
-                      "Save Order",
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.white,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      elevation: 2,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildBottomBar(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Cancel",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: _brandGradient,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFB620E0).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _submitForm,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Iconsax.tick_circle,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Save Order",
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
