@@ -4,10 +4,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/utils/src/platform.dart';
 import '/models/models.dart';
+import '/theme/theme.dart';
 import '/views/views.dart';
 import 'bloc/activity_log_bloc.dart';
-
-// LogColors removed in favor of Theme.of(context)
 
 class ActivityLogsListing extends StatefulWidget {
   final bool showAppbar;
@@ -21,6 +20,12 @@ class ActivityLogsListing extends StatefulWidget {
 class _ActivityLogsListingState extends State<ActivityLogsListing> {
   final TextEditingController _searchController = TextEditingController();
   String _search = '';
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -80,8 +85,6 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 650;
-
     return BlocProvider(
       create: (context) => ActivityLogsBloc()..add(StreamActivityLogs()),
       child: Scaffold(
@@ -105,7 +108,7 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                 ),
                 bottom: PreferredSize(
                   preferredSize: const Size.fromHeight(70),
-                  child: _buildHeaderSearch(isMobile),
+                  child: _buildHeaderSearch(),
                 ),
               )
             : null,
@@ -127,52 +130,50 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                     it.collection.toLowerCase().contains(_search);
               }).toList();
 
-              if (filteredList.isEmpty) {
-                return RefreshIndicator(
-                  onRefresh: () => _refresh(context),
-                  child: ListView(
-                    children: const [
-                      SizedBox(height: 100),
-                      NoData(text: "No activity records match your search"),
-                    ],
-                  ),
-                );
-              }
-
               final grouped = _groupByDay(filteredList);
 
               return RefreshIndicator(
                 onRefresh: () => _refresh(context),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    if (kIsDesktop)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16, top: 10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              tooltip: "Refresh",
-                              icon: const Icon(Iconsax.refresh),
-                              iconSize: 18,
-                              onPressed: () => _refresh(context),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      if (!widget.showAppbar) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                          child: _buildHeaderBanner(context),
+                        ),
+                      ],
+                      if (filteredList.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 100),
+                          child: NoData(
+                            text: "No activity records match your search",
+                          ),
+                        )
+                      else
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1400),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: grouped.entries.map((entry) {
+                                  return _buildSection(entry.key, entry.value);
+                                }).toList(),
+                              ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: Column(
-                          children: grouped.entries.map((entry) {
-                            return _buildSection(entry.key, entry.value);
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               );
             }
@@ -183,10 +184,120 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
     );
   }
 
-  Widget _buildHeaderSearch(bool isMobile) {
+  Widget _buildHeaderBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Iconsax.activity,
+                  color: AppColors.white,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Activity Logs",
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Track what changed across your workspace",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: Theme.of(context).textTheme.bodySmall,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Filter by activity, user or description...',
+                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.grey500,
+                ),
+                prefixIcon: const Icon(
+                  Iconsax.search_normal_1,
+                  size: 16,
+                  color: AppColors.grey500,
+                ),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        splashRadius: 16,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: AppColors.grey500,
+                        ),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderSearch() {
     return Column(
       children: [
-        Container(color: Theme.of(context).colorScheme.outlineVariant, height: 1),
+        Container(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          height: 1,
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Material(
@@ -231,18 +342,49 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
             ),
           ),
         ),
-        ...items.map((item) => _buildLogCard(item)),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const double spacing = 16;
+            const double minCardWidth = 380;
+
+            final double width = constraints.maxWidth;
+            int columns = (width / (minCardWidth + spacing)).floor();
+            columns = columns.clamp(1, 3);
+
+            final double itemWidth =
+                (width - spacing * (columns - 1)) / columns;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: items
+                  .map(
+                    (item) =>
+                        SizedBox(width: itemWidth, child: _buildLogCard(item)),
+                  )
+                  .toList(),
+            );
+          },
+        ),
       ],
     );
   }
 
   Widget _buildLogCard(ActivityLogModel item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(
+              alpha: 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -262,6 +404,8 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                         item.userData.name.isNotEmpty
                             ? item.userData.name
                             : 'System User',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
@@ -271,15 +415,20 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                       if (item.userData.desc != null)
                         Text(
                           item.userData.desc!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -302,7 +451,10 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+              child: Divider(
+                height: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +463,9 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                   margin: const EdgeInsets.only(top: 2),
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -327,6 +481,8 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                     children: [
                       Text(
                         item.activity,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -339,9 +495,13 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                         const SizedBox(height: 4),
                         Text(
                           item.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                             height: 1.5,
                           ),
                         ),
@@ -352,16 +512,24 @@ class _ActivityLogsListingState extends State<ActivityLogsListing> {
                           Icon(
                             Iconsax.folder_2,
                             size: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            item.collection.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              letterSpacing: 0.5,
+                          Expanded(
+                            child: Text(
+                              item.collection.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ],

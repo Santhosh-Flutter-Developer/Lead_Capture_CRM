@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/models/src/download_model.dart';
+import 'package:leadcapture/theme/theme.dart';
 import 'package:leadcapture/utils/src/open_file.dart';
 import 'package:leadcapture/utils/src/platform.dart';
 import 'package:leadcapture/views/screens/download/bloc/download_bloc.dart';
@@ -10,8 +11,6 @@ import 'package:leadcapture/views/screens/download/bloc/download_event.dart';
 import 'package:leadcapture/views/screens/download/bloc/download_state.dart';
 import 'package:leadcapture/views/ui/src/back.dart';
 import 'package:leadcapture/views/ui/src/loading.dart';
-
-// DownloadHistoryColors removed in favor of Theme.of(context)
 
 class DownloadHistory extends StatefulWidget {
   final bool showAppbar;
@@ -25,6 +24,12 @@ class DownloadHistory extends StatefulWidget {
 class _DownloadHistoryState extends State<DownloadHistory> {
   final TextEditingController _searchController = TextEditingController();
   String _search = '';
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -92,7 +97,7 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 elevation: 0,
                 leading: Padding(
-                  padding: EdgeInsets.only(left: 8.0),
+                  padding: const EdgeInsets.only(left: 8.0),
                   child: Back(color: Theme.of(context).colorScheme.onSurface),
                 ),
                 title: Text(
@@ -124,118 +129,199 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                     it.url.toLowerCase().contains(_search);
               }).toList();
 
-              if (filteredList.isEmpty) {
-                return RefreshIndicator(
-                  onRefresh: () => _refresh(context),
-                  child: ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.2,
-                      ),
-                      Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.download_for_offline,
-                              size: 80,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.3),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              "No Downloads Found",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 40,
-                              ),
-                              child: Text(
-                                "You haven't downloaded any files yet.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            // const SizedBox(height: 24),
-                            // ElevatedButton.icon(
-                            //   onPressed: () => _refresh(context),
-                            //   icon: const Icon(Icons.refresh, size: 18),
-                            //   label: const Text("Refresh"),
-                            //   style: ElevatedButton.styleFrom(
-                            //     backgroundColor: DownloadHistoryColors.primary,
-                            //     shape: RoundedRectangleBorder(
-                            //       borderRadius: BorderRadius.circular(12),
-                            //     ),
-                            //     padding: const EdgeInsets.symmetric(
-                            //       horizontal: 20,
-                            //       vertical: 12,
-                            //     ),
-                            //     textStyle: const TextStyle(
-                            //       fontWeight: FontWeight.w600,
-                            //     ),
-                            //   ),
-                            // ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
               final grouped = _groupByDay(filteredList);
 
               return RefreshIndicator(
                 onRefresh: () => _refresh(context),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  children: [
-                    if (kIsDesktop)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          IconButton(
-                            tooltip: "Refresh",
-                            icon: const Icon(Iconsax.refresh),
-                            iconSize: 18,
-                            onPressed: () => _refresh(context),
-                          ),
-                        ],
-                      ),
-
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: Column(
-                          children: grouped.entries.map((entry) {
-                            return _buildSection(entry.key, entry.value);
-                          }).toList(),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      if (!widget.showAppbar) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                          child: _buildHeaderBanner(context),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                      if (filteredList.isEmpty)
+                        _buildEmptyState(context)
+                      else
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1400),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: grouped.entries.map((entry) {
+                                  return _buildSection(entry.key, entry.value);
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               );
             }
             return const SizedBox.shrink();
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 60),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.download_for_offline,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary.withValues(
+                alpha: 0.3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "No Downloads Found",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                "You haven't downloaded any files yet.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Iconsax.document_download,
+                  color: AppColors.white,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Download History",
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Every file you've exported or downloaded, in one place",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: Theme.of(context).textTheme.bodySmall,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Filter by filename or URL...',
+                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.grey500,
+                ),
+                prefixIcon: const Icon(
+                  Iconsax.search_normal_1,
+                  size: 16,
+                  color: AppColors.grey500,
+                ),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        splashRadius: 16,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: AppColors.grey500,
+                        ),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -291,22 +377,49 @@ class _DownloadHistoryState extends State<DownloadHistory> {
             ),
           ),
         ),
-        ...items.map((item) => _buildDownloadCard(item)),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const double spacing = 16;
+            const double minCardWidth = 380;
+
+            final double width = constraints.maxWidth;
+            int columns = (width / (minCardWidth + spacing)).floor();
+            columns = columns.clamp(1, 3);
+
+            final double itemWidth =
+                (width - spacing * (columns - 1)) / columns;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: items
+                  .map(
+                    (item) => SizedBox(
+                      width: itemWidth,
+                      child: _buildDownloadCard(item),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
       ],
     );
   }
 
   Widget _buildDownloadCard(DownloadHistoryModel item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Theme.of(context).colorScheme.shadow.withValues(
+              alpha: 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -315,19 +428,18 @@ class _DownloadHistoryState extends State<DownloadHistory> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status icon with circle background
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: item.isSuccess
-                    ? Colors.green.withValues(alpha: 0.2)
-                    : Colors.red.withValues(alpha: 0.2),
+                    ? AppColors.success.withValues(alpha: 0.15)
+                    : AppColors.danger.withValues(alpha: 0.15),
               ),
               child: Icon(
                 item.isSuccess ? Icons.check_circle : Icons.error,
-                color: item.isSuccess ? Colors.green : Colors.red,
-                size: 24,
+                color: item.isSuccess ? AppColors.success : AppColors.danger,
+                size: 22,
               ),
             ),
             const SizedBox(width: 12),
@@ -337,6 +449,8 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                 children: [
                   Text(
                     item.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
@@ -353,7 +467,7 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -369,7 +483,9 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                         Icon(
                           Icons.access_time,
                           size: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -389,12 +505,26 @@ class _DownloadHistoryState extends State<DownloadHistory> {
               ),
             ),
             if (item.isSuccess)
-              IconButton(
-                icon: Icon(
-                  Icons.open_in_new,
-                  color: Theme.of(context).colorScheme.primary,
+              Tooltip(
+                message: "Open file",
+                child: Material(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => openfile(item.filePath, context),
+                    child: Padding(
+                      padding: const EdgeInsets.all(9),
+                      child: Icon(
+                        Icons.open_in_new,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
-                onPressed: () => openfile(item.filePath, context),
               ),
           ],
         ),

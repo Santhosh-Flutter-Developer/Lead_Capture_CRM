@@ -4,10 +4,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/utils/src/platform.dart';
 import '/models/models.dart';
+import '/theme/theme.dart';
 import '/views/views.dart';
 import 'bloc/login_log_bloc.dart';
-
-// LoginLogColors removed in favor of Theme.of(context)
 
 class LoginLogsListing extends StatefulWidget {
   final bool showAppbar;
@@ -21,6 +20,12 @@ class LoginLogsListing extends StatefulWidget {
 class _LoginLogsListingState extends State<LoginLogsListing> {
   final TextEditingController _searchController = TextEditingController();
   String _search = '';
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -125,52 +130,50 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                     name.contains(_search);
               }).toList();
 
-              if (filteredList.isEmpty) {
-                return RefreshIndicator(
-                  onRefresh: () => _refresh(context),
-                  child: ListView(
-                    children: const [
-                      SizedBox(height: 100),
-                      NoData(text: "No login records found for this query"),
-                    ],
-                  ),
-                );
-              }
-
               final grouped = _groupByDay(filteredList);
 
               return RefreshIndicator(
                 onRefresh: () => _refresh(context),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    if (kIsDesktop)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              tooltip: "Refresh",
-                              icon: const Icon(Iconsax.refresh),
-                              iconSize: 18,
-                              onPressed: () => _refresh(context),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      if (!widget.showAppbar) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                          child: _buildHeaderBanner(context),
+                        ),
+                      ],
+                      if (filteredList.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 100),
+                          child: NoData(
+                            text: "No login records found for this query",
+                          ),
+                        )
+                      else
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1400),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: grouped.entries.map((entry) {
+                                  return _buildSection(entry.key, entry.value);
+                                }).toList(),
+                              ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: Column(
-                          children: grouped.entries.map((entry) {
-                            return _buildSection(entry.key, entry.value);
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               );
             }
@@ -181,10 +184,120 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
     );
   }
 
+  Widget _buildHeaderBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Iconsax.security_user,
+                  color: AppColors.white,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Access Logs",
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Review recent sign-ins across every device",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: Theme.of(context).textTheme.bodySmall,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Filter by user, device, or IP address...',
+                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.grey500,
+                ),
+                prefixIcon: const Icon(
+                  Iconsax.search_normal_1,
+                  size: 16,
+                  color: AppColors.grey500,
+                ),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        splashRadius: 16,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: AppColors.grey500,
+                        ),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeaderSearch() {
     return Column(
       children: [
-        Container(color: Theme.of(context).colorScheme.outlineVariant, height: 1),
+        Container(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          height: 1,
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Material(
@@ -229,18 +342,51 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
             ),
           ),
         ),
-        ...items.map((item) => _buildLoginCard(item)),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const double spacing = 16;
+            const double minCardWidth = 380;
+
+            final double width = constraints.maxWidth;
+            int columns = (width / (minCardWidth + spacing)).floor();
+            columns = columns.clamp(1, 3);
+
+            final double itemWidth =
+                (width - spacing * (columns - 1)) / columns;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: items
+                  .map(
+                    (item) => SizedBox(
+                      width: itemWidth,
+                      child: _buildLoginCard(item),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
       ],
     );
   }
 
   Widget _buildLoginCard(LoginLogsModel item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(
+              alpha: 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -260,6 +406,8 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                         item.user.name.isNotEmpty
                             ? item.user.name
                             : 'Unknown User',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
@@ -268,15 +416,20 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                       ),
                       Text(
                         item.user.desc ?? 'Active Session',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -299,7 +452,10 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+              child: Divider(
+                height: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
             ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,7 +464,9 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                   margin: const EdgeInsets.only(top: 2),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -324,6 +482,8 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                     children: [
                       Text(
                         item.loginAlert.device,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -334,7 +494,10 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                       const SizedBox(height: 6),
                       _buildInfoRow(Iconsax.global, item.loginAlert.ipAddress),
                       const SizedBox(height: 4),
-                      _buildInfoRow(Iconsax.location, item.loginAlert.location),
+                      _buildInfoRow(
+                        Iconsax.location,
+                        item.loginAlert.location,
+                      ),
                     ],
                   ),
                 ),
@@ -349,11 +512,17 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
   Widget _buildInfoRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 12,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
