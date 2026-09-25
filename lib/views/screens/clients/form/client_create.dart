@@ -33,12 +33,65 @@ class _ContactCreateState extends State<ContactCreate> {
   final bool _loginAllowed = true;
   final bool _emailNotify = true;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   @override
   void dispose() {
     _clientName.dispose();
     _email.dispose();
     _mobile.dispose();
     super.dispose();
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(Iconsax.user, color: AppColors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Create Contact",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Add a new contact to your client list",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -50,70 +103,233 @@ class _ContactCreateState extends State<ContactCreate> {
       ),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SingleChildScrollView(
-          child: Center(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  FormWidgets.buildHeader(
-                    context: context,
-                    title: "Create Contact",
+        body: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      _buildSectionCard(
+                        icon: Iconsax.user,
+                        title: "Contact Details",
+                        subtitle: "Basic details about the contact",
+                        child: LayoutBuilder(
+                          builder: (context, constraints) =>
+                              _buildContactFormFields(constraints, 4),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildSectionCard(
+                        icon: Iconsax.gallery,
+                        title: "Profile Photo",
+                        subtitle: "Optional, shown across the CRM",
+                        child: Center(child: _buildProfileUploader()),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  _buildSectionCard(
-                    title: "Contact Details",
-                    child: LayoutBuilder(
-                      builder: (context, constraints) =>
-                          _buildContactFormFields(constraints, 4),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSectionCard(
-                    title: "Profile Photo",
-                    child: Center(child: _buildProfileUploader()),
-                  ),
-                  const SizedBox(height: 80),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
-        bottomNavigationBar: FormWidgets.buildBottomBar(
-          context: context,
+        bottomNavigationBar: _buildBottomBar(
+          label: "Create",
+          icon: Iconsax.add,
           onSubmit: _submit,
-          isEdit: false,
         ),
       ),
     );
   }
 
-  Widget _buildSectionCard({required String title, required Widget child}) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Divider(color: Theme.of(context).colorScheme.outlineVariant),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
             const SizedBox(height: 16),
             child,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar({
+    required String label,
+    required IconData icon,
+    required VoidCallback onSubmit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Cancel",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: _brandGradient,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onSubmit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(icon, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -150,6 +366,7 @@ class _ContactCreateState extends State<ContactCreate> {
             label: "Name",
             controller: _clientName,
             isRequired: true,
+            prefixIcon: const Icon(Iconsax.user, size: 18),
             valid: (input) =>
                 Validation.validName(input: input, label: 'Name', isReq: true),
           ),
@@ -159,7 +376,7 @@ class _ContactCreateState extends State<ContactCreate> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            // isRequired: true,
+            prefixIcon: const Icon(Iconsax.sms, size: 18),
             valid: (input) => Validation.validEmail(input: input, isReq: false),
           ),
         ),
@@ -168,6 +385,7 @@ class _ContactCreateState extends State<ContactCreate> {
           child: FormFields(
             label: "Mobile",
             controller: _mobile,
+            prefixIcon: const Icon(Iconsax.call, size: 18),
             valid: (input) =>
                 Validation.validMobileNumber(input: input, isReq: false),
           ),
@@ -202,7 +420,7 @@ class _ContactCreateState extends State<ContactCreate> {
               }
             },
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               child: kIsWeb
                   ? Image.memory(
                       _profileImageBytes ?? Uint8List(0),
@@ -264,8 +482,10 @@ class _ContactCreateState extends State<ContactCreate> {
           height: 130,
           width: 130,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.05),
+            borderRadius: const BorderRadius.all(Radius.circular(14)),
           ),
           child: Center(
             child: Column(
@@ -273,13 +493,14 @@ class _ContactCreateState extends State<ContactCreate> {
               children: [
                 Icon(
                   Iconsax.gallery,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   "Upload Photo",
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -329,6 +550,7 @@ class _ContactCreateState extends State<ContactCreate> {
     }
   }
 }
+
 
 class CompanyCreate extends StatefulWidget {
   const CompanyCreate({super.key});

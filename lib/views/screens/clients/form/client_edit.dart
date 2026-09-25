@@ -43,6 +43,12 @@ class _ContactUpdateState extends State<ContactUpdate> {
   ClientModel? _client;
   late Future _future;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   @override
   void initState() {
     _future = _load();
@@ -77,51 +83,325 @@ class _ContactUpdateState extends State<ContactUpdate> {
     }
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(Iconsax.edit, color: AppColors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Update Contact",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Update this contact's details and photo",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: FutureBuilder(
-        future: _future,
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const WaitingLoading();
-          }
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(16),
+        bottomLeft: Radius.circular(16),
+      ),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: FutureBuilder(
+                future: _future,
+                builder: (_, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const WaitingLoading();
+                  }
 
-          return SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  FormWidgets.buildHeader(
-                    context: context,
-                    title: "Update Contact",
-                  ),
-
-                  _section("Contact Details", _contactFields()),
-
-                  _section("Profile Picture", _buildProfileImage()),
-                ],
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          _buildSectionCard(
+                            icon: Iconsax.user,
+                            title: "Contact Details",
+                            subtitle: "Update the contact's core details",
+                            child: _contactFields(),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSectionCard(
+                            icon: Iconsax.gallery,
+                            title: "Profile Picture",
+                            subtitle: "Optional, shown across the CRM",
+                            child: Center(child: _buildProfileImage()),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          );
-        },
+          ],
+        ),
+        bottomNavigationBar: _buildBottomBar(
+          label: "Update",
+          icon: Iconsax.edit,
+          onSubmit: _submit,
+        ),
       ),
-      bottomNavigationBar: FormWidgets.buildBottomBar(
-        context: context,
-        onSubmit: _submit,
-        isEdit: true,
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar({
+    required String label,
+    required IconData icon,
+    required VoidCallback onSubmit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Cancel",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: _brandGradient,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onSubmit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(icon, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _contactFields() {
-    return Column(
-      children: [
-        // Row 1
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double currentWidth = constraints.maxWidth;
+        const double horizontalSpacing = 16.0;
+        const double verticalSpacing = 8.0;
+        const double minColumnWidth = 220.0;
+        const int gridCounts = 2;
+
+        final bool canShowGrid =
+            currentWidth >=
+            (minColumnWidth * gridCounts +
+                horizontalSpacing * (gridCounts - 1));
+
+        final double itemWidth = canShowGrid
+            ? (currentWidth - horizontalSpacing * (gridCounts - 1)) /
+                  gridCounts
+            : currentWidth;
+
+        return Wrap(
+          spacing: horizontalSpacing,
+          runSpacing: verticalSpacing,
           children: [
-            Expanded(
+            SizedBox(
+              width: itemWidth,
               child: FormDropdownSearch(
                 label: "Salutation",
                 items: const ["Mr.", "Mrs.", "Ms.", "Dr."],
@@ -129,33 +409,32 @@ class _ContactUpdateState extends State<ContactUpdate> {
                 onChanged: (v) => _salutation = v as String?,
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormFields(label: "Name", controller: _name),
+            SizedBox(
+              width: itemWidth,
+              child: FormFields(
+                label: "Name",
+                controller: _name,
+                prefixIcon: const Icon(Iconsax.user, size: 18),
+              ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FormFields(label: "Email", controller: _email),
+            SizedBox(
+              width: itemWidth,
+              child: FormFields(
+                label: "Email",
+                controller: _email,
+                prefixIcon: const Icon(Iconsax.sms, size: 18),
+              ),
             ),
-            const SizedBox(width: 16),
-            // Expanded(
-            //   child: FormFields(
-            //     label: "Password",
-            //     controller: _password,
-            //     hintText: "Leave blank to keep existing",
-            //   ),
-            // ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // Row 2
-        Row(
-          children: [
-            Expanded(
-              child: FormFields(label: "Mobile", controller: _mobile),
+            SizedBox(
+              width: itemWidth,
+              child: FormFields(
+                label: "Mobile",
+                controller: _mobile,
+                prefixIcon: const Icon(Iconsax.call, size: 18),
+              ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
+            SizedBox(
+              width: itemWidth,
               child: FormDropdownSearch(
                 label: "Gender",
                 items: const ["Male", "Female", "Other"],
@@ -163,27 +442,9 @@ class _ContactUpdateState extends State<ContactUpdate> {
                 onChanged: (v) => _gender = v as String?,
               ),
             ),
-            const SizedBox(width: 16),
-            // Expanded(
-            //   child: FormDropdownSearch(
-            //     label: "Language",
-            //     items: AppStrings.spokenLanguages,
-            //     initialItem: _language,
-            //     onChanged: (v) => _language = v as String?,
-            //   ),
-            // ),
-            // const SizedBox(width: 16),
-            // Expanded(
-            //   child: FormDropdownSearch(
-            //     label: "Login Allowed",
-            //     items: const ["Yes", "No"],
-            //     initialItem: _loginAllowed ? "Yes" : "No",
-            //     onChanged: (v) => _loginAllowed = v == "Yes",
-            //   ),
-            // ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -270,24 +531,8 @@ class _ContactUpdateState extends State<ContactUpdate> {
       );
     }
   }
-
-  Widget _section(String title, Widget child) {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const Divider(),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
 }
+
 
 class CompanyUpdate extends StatefulWidget {
   final String uid;

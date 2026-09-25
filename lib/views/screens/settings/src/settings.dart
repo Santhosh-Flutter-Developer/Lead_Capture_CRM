@@ -5,6 +5,7 @@ import '/app/app.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/services/services.dart';
+import '/theme/theme.dart';
 
 class SettingsColors {
   static const Color primary = Color(0xFF2563EB);
@@ -51,6 +52,73 @@ class SettingsListing extends StatefulWidget {
 }
 
 class _SettingsListingState extends State<SettingsListing> {
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
+  Widget _buildHeaderBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Iconsax.setting_2,
+              color: AppColors.white,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Preferences",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Manage notifications, appearance and system settings",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.read<ThemeProvider>();
@@ -92,180 +160,161 @@ class _SettingsListingState extends State<SettingsListing> {
           }
           if (state is SettingsLoaded) {
             final settings = state.settings;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
-                child: ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    _buildSectionHeader("Notifications", Iconsax.notification),
-                    const SizedBox(height: 12),
-                    _buildSettingsCard([
-                      _buildSwitchTile(
-                        icon: Iconsax.sms,
-                        iconColor: Colors.blueAccent,
-                        title: "Email Notifications",
-                        subtitle: "Receive daily summaries via email",
-                        value: settings.emailNotification,
-                        onChanged: (val) => context.read<SettingsBloc>().add(
-                          UpdateSettingsEvent("emailNotification", val),
-                        ),
-                      ),
-                      _buildSwitchTile(
-                        icon: Iconsax.notification,
-                        iconColor: Colors.orangeAccent,
-                        title: "Push Notifications",
-                        subtitle: "Instant alerts on your device",
-                        value: settings.pushNotification,
-                        onChanged: (val) => context.read<SettingsBloc>().add(
-                          UpdateSettingsEvent("pushNotification", val),
-                        ),
-                      ),
-                      // _buildSwitchTile(
-                      //   icon: Iconsax.wallet,
-                      //   iconColor: Colors.green,
-                      //   title: "Payroll",
-                      //   subtitle: "Show payroll related modules",
-                      //   value: settings.payrollEnabled,
-                      //   onChanged: (val) async {
-                      //     context.read<SettingsBloc>().add(
-                      //       UpdateSettingsEvent("payrollEnabled", val),
-                      //     );
-                      //     await Spdb.savePayrollSettings(val);
-                      //   },
-                      // ),
-                      _buildSwitchTile(
-                        icon: Iconsax.message,
-                        iconColor: Colors.greenAccent,
-                        title: "In-App Alerts",
-                        subtitle: "Banners and indicators within the app",
-                        value: settings.inAppNotification,
-                        onChanged: (val) => context.read<SettingsBloc>().add(
-                          UpdateSettingsEvent("inAppNotification", val),
-                        ),
-                      ),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: PanelSettingsNotifier.hidePanel,
-                        builder: (context, hidePanel, _) {
-                          return _buildSwitchTile(
-                            icon: hidePanel
-                                ? Iconsax.lamp_slash
-                                : Iconsax.lamp_on,
-                            iconColor: Colors.purple,
-                            title: "Hide Chat Panel",
-                            subtitle: "Enable to hide the side panel",
-                            value: hidePanel,
-                            onChanged: (val) async {
-                              await Spdb.savePanelSettings(val);
-                            },
-                          );
-                        },
-                      ),
-                    ], context),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader("App Appearance", Iconsax.brush),
-                    const SizedBox(height: 12),
-                    _buildSettingsCard([
-                      _buildSwitchTile(
-                        icon: isDark ? Iconsax.moon : Iconsax.sun_1,
-                        iconColor: const Color(0xFF34495E),
-                        title: "Dark Theme",
-                        subtitle: "Reduce eye strain in low light",
-                        value: isDark,
-                        onChanged: (value) => themeProvider.setDarkMode(value),
-                        isInDevelop: false,
-                      ),
-                      // _buildInteractiveTile(
-                      //   icon: Iconsax.global,
-                      //   iconColor: Colors.indigoAccent,
-                      //   title: "Language",
-                      //   trailing: _buildDropdown(
-                      //     value: settings.language,
-                      //     options: ["English", "Hindi", "Tamil", "Telugu"],
-                      //     onChanged: (val) => context.read<SettingsBloc>().add(
-                      //       UpdateSettingsEvent("language", val),
-                      //     ),
-                      //   ),
-                      // ),
-                      // _buildInteractiveTile(
-                      //   icon: Iconsax.music_dashboard,
-                      //   iconColor: Colors.deepOrangeAccent,
-                      //   title: "Dashboard Layout",
-                      //   trailing: _buildDropdown(
-                      //     value: settings.dashboardLayout,
-                      //     options: ["Default", "Compact", "Analytics"],
-                      //     onChanged: (val) => context.read<SettingsBloc>().add(
-                      //       UpdateSettingsEvent("dashboardLayout", val),
-                      //     ),
-                      //   ),
-                      // ),
-                    ], context),
-                    const SizedBox(height: 32),
-                    _buildSectionHeader("System & Data", Iconsax.status),
-                    const SizedBox(height: 12),
-                    _buildSettingsCard([
-                      _buildInteractiveTile(
-                        icon: Iconsax.mobile_programming,
-                        iconColor: Colors.purpleAccent,
-                        title: "Application Name",
-                        trailing: SizedBox(
-                          width: 140,
-                          child: TextField(
-                            onChanged: (val) => context
-                                .read<SettingsBloc>()
-                                .add(UpdateSettingsEvent("appName", val)),
-                            controller:
-                                TextEditingController(text: settings.appName)
-                                  ..selection = TextSelection.fromPosition(
-                                    TextPosition(
-                                      offset: settings.appName.length,
-                                    ),
-                                  ),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: SettingsColors.primary,
-                            ),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                              hintText: "Enter Name",
-                              hintStyle: TextStyle(
-                                fontWeight: FontWeight.normal,
-                                color: SettingsColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      _buildSwitchTile(
-                        icon: Iconsax.cloud_notif,
-                        iconColor: Colors.cyan,
-                        title: "Cloud Auto-Backup",
-                        subtitle: "Secure your data automatically",
-                        value: settings.autoBackup,
-                        onChanged: (val) => context.read<SettingsBloc>().add(
-                          UpdateSettingsEvent("autoBackup", val),
-                        ),
-                      ),
-                      _buildInteractiveTile(
-                        icon: Iconsax.trash,
-                        iconColor: Colors.redAccent,
-                        title: "Trash Manager",
-                        onTap: () =>
-                            Navigate.route(context, const TrashScreen()),
-                        trailing: const Icon(
-                          Iconsax.arrow_right_3,
-                          size: 16,
-                          color: SettingsColors.border,
-                        ),
-                      ),
-                    ], context),
-                    const SizedBox(height: 40),
-                    _buildFooter(),
-                  ],
+
+            final notificationsCard = _buildGroupCard(
+              context,
+              icon: Iconsax.notification,
+              iconColor: Colors.blueAccent,
+              title: "Notifications",
+              subtitle: "Choose how you want to be kept in the loop",
+              children: [
+                _buildSwitchTile(
+                  icon: Iconsax.sms,
+                  iconColor: Colors.blueAccent,
+                  title: "Email Notifications",
+                  subtitle: "Receive daily summaries via email",
+                  value: settings.emailNotification,
+                  onChanged: (val) => context.read<SettingsBloc>().add(
+                    UpdateSettingsEvent("emailNotification", val),
+                  ),
                 ),
+                _buildSwitchTile(
+                  icon: Iconsax.notification,
+                  iconColor: Colors.orangeAccent,
+                  title: "Push Notifications",
+                  subtitle: "Instant alerts on your device",
+                  value: settings.pushNotification,
+                  onChanged: (val) => context.read<SettingsBloc>().add(
+                    UpdateSettingsEvent("pushNotification", val),
+                  ),
+                ),
+                _buildSwitchTile(
+                  icon: Iconsax.message,
+                  iconColor: Colors.greenAccent,
+                  title: "In-App Alerts",
+                  subtitle: "Banners and indicators within the app",
+                  value: settings.inAppNotification,
+                  onChanged: (val) => context.read<SettingsBloc>().add(
+                    UpdateSettingsEvent("inAppNotification", val),
+                  ),
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: PanelSettingsNotifier.hidePanel,
+                  builder: (context, hidePanel, _) {
+                    return _buildSwitchTile(
+                      icon: hidePanel ? Iconsax.lamp_slash : Iconsax.lamp_on,
+                      iconColor: Colors.purple,
+                      title: "Hide Chat Panel",
+                      subtitle: "Enable to hide the side panel",
+                      value: hidePanel,
+                      onChanged: (val) async {
+                        await Spdb.savePanelSettings(val);
+                      },
+                    );
+                  },
+                ),
+              ],
+            );
+
+            final appearanceCard = _buildGroupCard(
+              context,
+              icon: Iconsax.brush,
+              iconColor: const Color(0xFF34495E),
+              title: "App Appearance",
+              subtitle: "Personalize how the workspace looks",
+              children: [
+                _buildSwitchTile(
+                  icon: isDark ? Iconsax.moon : Iconsax.sun_1,
+                  iconColor: const Color(0xFF34495E),
+                  title: "Dark Theme",
+                  subtitle: "Reduce eye strain in low light",
+                  value: isDark,
+                  onChanged: (value) => themeProvider.setDarkMode(value),
+                  isInDevelop: false,
+                ),
+              ],
+            );
+
+            final systemCard = _buildGroupCard(
+              context,
+              icon: Iconsax.status,
+              iconColor: Colors.purpleAccent,
+              title: "System & Data",
+              subtitle: "Application details and data management",
+              children: [
+                _buildInteractiveTile(
+                  icon: Iconsax.mobile_programming,
+                  iconColor: Colors.purpleAccent,
+                  title: "Application Name",
+                  trailing: SizedBox(
+                    width: 140,
+                    child: TextField(
+                      onChanged: (val) => context
+                          .read<SettingsBloc>()
+                          .add(UpdateSettingsEvent("appName", val)),
+                      controller:
+                          TextEditingController(text: settings.appName)
+                            ..selection = TextSelection.fromPosition(
+                              TextPosition(offset: settings.appName.length),
+                            ),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: SettingsColors.primary,
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: "Enter Name",
+                        hintStyle: TextStyle(
+                          fontWeight: FontWeight.normal,
+                          color: SettingsColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                _buildSwitchTile(
+                  icon: Iconsax.cloud_notif,
+                  iconColor: Colors.cyan,
+                  title: "Cloud Auto-Backup",
+                  subtitle: "Secure your data automatically",
+                  value: settings.autoBackup,
+                  onChanged: (val) => context.read<SettingsBloc>().add(
+                    UpdateSettingsEvent("autoBackup", val),
+                  ),
+                ),
+                _buildInteractiveTile(
+                  icon: Iconsax.trash,
+                  iconColor: Colors.redAccent,
+                  title: "Trash Manager",
+                  onTap: () => Navigate.route(context, const TrashScreen()),
+                  trailing: const Icon(
+                    Iconsax.arrow_right_3,
+                    size: 16,
+                    color: SettingsColors.border,
+                  ),
+                ),
+              ],
+            );
+
+            return ScrollConfiguration(
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  if (!widget.showAppbar) _buildHeaderBanner(context),
+                  notificationsCard,
+                  const SizedBox(height: 28),
+                  appearanceCard,
+                  const SizedBox(height: 28),
+                  systemCard,
+                  const SizedBox(height: 40),
+                  _buildFooter(),
+                ],
               ),
             );
           }
@@ -278,54 +327,96 @@ class _SettingsListingState extends State<SettingsListing> {
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
+  /// Lays out a section's items as a responsive grid of equal-width
+  /// tiles: 1 column on narrow screens, more as space allows.
+  Widget _buildTileGrid(List<Widget> tiles) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double spacing = 16;
+        const double minTileWidth = 300;
+
+        final double width = constraints.maxWidth;
+        int columns = (width / (minTileWidth + spacing)).floor();
+        columns = columns.clamp(1, 4);
+
+        final double itemWidth =
+            (width - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: tiles
+              .map((tile) => SizedBox(width: itemWidth, child: tile))
+              .toList(),
+        );
+      },
+    );
+  }
+
+  /// A section: icon-badge + title + subtitle header, followed by its
+  /// items laid out as a responsive grid of equal tiles.
+  Widget _buildGroupCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            letterSpacing: 1.2,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14, left: 4),
+          child: Row(
+            children: [
+              _buildIconContainer(icon, iconColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
+        _buildTileGrid(children),
       ],
     );
   }
 
-  Widget _buildSettingsCard(List<Widget> children, [BuildContext? ctx]) {
-    final effectiveCtx = ctx ?? context;
-    final cardColor = Theme.of(effectiveCtx).colorScheme.surface;
-    final borderColor = Theme.of(effectiveCtx).dividerColor;
+  /// Shared card decoration for a single settings tile.
+  Widget _tileCard(BuildContext context, {required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(
+              alpha: 0.05,
+            ),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Column(
-        children: children.asMap().entries.map((entry) {
-          bool isLast = entry.key == children.length - 1;
-          return Column(
-            children: [
-              entry.value,
-              if (!isLast)
-                Container(
-                  margin: const EdgeInsets.only(left: 64),
-                  color: borderColor,
-                  height: 1,
-                ),
-            ],
-          );
-        }).toList(),
-      ),
+      child: child,
     );
   }
 
@@ -338,46 +429,49 @@ class _SettingsListingState extends State<SettingsListing> {
     required ValueChanged<bool> onChanged,
     bool isInDevelop = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          _buildIconContainer(icon, iconColor),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 14,
+    return _tileCard(
+      context,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _buildIconContainer(icon, iconColor),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 11,
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          if (!isInDevelop)
-            MorphSwitch(value: value, onChanged: onChanged)
-          else
-            Text(
-              "In Development",
-              style: TextStyle(
-                fontSize: 10,
-                color: SettingsColors.textSecondary,
-                fontStyle: FontStyle.italic,
+                ],
               ),
             ),
-        ],
+            if (!isInDevelop)
+              MorphSwitch(value: value, onChanged: onChanged)
+            else
+              Text(
+                "In Development",
+                style: TextStyle(
+                  fontSize: 10,
+                  color: SettingsColors.textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -389,27 +483,30 @@ class _SettingsListingState extends State<SettingsListing> {
     Widget? trailing,
     VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _buildIconContainer(icon, iconColor),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 14,
+    return _tileCard(
+      context,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              _buildIconContainer(icon, iconColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-            ),
-            ?trailing,
-          ],
+              ?trailing,
+            ],
+          ),
         ),
       ),
     );

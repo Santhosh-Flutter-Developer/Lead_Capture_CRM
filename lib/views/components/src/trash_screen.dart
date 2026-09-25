@@ -22,6 +22,12 @@ class TrashScreen extends StatefulWidget {
 class _TrashScreenState extends State<TrashScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   bool _selectionMode = false;
   bool _isProcessing = false;
   final Set<String> _selectedIds = {};
@@ -255,56 +261,143 @@ class _TrashScreenState extends State<TrashScreen> {
   Widget build(BuildContext context) {
     if (_trashRef == null) {
       return Scaffold(
-        appBar: AppBar(title: Text('Trash')),
-        body: WaitingLoading(),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Column(
+          children: [_buildHeader(context), const Expanded(child: WaitingLoading())],
+        ),
       );
     }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: Back(color: Theme.of(context).colorScheme.onSurface),
-        ),
-        centerTitle: false,
-        title: Text(
-          "Trash",
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          if (_selectionMode)
-            IconButton(
-              tooltip: 'Clear selection',
-              icon: const Icon(Icons.close),
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              onPressed: _isProcessing ? null : _clearSelection,
-            ),
-          if (_selectionMode && _selectedIds.isNotEmpty)
-            IconButton(
-              tooltip: 'Restore selected',
-              icon: const Icon(Icons.settings_backup_restore),
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              onPressed: _isProcessing ? null : _restoreSelected,
-            ),
+      body: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(child: _buildBody(context)),
+        ],
+      ),
+    );
+  }
 
-          IconButton(
-            tooltip: "Refresh",
-            icon: const Icon(Iconsax.refresh, size: 18),
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            onPressed: () => setState(() {}),
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.of(context).padding.top + 16,
+        20,
+        16,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Back(color: AppColors.white),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Iconsax.trash,
+                  color: AppColors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Trash",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "Restore items deleted in the last 30 days",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_selectionMode)
+                IconButton(
+                  tooltip: 'Clear selection',
+                  icon: const Icon(Icons.close, color: AppColors.white),
+                  onPressed: _isProcessing ? null : _clearSelection,
+                ),
+              IconButton(
+                tooltip: "Refresh",
+                icon: const Icon(
+                  Iconsax.refresh,
+                  size: 18,
+                  color: AppColors.white,
+                ),
+                onPressed: () => setState(() {}),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              style: Theme.of(context).textTheme.bodySmall,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Search deleted items',
+                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.grey500,
+                ),
+                prefixIcon: const Icon(
+                  Iconsax.search_normal_1,
+                  size: 16,
+                  color: AppColors.grey500,
+                ),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        splashRadius: 16,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: AppColors.grey500,
+                        ),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
 
-      body: Stack(
-        children: [
+  Widget _buildBody(BuildContext context) {
+    return Stack(
+      children: [
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _trashRef!.snapshots(),
             builder: (context, snapshot) {
@@ -375,19 +468,25 @@ class _TrashScreenState extends State<TrashScreen> {
 
               return RefreshIndicator(
                 onRefresh: () async {},
-                child: ListView(
-                  children: [
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: Column(
-                          children: grouped.entries.map((entry) {
-                            return _buildSection(entry.key, entry.value);
-                          }).toList(),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: ListView(
+                    children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1400),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: grouped.entries.map((entry) {
+                              return _buildSection(entry.key, entry.value);
+                            }).toList(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -475,28 +574,55 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _buildSection(String label, List docs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-          child: Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              letterSpacing: 1.5,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+            child: Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                letterSpacing: 1.5,
+              ),
             ),
           ),
-        ),
-        ...docs.map((doc) => _buildTrashCard(doc)),
-      ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const double spacing = 14;
+              const double minCardWidth = 320;
+
+              final double width = constraints.maxWidth;
+              int columns = (width / (minCardWidth + spacing)).floor();
+              columns = columns.clamp(1, 3);
+
+              final double itemWidth =
+                  (width - spacing * (columns - 1)) / columns;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: docs
+                    .map(
+                      (doc) => SizedBox(
+                        width: itemWidth,
+                        child: _buildTrashCard(doc),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -526,7 +652,6 @@ class _TrashScreenState extends State<TrashScreen> {
         }
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
@@ -536,6 +661,15 @@ class _TrashScreenState extends State<TrashScreen> {
                 : Theme.of(context).colorScheme.outlineVariant,
             width: selected ? 1.5 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).colorScheme.shadow.withValues(
+                alpha: 0.05,
+              ),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -553,6 +687,8 @@ class _TrashScreenState extends State<TrashScreen> {
                       children: [
                         Text(
                           title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
@@ -562,6 +698,8 @@ class _TrashScreenState extends State<TrashScreen> {
                         const SizedBox(height: 2),
                         Text(
                           collection.capitalizeFirst,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11,
                             color: Theme.of(
@@ -586,38 +724,66 @@ class _TrashScreenState extends State<TrashScreen> {
 
               const SizedBox(height: 10),
 
-              if (!_selectionMode)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(
-                            Iconsax.folder,
-                            size: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Iconsax.folder,
+                          size: 14,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
 
-                          Expanded(
-                            child: Text(
-                              trash.canRestoreTo,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                        Expanded(
+                          child: Text(
+                            trash.canRestoreTo,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                  ),
 
+                  const SizedBox(width: 8),
+
+                  if (_selectionMode)
+                    Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: selected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outlineVariant,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: selected
+                          ? const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: Colors.white,
+                            )
+                          : null,
+                    )
+                  else
                     TextButton.icon(
                       icon: const Icon(Icons.restore, size: 16),
                       label: const Text("Restore"),
@@ -628,8 +794,8 @@ class _TrashScreenState extends State<TrashScreen> {
                           ? null
                           : () => _restoreSingle(doc),
                     ),
-                  ],
-                ),
+                ],
+              ),
             ],
           ),
         ),
