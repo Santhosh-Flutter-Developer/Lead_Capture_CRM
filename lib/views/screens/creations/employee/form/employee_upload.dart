@@ -22,6 +22,7 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
   int _fileSize = 0;
   List<List<String>> _rows = [];
   bool _loading = false;
+  final ScrollController _scrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -220,7 +221,8 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
     required Widget child,
     Color? accentColor,
   }) {
-    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+    final Color badgeColor =
+        accentColor ?? Theme.of(context).colorScheme.primary;
 
     return Container(
       width: double.infinity,
@@ -298,80 +300,91 @@ class _EmployeeUploadPageState extends State<EmployeeUploadPage> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1000),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildSectionCard(
-                          icon: Iconsax.document_upload,
-                          accentColor: Theme.of(context).colorScheme.primary,
-                          title: 'Upload Employee List',
-                          subtitle:
-                              'Select a CSV or Excel file with your employee records',
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: _fileName == null
-                                ? _buildUploadZone()
-                                : _buildFileInfoCard(),
-                          ),
-                        ),
-
-                        // Preview Section (Only visible if data exists)
-                        if (_rows.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          _buildSectionCard(
-                            icon: Iconsax.task_square,
-                            accentColor: AppColors.success,
-                            title:
-                                'Data Preview (${_rows.length - 1} entries)',
-                            subtitle:
-                                'Review the records before completing the import',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (_rows.length > 50)
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: Chip(
-                                        label: Text(
-                                          'Showing first 50',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                        ),
-                                        backgroundColor: Theme.of(
-                                          context,
-                                        ).scaffoldBackgroundColor,
-                                        side: BorderSide(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.outlineVariant,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                _buildPreviewTable(),
-                                const SizedBox(height: 20),
-                                _buildActionButtons(),
-                              ],
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(20.0),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildSectionCard(
+                              icon: Iconsax.document_upload,
+                              accentColor: Theme.of(context).colorScheme.primary,
+                              title: 'Upload Employee List',
+                              subtitle:
+                                  'Select a CSV or Excel file with your employee records',
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: _fileName == null
+                                    ? _buildUploadZone()
+                                    : _buildFileInfoCard(),
+                              ),
                             ),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                      ],
+                  
+                            // Preview Section (Only visible if data exists)
+                            if (_rows.isNotEmpty) ...[
+                              const SizedBox(height: 20),
+                              _buildSectionCard(
+                                icon: Iconsax.task_square,
+                                accentColor: AppColors.success,
+                                title: 'Data Preview (${_rows.length - 1} entries)',
+                                subtitle:
+                                    'Review the records before completing the import',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (_rows.length > 50)
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          child: Chip(
+                                            label: Text(
+                                              'Showing first 50',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurfaceVariant,
+                                                  ),
+                                            ),
+                                            backgroundColor: Theme.of(
+                                              context,
+                                            ).scaffoldBackgroundColor,
+                                            side: BorderSide(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.outlineVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    _buildPreviewTable(),
+                                    const SizedBox(height: 20),
+                                    _buildActionButtons(),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -12,14 +12,14 @@ class Sheet {
     final value = await showModalBottomSheet(
       backgroundColor: Theme.of(context).colorScheme.surface,
       useSafeArea: true,
-      showDragHandle: true,
+      showDragHandle: false,
       isScrollControlled: true,
       enableDrag: true,
       shape: const RoundedRectangleBorder(
         side: BorderSide.none,
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
       ),
       context: context,

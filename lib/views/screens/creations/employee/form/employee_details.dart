@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import '../../../../../services/firebase/src/deal_service.dart';
 import '/services/services.dart';
 import '/models/models.dart';
 import '/views/views.dart';
-import '/constants/constants.dart';
 import '/theme/theme.dart';
 
 class EmployeeDetails extends StatefulWidget {
@@ -22,6 +20,7 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
   int _projectCount = 0;
   int _leadsCount = 0;
   int _dealsCount = 0;
+  final ScrollController _scrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -57,6 +56,12 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
         _dealsCount = dealsCount;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -134,12 +139,14 @@ class _EmployeeDetailsState extends State<EmployeeDetails> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: Scrollbar(
+                          controller: _scrollController,
                           thumbVisibility: true,
                           interactive: true,
                           trackVisibility: true,
                           radius: const Radius.circular(8),
                           thickness: 8,
                           child: SingleChildScrollView(
+                            controller: _scrollController,
                             child: Center(
                               child: Container(
                                 constraints: const BoxConstraints(

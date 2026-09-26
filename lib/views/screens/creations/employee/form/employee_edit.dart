@@ -82,6 +82,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
   String? _preservedDateOfJoining;
   String? _preservedRole;
   List<String> _preservedReportingTo = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -414,7 +415,7 @@ class _EmployeeEditState extends State<EmployeeEdit> {
     _addressController.dispose();
     _aboutController.dispose();
     _skillsController.dispose();
-
+_scrollController.dispose();
     super.dispose();
   }
 
@@ -501,61 +502,73 @@ class _EmployeeEditState extends State<EmployeeEdit> {
                     );
                   }
 
-                  return SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        child: Column(
-                          children: [
-                            _buildSectionCard(
-                              icon: Iconsax.gallery,
-                              accentColor: Theme.of(context).colorScheme.primary,
-                              title: "Profile Photo",
-                              subtitle:
-                                  "Add or update the employee's profile picture",
-                              child: Center(child: _buildProfileUploader()),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: Form(
+                          key: _formKey,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
                             ),
-                            const SizedBox(height: 20),
-                            _buildSectionCard(
-                              icon: Iconsax.user,
-                              accentColor: AppColors.secondary,
-                              title: "Employee Details",
-                              subtitle:
-                                  "Personal information, role and reporting structure",
-                              child: LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildFormFields(constraints, 4),
-                              ),
+                            child: Column(
+                              children: [
+                                _buildSectionCard(
+                                  icon: Iconsax.gallery,
+                                  accentColor: Theme.of(context).colorScheme.primary,
+                                  title: "Profile Photo",
+                                  subtitle:
+                                      "Add or update the employee's profile picture",
+                                  child: Center(child: _buildProfileUploader()),
+                                ),
+                                const SizedBox(height: 20),
+                                _buildSectionCard(
+                                  icon: Iconsax.user,
+                                  accentColor: AppColors.secondary,
+                                  title: "Employee Details",
+                                  subtitle:
+                                      "Personal information, role and reporting structure",
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        _buildFormFields(constraints, 4),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                _buildSectionCard(
+                                  icon: Iconsax.call,
+                                  accentColor: AppColors.success,
+                                  title: "Contact Information",
+                                  subtitle:
+                                      "Address and a short note about the employee",
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        _buildContactFormFields(constraints, 2),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                _buildSectionCard(
+                                  icon: Iconsax.setting_2,
+                                  accentColor: AppColors.orange,
+                                  title: "Other Details",
+                                  subtitle:
+                                      "Login access, notifications and employment type",
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        _buildOthersFormFields(constraints, 4),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 20),
-                            _buildSectionCard(
-                              icon: Iconsax.call,
-                              accentColor: AppColors.success,
-                              title: "Contact Information",
-                              subtitle:
-                                  "Address and a short note about the employee",
-                              child: LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildContactFormFields(constraints, 2),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildSectionCard(
-                              icon: Iconsax.setting_2,
-                              accentColor: AppColors.orange,
-                              title: "Other Details",
-                              subtitle:
-                                  "Login access, notifications and employment type",
-                              child: LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildOthersFormFields(constraints, 4),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

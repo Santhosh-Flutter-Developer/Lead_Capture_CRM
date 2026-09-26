@@ -11,6 +11,7 @@ import '/services/services.dart';
 import 'bloc/tickets_bloc.dart';
 
 const String _pageTitle = "Tickets";
+const double _wideBreakpoint = 1000;
 
 class TicketsListing extends StatelessWidget {
   const TicketsListing({super.key});
@@ -77,6 +78,13 @@ class _TicketListingViewState extends State<TicketListingView> {
   bool _permissionsLoaded = false;
   String? _currentUid;
   bool _isAdmin = false;
+  final ScrollController _hScrollController = ScrollController();
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -96,20 +104,28 @@ class _TicketListingViewState extends State<TicketListingView> {
     context.read<TicketBloc>().add(StreamTickets());
   }
 
-  final ScrollController _hScrollController = ScrollController();
+  bool _isWide(BuildContext context) =>
+      !kIsMobile && MediaQuery.of(context).size.width >= _wideBreakpoint;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     final controllerRead = context
         .read<PaginatedDataController<CustomerTicketModel>>();
     final controllerWatch = context
         .watch<PaginatedDataController<CustomerTicketModel>>();
+    final isWide = _isWide(context);
 
     return Scaffold(
-      appBar: kIsMobile || width < 1000
-          ? AppBar(leading: Back(), title: Text(_pageTitle))
-          : null,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: isWide
+          ? null
+          : AppBar(
+              leading: const Back(),
+              title: const Text(_pageTitle),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+            ),
       body: BlocListener<TicketBloc, TicketState>(
         listenWhen: (previous, current) => current is TicketLoaded,
         listener: (context, state) {
@@ -130,19 +146,33 @@ class _TicketListingViewState extends State<TicketListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshTickets(context),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24.0),
-                  children: [
-                    _buildFilterRow(onSearchChanged: controllerRead.setSearch),
-                    const SizedBox(height: 10),
-                    _buildActionRow(context),
-                    const SizedBox(height: 20),
-                    if (controllerWatch.paginatedItems.isEmpty)
-                      const NoData(text: "No matching records found")
-                    else
-                      _buildMainBody(context, controllerWatch, controllerRead),
-                  ],
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(
+                          context,
+                          state.tickets.length,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildToolbar(context, controllerRead),
+                      const SizedBox(height: 18),
+                      if (controllerWatch.paginatedItems.isEmpty)
+                        NoData(
+                          text: state.tickets.isEmpty
+                              ? "No tickets available"
+                              : "No matching records found",
+                        )
+                      else
+                        _buildTableCard(context, controllerWatch, controllerRead),
+                    ],
+                  ),
                 ),
               );
             }
@@ -162,7 +192,279 @@ class _TicketListingViewState extends State<TicketListingView> {
     );
   }
 
-  Widget _buildMainBody(
+  // ---------------------------------------------------------------------
+  // Header banner (desktop only)
+  // ---------------------------------------------------------------------
+  Widget _buildHeaderBanner(BuildContext context, int totalTickets) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Iconsax.ticket, color: AppColors.white, size: 30),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Support Tickets",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Track and resolve every customer request in one place",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '$totalTickets',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  totalTickets == 1 ? "Ticket" : "Tickets",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Toolbar: search + add + delete + refresh
+  // ---------------------------------------------------------------------
+  Widget _buildToolbar(
+    BuildContext context,
+    PaginatedDataController<CustomerTicketModel> controllerRead,
+  ) {
+    final isWide = _isWide(context);
+
+    final buttons = <Widget>[
+      (permissions?.canCreate ?? false)
+          ? _gradientButton(
+              context: context,
+              icon: Icons.add_rounded,
+              label: "Add $_pageTitle",
+              colors: _brandGradient,
+              onPressed: () {
+                if (kIsMobile || !isWide) {
+                  Sheet.showSheet(context, widget: const TicketCreate());
+                } else {
+                  GeneralDialog.showRTLSheet(context, const TicketCreate());
+                }
+              },
+            )
+          : _disabledButton(
+              context,
+              icon: Icons.add_rounded,
+              label: "Add $_pageTitle",
+            ),
+      if (_selectedTickets.isNotEmpty && (permissions?.canDelete ?? false))
+        _gradientButton(
+          context: context,
+          icon: Iconsax.trash,
+          label: "Delete (${_selectedTickets.length})",
+          colors: const [Color(0xFFDC3545), Color(0xFFFF6B6B)],
+          onPressed: _bulkDelete,
+        ),
+      if (isWide)
+        _iconCircleButton(
+          context,
+          icon: Iconsax.refresh,
+          tooltip: "Refresh",
+          background: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.1),
+          iconColor: Theme.of(context).colorScheme.primary,
+          onPressed: () => _refreshTickets(context),
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: isWide
+          ? Row(
+              children: [
+                SizedBox(width: 260, child: _searchBox(controllerRead)),
+                const Spacer(),
+                Wrap(spacing: 10, runSpacing: 10, children: buttons),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _searchBox(controllerRead),
+                const SizedBox(height: 12),
+                Wrap(spacing: 10, runSpacing: 10, children: buttons),
+              ],
+            ),
+    );
+  }
+
+  Widget _searchBox(PaginatedDataController<CustomerTicketModel> controllerRead) {
+    return _TicketSearchField(onChanged: controllerRead.setSearch);
+  }
+
+  Widget _gradientButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required List<Color> colors,
+    required VoidCallback onPressed,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: colors),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: colors.first.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: AppColors.white),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _disabledButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.grey200,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: AppColors.grey500),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _iconCircleButton(
+    BuildContext context, {
+    required IconData icon,
+    required String tooltip,
+    required Color background,
+    required Color iconColor,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Table card
+  // ---------------------------------------------------------------------
+  Widget _buildTableCard(
     BuildContext context,
     PaginatedDataController<CustomerTicketModel> controllerWatch,
     PaginatedDataController<CustomerTicketModel> controllerRead,
@@ -170,117 +472,87 @@ class _TicketListingViewState extends State<TicketListingView> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
-            spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Scrollbar(
-                controller: _hScrollController,
-                thumbVisibility: true,
-                trackVisibility: true,
-                thickness: 4,
-                radius: const Radius.circular(6),
-                scrollbarOrientation: ScrollbarOrientation.bottom,
-                child: SingleChildScrollView(
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Scrollbar(
                   controller: _hScrollController,
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: DataTable(
-                      showCheckboxColumn: true,
-                      columnSpacing: 12,
-                      horizontalMargin: 8,
-                      sortColumnIndex: controllerWatch.sortColumnIndex,
-                      sortAscending: controllerWatch.sortAscending,
-                      headingRowColor: WidgetStateProperty.all(
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                      ),
-                      headingTextStyle: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                      columns: [
-                        DataColumn(
-                          label: _sortableHeader("Ticket No", controllerRead),
-                          onSort: controllerRead.setSort,
-                        ),
-                        DataColumn(
-                          label: _sortableHeader("Title", controllerRead),
-                          onSort: controllerRead.setSort,
-                        ),
-                        DataColumn(
-                          label: _sortableHeader("Status", controllerRead),
-                          onSort: controllerRead.setSort,
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Client Name",
-                            style: Theme.of(context).textTheme.bodySmall,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  thickness: 4,
+                  radius: const Radius.circular(6),
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  child: SingleChildScrollView(
+                    controller: _hScrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: DataTable(
+                        showCheckboxColumn: true,
+                        columnSpacing: 20,
+                        horizontalMargin: 16,
+                        sortColumnIndex: controllerWatch.sortColumnIndex,
+                        sortAscending: controllerWatch.sortAscending,
+                        headingRowColor: WidgetStateProperty.all(
+                          Theme.of(context).colorScheme.primary.withValues(
+                            alpha: 0.06,
                           ),
                         ),
-                        DataColumn(
-                          label: Text(
-                            "Priority",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Category",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Project",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Task",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Created By",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Action",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                      rows: controllerWatch.paginatedItems
-                          .map(
-                            (ticket) => _buildDataRow(
-                              context,
-                              ticket,
-                              controllerWatch,
-                              controllerRead,
+                        headingTextStyle: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
-                          )
-                          .toList(),
+                        columns: [
+                          DataColumn(
+                            label: const Text("Ticket No"),
+                            onSort: controllerRead.setSort,
+                          ),
+                          DataColumn(
+                            label: const Text("Title"),
+                            onSort: controllerRead.setSort,
+                          ),
+                          DataColumn(
+                            label: const Text("Status"),
+                            onSort: controllerRead.setSort,
+                          ),
+                          const DataColumn(label: Text("Client Name")),
+                          const DataColumn(label: Text("Priority")),
+                          const DataColumn(label: Text("Category")),
+                          const DataColumn(label: Text("Project")),
+                          const DataColumn(label: Text("Task")),
+                          const DataColumn(label: Text("Created By")),
+                          const DataColumn(label: Text("Action")),
+                        ],
+                        rows: List.generate(
+                          controllerWatch.paginatedItems.length,
+                          (index) => _buildDataRow(
+                            context,
+                            controllerWatch.paginatedItems[index],
+                            controllerWatch,
+                            controllerRead,
+                            index,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -291,207 +563,50 @@ class _TicketListingViewState extends State<TicketListingView> {
     );
   }
 
-  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        SizedBox(
-          width: 250,
-          child: TextField(
-            onChanged: onSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'Search',
-              prefixIcon: const Icon(
-                Icons.search,
-                size: 20,
-                color: Colors.grey,
-              ),
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 12.0,
-                horizontal: 16.0,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outline,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 1.5,
-                ),
-              ),
-              hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            style: TextStyle(
-              fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionRow(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final addDeleteButtons = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (permissions?.canCreate ?? false) ...[
-              ElevatedButton.icon(
-                onPressed: () {
-                  if (kIsMobile || width < 1000) {
-                    Sheet.showSheet(context, widget: const TicketCreate());
-                  } else {
-                    GeneralDialog.showRTLSheet(context, const TicketCreate());
-                  }
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(
-                  "Add $_pageTitle",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.success,
-                  foregroundColor: AppColors.white,
-                ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            const SizedBox(width: 10),
-            if (permissions?.canDelete ?? false) ...[
-              if (_selectedTickets.isNotEmpty)
-                ElevatedButton.icon(
-                  label: Text(
-                    "Delete",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.white),
-                  ),
-                  icon: const Icon(Iconsax.trash),
-                  onPressed: () async {
-                    final result = await showDialog(
-                      context: context,
-                      builder: (context) => ConfirmDialog(
-                        title: 'Delete',
-                        content:
-                            'Are you sure want to delete this $_pageTitle?',
-                      ),
-                      barrierDismissible: false,
-                    );
-
-                    if (result != true) return;
-
-                    try {
-                      final deletedTickets = List<CustomerTicketModel>.from(
-                        _selectedTickets,
-                      );
-
-                      futureLoading(context);
-
-                      for (var ticket in deletedTickets) {
-                        await TicketService.deleteTicket(uid: ticket.uid ?? '');
-                      }
-
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-
-                      _selectedTickets.clear();
-                      setState(() {});
-
-                      FlushBar.show(
-                        context,
-                        '$_pageTitle deleted successfully',
-                        actionLabel: 'UNDO',
-                        onActionPressed: () async {
-                          for (var ticket in deletedTickets) {
-                            await TicketService.restoreTicket(ticket);
-                          }
-
-                          context.read<TicketBloc>().add(StreamTickets());
-                        },
-                      );
-                    } catch (e) {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                      FlushBar.show(context, e.toString(), isSuccess: false);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.danger,
-                    foregroundColor: AppColors.white,
-                  ),
-                ),
-            ],
-          ],
-        );
-
-        if (kIsMobile || width < 1000) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: addDeleteButtons,
-              ),
-              const SizedBox(height: 8),
-            ],
-          );
-        } else {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [addDeleteButtons, _buildViewToggle(context)],
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildViewToggle(BuildContext context) {
+  Widget _statusPill(BuildContext context, TicketStatus status) {
+    final color = _getStatusColor(status);
     return Container(
-      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade300),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            tooltip: "Refresh",
-            icon: const Icon(Iconsax.refresh),
-            iconSize: 18,
-            onPressed: () => _refreshTickets(context),
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            status.label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _sortableHeader(String label, controllerRead) {
-    return Row(
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(width: 4),
-        Icon(
-          Icons.arrow_upward,
-          size: 14,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget _priorityPill(BuildContext context, TicketPriority priority) {
+    final color = _getPriorityColor(priority);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        priority.label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
         ),
-      ],
+      ),
     );
   }
 
@@ -500,18 +615,20 @@ class _TicketListingViewState extends State<TicketListingView> {
     CustomerTicketModel ticket,
     PaginatedDataController<CustomerTicketModel> controllerWatch,
     PaginatedDataController<CustomerTicketModel> controllerRead,
+    int index,
   ) {
     final width = MediaQuery.of(context).size.width;
-    bool isSelected = controllerWatch.selectedIds.contains(ticket.uid);
+    final isSelected = controllerWatch.selectedIds.contains(ticket.uid);
+
     void openTicket(BuildContext context, String uid) {
-      if (kIsMobile || width < 1000) {
+      if (kIsMobile || width < _wideBreakpoint) {
         Sheet.showSheet(context, widget: TicketView(uid: uid));
       } else {
         GeneralDialog.showRTLSheet(context, TicketView(uid: uid));
       }
     }
 
-    DataCell dataCell(BuildContext context, Widget child, String uid) {
+    DataCell dataCell(Widget child, String uid) {
       return DataCell(
         InkWell(
           onTap: () => openTicket(context, uid),
@@ -525,6 +642,16 @@ class _TicketListingViewState extends State<TicketListingView> {
 
     return DataRow(
       selected: isSelected,
+      color: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return Theme.of(context).colorScheme.primary.withValues(alpha: 0.08);
+        }
+        return index.isEven
+            ? Colors.transparent
+            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.35,
+              );
+      }),
       onSelectChanged: (selected) {
         controllerRead.onSelected(ticket.uid ?? '', selected);
         if (selected ?? false) {
@@ -536,70 +663,33 @@ class _TicketListingViewState extends State<TicketListingView> {
       },
       cells: [
         dataCell(
-          context,
-          SelectableText(
+          Text(
             ticket.ticketNumber?.toString() ?? '-',
             style: Theme.of(
               context,
-            ).textTheme.bodySmall?.copyWith(fontSize: 11),
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           ticket.uid ?? '',
         ),
         dataCell(
-          context,
           Text(
             ticket.ticketTitle,
             style: Theme.of(
               context,
-            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
           ),
           ticket.uid ?? '',
         ),
+        dataCell(_statusPill(context, ticket.status), ticket.uid ?? ''),
         dataCell(
-          context,
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(5),
-              color: _getStatusColor(ticket.status).withValues(alpha: 0.1),
-            ),
-            child: Text(
-              ticket.status.label,
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                color: _getStatusColor(ticket.status),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ticket.uid ?? '',
-        ),
-        dataCell(
-          context,
           Text(ticket.clientName, style: Theme.of(context).textTheme.bodySmall),
           ticket.uid ?? '',
         ),
         dataCell(
-          context,
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(5),
-              color: _getPriorityColor(
-                ticket.priorityLevel,
-              ).withValues(alpha: 0.1),
-            ),
-            child: Text(
-              ticket.priorityLevel.label,
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                color: _getPriorityColor(ticket.priorityLevel),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          _priorityPill(context, ticket.priorityLevel),
           ticket.uid ?? '',
         ),
         dataCell(
-          context,
           Text(
             ticket.category.label,
             style: Theme.of(context).textTheme.bodySmall,
@@ -607,7 +697,6 @@ class _TicketListingViewState extends State<TicketListingView> {
           ticket.uid ?? '',
         ),
         dataCell(
-          context,
           Text(
             ticket.project != null
                 ? CacheService.getProjectByUid(ticket.project!)?.projectName ??
@@ -618,7 +707,6 @@ class _TicketListingViewState extends State<TicketListingView> {
           ticket.uid ?? '',
         ),
         dataCell(
-          context,
           Text(
             ticket.task != null
                 ? CacheService.getTaskByUid(ticket.task!)?.taskName ?? '-'
@@ -628,7 +716,6 @@ class _TicketListingViewState extends State<TicketListingView> {
           ticket.uid ?? '',
         ),
         dataCell(
-          context,
           ticket.ticketCreatedBy.uid.isNotEmpty
               ? CreatedByWidget(userData: ticket.ticketCreatedBy)
               : Wrap(
@@ -644,66 +731,33 @@ class _TicketListingViewState extends State<TicketListingView> {
         ),
         DataCell(
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (permissions?.canEdit ?? false) ...[
-                IconButton(
-                  icon: const Icon(Iconsax.edit),
+              if (permissions?.canEdit ?? false)
+                _iconCircleButton(
+                  context,
+                  icon: Iconsax.edit,
+                  tooltip: "Edit",
+                  background: AppColors.info.withValues(alpha: 0.12),
+                  iconColor: AppColors.info,
                   onPressed: () {
-                    if (kIsMobile || width < 1000) {
-                      Sheet.showSheet(
-                        context,
-                        widget: TicketEdit(uid: ticket.uid ?? ''),
-                      );
+                    final form = TicketEdit(uid: ticket.uid ?? '');
+                    if (kIsMobile || width < _wideBreakpoint) {
+                      Sheet.showSheet(context, widget: form);
                     } else {
-                      GeneralDialog.showRTLSheet(
-                        context,
-                        TicketEdit(uid: ticket.uid ?? ''),
-                      );
+                      GeneralDialog.showRTLSheet(context, form);
                     }
                   },
-                  color: Theme.of(context).colorScheme.secondary,
-                  splashRadius: 20,
                 ),
-              ],
               if (permissions?.canDelete ?? false) ...[
-                IconButton(
-                  icon: const Icon(Iconsax.trash),
-                  color: Theme.of(context).colorScheme.error,
-                  splashRadius: 20,
-                  tooltip: 'Delete $_pageTitle',
-                  onPressed: () async {
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => ConfirmDialog(
-                        title: 'Delete $_pageTitle',
-                        content: 'Are you sure you want to delete this ticket?',
-                      ),
-                    );
-
-                    if (result != true) return;
-
-                    try {
-                      final deletedTicket = ticket;
-
-                      await TicketService.deleteTicket(uid: ticket.uid ?? '');
-
-                      if (!mounted) return;
-
-                      FlushBar.show(
-                        context,
-                        '$_pageTitle deleted successfully',
-                        actionLabel: 'UNDO',
-                        onActionPressed: () async {
-                          await TicketService.restoreTicket(deletedTicket);
-
-                          context.read<TicketBloc>().add(StreamTickets());
-                        },
-                      );
-                    } catch (e, st) {
-                      await ErrorService.recordError(e, st);
-                      FlushBar.show(context, e.toString(), isSuccess: false);
-                    }
-                  },
+                const SizedBox(width: 8),
+                _iconCircleButton(
+                  context,
+                  icon: Iconsax.trash,
+                  tooltip: "Delete $_pageTitle",
+                  background: AppColors.danger.withValues(alpha: 0.12),
+                  iconColor: AppColors.danger,
+                  onPressed: () => _onDeleteTap(ticket),
                 ),
               ],
             ],
@@ -711,6 +765,96 @@ class _TicketListingViewState extends State<TicketListingView> {
         ),
       ],
     );
+  }
+
+  Future<void> _onDeleteTap(CustomerTicketModel ticket) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Delete $_pageTitle',
+        content: 'Are you sure you want to delete this ticket?',
+      ),
+    );
+
+    if (result != true) return;
+    if (!mounted) return;
+
+    try {
+      final deletedTicket = ticket;
+
+      await TicketService.deleteTicket(uid: ticket.uid ?? '');
+
+      if (!mounted) return;
+
+      FlushBar.show(
+        context,
+        '$_pageTitle deleted successfully',
+        actionLabel: 'UNDO',
+        onActionPressed: () async {
+          await TicketService.restoreTicket(deletedTicket);
+          if (!mounted) return;
+          context.read<TicketBloc>().add(StreamTickets());
+        },
+      );
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (!mounted) return;
+      FlushBar.show(context, e.toString(), isSuccess: false);
+    }
+  }
+
+  Future<void> _bulkDelete() async {
+    if (_selectedTickets.isEmpty) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Delete',
+        content: 'Are you sure want to delete this $_pageTitle?',
+      ),
+      barrierDismissible: false,
+    );
+
+    if (result != true) return;
+    if (!mounted) return;
+
+    try {
+      final deletedTickets = List<CustomerTicketModel>.from(_selectedTickets);
+
+      futureLoading(context);
+
+      for (var ticket in deletedTickets) {
+        await TicketService.deleteTicket(uid: ticket.uid ?? '');
+      }
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      _selectedTickets.clear();
+      setState(() {});
+
+      if (!mounted) return;
+
+      FlushBar.show(
+        context,
+        '$_pageTitle deleted successfully',
+        actionLabel: 'UNDO',
+        onActionPressed: () async {
+          for (var ticket in deletedTickets) {
+            await TicketService.restoreTicket(ticket);
+          }
+          if (!mounted) return;
+          context.read<TicketBloc>().add(StreamTickets());
+        },
+      );
+    } catch (e) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      if (!mounted) return;
+      FlushBar.show(context, e.toString(), isSuccess: false);
+    }
   }
 
   Color _getPriorityColor(TicketPriority priority) {
@@ -743,5 +887,127 @@ class _TicketListingViewState extends State<TicketListingView> {
       case TicketStatus.closed:
         return AppColors.grey;
     }
+  }
+}
+
+// ---------------------------------------------------------------------
+// A more polished, colorful search field for the Tickets toolbar.
+// ---------------------------------------------------------------------
+class _TicketSearchField extends StatefulWidget {
+  final ValueChanged<String> onChanged;
+  const _TicketSearchField({required this.onChanged});
+
+  @override
+  State<_TicketSearchField> createState() => _TicketSearchFieldState();
+}
+
+class _TicketSearchFieldState extends State<_TicketSearchField> {
+  final TextEditingController _controller = TextEditingController();
+  bool _hasText = false;
+  bool _focused = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      setState(() => _focused = _focusNode.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      height: 46,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _focused
+              ? primary.withValues(alpha: 0.55)
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: _focused ? 1.4 : 1,
+        ),
+        boxShadow: _focused
+            ? [
+                BoxShadow(
+                  color: primary.withValues(alpha: 0.16),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        style: Theme.of(context).textTheme.bodySmall,
+        onChanged: (val) {
+          setState(() => _hasText = val.isNotEmpty);
+          widget.onChanged(val);
+        },
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search tickets',
+          hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(9),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(
+                  Iconsax.search_normal_1,
+                  size: 12,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
+          ),
+          suffixIcon: _hasText
+              ? IconButton(
+                  splashRadius: 16,
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() => _hasText = false);
+                    widget.onChanged('');
+                  },
+                )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 4,
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+        ),
+      ),
+    );
   }
 }

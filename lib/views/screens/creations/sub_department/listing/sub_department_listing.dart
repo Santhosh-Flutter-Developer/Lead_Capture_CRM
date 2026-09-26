@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import '/models/models.dart';
@@ -124,40 +125,37 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshSubDepartments(),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: Scrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      interactive: true,
-                      trackVisibility: true,
-                      radius: const Radius.circular(8),
-                      thickness: 8,
-                      
-                    child: ListView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                      children: [
-                        if (isWide) ...[
-                          _buildHeaderBanner(context, state.subDepartments.length),
-                          const SizedBox(height: 20),
-                        ],
-                        _buildToolbar(
-                          context,
-                          controllerRead,
-                          state.subDepartments.length,
-                        ),
-                        const SizedBox(height: 18),
-                        controllerWatch.paginatedItems.isEmpty
-                            ? NoData(
-                                text: state.subDepartments.isEmpty
-                                    ? "No sub departments available"
-                                    : "No matching records found",
-                              )
-                            : _buildTableCard(context, controllerWatch, controllerRead),
+                child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    
+                  child: ListView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 20.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, state.subDepartments.length),
+                        const SizedBox(height: 20),
                       ],
-                    ),
+                      _buildToolbar(
+                        context,
+                        controllerRead,
+                        state.subDepartments.length,
+                      ),
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: state.subDepartments.isEmpty
+                                  ? "No sub departments available"
+                                  : "No matching records found",
+                            )
+                          : _buildTableCard(context, controllerWatch, controllerRead),
+                    ],
                   ),
                 ),
               );
@@ -537,8 +535,18 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
+            // Wrapped in AnimatedBuilder so the table rebuilds automatically
+            // once the departments Hive box finishes syncing/backfilling a
+            // cache miss (CacheService populates it asynchronously), instead
+            // of freezing on whatever snapshot existed at first paint - which
+            // is why the department name previously only appeared after some
+            // other action (sort, select, etc.) forced a rebuild.
+            child: AnimatedBuilder(
+              animation: Hive.isBoxOpen('departments')
+                  ? Hive.box<Map<dynamic, dynamic>>('departments').listenable()
+                  : Listenable.merge(const []),
+              builder: (context, _) => LayoutBuilder(
+                builder: (context, constraints) {
                 return Scrollbar(
                   controller: _hScrollController,
                   thumbVisibility: true,
@@ -594,6 +602,7 @@ class _SubDepartmentListingViewState extends State<SubDepartmentListingView> {
                   ),
                 );
               },
+            ),
             ),
           ),
           const Padding(

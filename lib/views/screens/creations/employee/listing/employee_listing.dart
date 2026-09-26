@@ -84,13 +84,21 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
   PermissionModel? tasksPermissions;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
-
+final ScrollController _scrollController = ScrollController();
   final TextEditingController _chatMessage = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _hScrollController.dispose();
+    _scrollController.dispose();
+    _chatMessage.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -162,197 +170,206 @@ class _EmployeeListingViewState extends State<EmployeeListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshUsers(),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                  children: [
-                    if (isWide) ...[
-                      _buildHeaderBanner(context, state.users.length),
-                      const SizedBox(height: 20),
-                    ],
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant,
+                child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, state.users.length),
+                        const SizedBox(height: 20),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.shadow.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.shadow.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFilterRow(
+                              onSearchChanged: controllerRead.setSearch,
+                            ),
+                            const SizedBox(height: 14),
+                            _buildActionRow(),
+                          ],
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildFilterRow(
-                            onSearchChanged: controllerRead.setSearch,
-                          ),
-                          const SizedBox(height: 14),
-                          _buildActionRow(),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    controllerWatch.paginatedItems.isEmpty
-                        ? NoData(
-                            text: state.users.isEmpty
-                                ? "No employees available"
-                                : "No matching records found",
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outlineVariant,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: state.users.isEmpty
+                                  ? "No employees available"
+                                  : "No matching records found",
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.shadow.withValues(alpha: 0.06),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 6),
+                                  ).colorScheme.outlineVariant,
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              children: [
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return Scrollbar(
-                                      controller: _hScrollController,
-                                      thumbVisibility: true,
-                                      trackVisibility: true,
-                                      thickness: 4,
-                                      radius: const Radius.circular(6),
-                                      scrollbarOrientation:
-                                          ScrollbarOrientation.bottom,
-                                      child: SingleChildScrollView(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.shadow.withValues(alpha: 0.06),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return Scrollbar(
                                         controller: _hScrollController,
-                                        scrollDirection: Axis.horizontal,
-                                        child: ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            minWidth: constraints.maxWidth,
-                                          ),
-                                          child: DataTable(
-                                            showCheckboxColumn: true,
-                                            columnSpacing: 24,
-                                            horizontalMargin: 16,
-                                            headingRowHeight: 48,
-                                            dataRowMinHeight: 56,
-                                            dataRowMaxHeight: 64,
-                                            sortColumnIndex:
-                                                controllerWatch.sortColumnIndex,
-                                            sortAscending:
-                                                controllerWatch.sortAscending,
-
-                                            headingRowColor:
-                                                WidgetStateProperty.all(
-                                                  Theme.of(context)
-                                                      .colorScheme
-                                                      .primary
-                                                      .withValues(alpha: 0.06),
-                                                ),
-                                            headingTextStyle: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                                ),
-                                            dataTextStyle: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: context
-                                                      .colors
-                                                      .textPrimary,
-                                                ),
-
-                                            columns: [
-                                              DataColumn(
-                                                label: const Text(
-                                                  "Employee ID",
-                                                ),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              DataColumn(
-                                                label: const Text("Name"),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              DataColumn(
-                                                label: const Text(
-                                                  "Department",
-                                                ),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              const DataColumn(
-                                                label: Text("Role"),
-                                              ),
-                                              DataColumn(
-                                                label: const Text("Email"),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              const DataColumn(
-                                                label: Text("Mobile app"),
-                                              ),
-                                              const DataColumn(
-                                                label: Text("Desktop app"),
-                                              ),
-                                              DataColumn(
-                                                label: const Text("Status"),
-                                                onSort: controllerRead.setSort,
-                                              ),
-                                              const DataColumn(
-                                                label: Text("Created By"),
-                                              ),
-                                              const DataColumn(
-                                                label: Text("Action"),
-                                              ),
-                                            ],
-
-                                            rows: controllerWatch.paginatedItems
-                                                .asMap()
-                                                .entries
-                                                .map(
-                                                  (entry) => _buildDataRow(
-                                                    context,
-                                                    entry.value, // user
-                                                    entry.key, // 👈 index
-                                                    controllerWatch,
-                                                    controllerRead,
+                                        thumbVisibility: true,
+                                        trackVisibility: true,
+                                        thickness: 4,
+                                        radius: const Radius.circular(6),
+                                        scrollbarOrientation:
+                                            ScrollbarOrientation.bottom,
+                                        child: SingleChildScrollView(
+                                          controller: _hScrollController,
+                                          scrollDirection: Axis.horizontal,
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              minWidth: constraints.maxWidth,
+                                            ),
+                                            child: DataTable(
+                                              showCheckboxColumn: true,
+                                              columnSpacing: 24,
+                                              horizontalMargin: 16,
+                                              headingRowHeight: 48,
+                                              dataRowMinHeight: 56,
+                                              dataRowMaxHeight: 64,
+                                              sortColumnIndex:
+                                                  controllerWatch.sortColumnIndex,
+                                              sortAscending:
+                                                  controllerWatch.sortAscending,
+                  
+                                              headingRowColor:
+                                                  WidgetStateProperty.all(
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                        .withValues(alpha: 0.06),
                                                   ),
-                                                )
-                                                .toList(),
+                                              headingTextStyle: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  ),
+                                              dataTextStyle: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: context
+                                                        .colors
+                                                        .textPrimary,
+                                                  ),
+                  
+                                              columns: [
+                                                DataColumn(
+                                                  label: const Text(
+                                                    "Employee ID",
+                                                  ),
+                                                  onSort: controllerRead.setSort,
+                                                ),
+                                                DataColumn(
+                                                  label: const Text("Name"),
+                                                  onSort: controllerRead.setSort,
+                                                ),
+                                                DataColumn(
+                                                  label: const Text(
+                                                    "Department",
+                                                  ),
+                                                  onSort: controllerRead.setSort,
+                                                ),
+                                                const DataColumn(
+                                                  label: Text("Role"),
+                                                ),
+                                                DataColumn(
+                                                  label: const Text("Email"),
+                                                  onSort: controllerRead.setSort,
+                                                ),
+                                                const DataColumn(
+                                                  label: Text("Mobile app"),
+                                                ),
+                                                const DataColumn(
+                                                  label: Text("Desktop app"),
+                                                ),
+                                                DataColumn(
+                                                  label: const Text("Status"),
+                                                  onSort: controllerRead.setSort,
+                                                ),
+                                                const DataColumn(
+                                                  label: Text("Created By"),
+                                                ),
+                                                const DataColumn(
+                                                  label: Text("Action"),
+                                                ),
+                                              ],
+                  
+                                              rows: controllerWatch.paginatedItems
+                                                  .asMap()
+                                                  .entries
+                                                  .map(
+                                                    (entry) => _buildDataRow(
+                                                      context,
+                                                      entry.value, // user
+                                                      entry.key, // 👈 index
+                                                      controllerWatch,
+                                                      controllerRead,
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                    vertical: 12.0,
+                                      );
+                                    },
                                   ),
-                                  child: PaginationControls<UserRowModel>(),
-                                ),
-                              ],
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                      vertical: 12.0,
+                                    ),
+                                    child: PaginationControls<UserRowModel>(),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             }

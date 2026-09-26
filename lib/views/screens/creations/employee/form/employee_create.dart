@@ -73,6 +73,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
   String? _preservedRole;
   List<String> _preservedReportingTo = [];
   List<dynamic> _preservedReportingToObjects = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -83,6 +84,8 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
       _isActive = employee!.isActive;
     }
   }
+
+  
 
   Future<void> _init() async {
     try {
@@ -123,6 +126,7 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
     _dateOfBirthController.dispose();
     _addressController.dispose();
     _aboutController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -400,77 +404,89 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
                     );
                   }
 
-                  return SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        child: Column(
-                          children: [
-                            _buildStepper(),
-                            const SizedBox(height: 20),
-                            if (_currentStep == 0) ...[
-                              _buildSectionCard(
-                                icon: Iconsax.gallery,
-                                accentColor: Theme.of(context).colorScheme.primary,
-                                title: "Profile Photo",
-                                subtitle:
-                                    "Add a profile picture to personalize this account",
-                                child: Center(child: _buildProfileUploader()),
-                              ),
-                              const SizedBox(height: 20),
-                              _buildSectionCard(
-                                icon: Iconsax.user,
-                                accentColor: AppColors.secondary,
-                                title: "Personal Details",
-                                subtitle:
-                                    "Basic information used to identify the employee",
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) =>
-                                      _buildPersonalFormFields(constraints, 4),
-                                ),
-                              ),
-                            ] else if (_currentStep == 1) ...[
-                              _buildSectionCard(
-                                icon: Iconsax.briefcase,
-                                accentColor: AppColors.orange,
-                                title: "Work Details",
-                                subtitle:
-                                    "Role, department and reporting structure",
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) =>
-                                      _buildWorkFormFields(constraints, 4),
-                                ),
-                              ),
-                            ] else if (_currentStep == 2) ...[
-                              _buildSectionCard(
-                                icon: Iconsax.call,
-                                accentColor: AppColors.success,
-                                title: "Contact Information",
-                                subtitle:
-                                    "Address and a short note about the employee",
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) =>
-                                      _buildContactFormFields(constraints, 2),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              _buildSectionCard(
-                                icon: Iconsax.setting_2,
-                                accentColor: AppColors.primary,
-                                title: "Other Details",
-                                subtitle:
-                                    "Login access, notifications and employment type",
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) =>
-                                      _buildOthersFormFields(constraints, 4),
-                                ),
-                              ),
-                            ],
-                          ],
+                  return Padding(
+                    padding: const EdgeInsets.only(right:8.0),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: Form(
+                          key: _formKey,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
+                            ),
+                            child: Column(
+                              children: [
+                                _buildStepper(),
+                                const SizedBox(height: 20),
+                                if (_currentStep == 0) ...[
+                                  _buildSectionCard(
+                                    icon: Iconsax.gallery,
+                                    accentColor: Theme.of(context).colorScheme.primary,
+                                    title: "Profile Photo",
+                                    subtitle:
+                                        "Add a profile picture to personalize this account",
+                                    child: Center(child: _buildProfileUploader()),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildSectionCard(
+                                    icon: Iconsax.user,
+                                    accentColor: AppColors.secondary,
+                                    title: "Personal Details",
+                                    subtitle:
+                                        "Basic information used to identify the employee",
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) =>
+                                          _buildPersonalFormFields(constraints, 4),
+                                    ),
+                                  ),
+                                ] else if (_currentStep == 1) ...[
+                                  _buildSectionCard(
+                                    icon: Iconsax.briefcase,
+                                    accentColor: AppColors.orange,
+                                    title: "Work Details",
+                                    subtitle:
+                                        "Role, department and reporting structure",
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) =>
+                                          _buildWorkFormFields(constraints, 4),
+                                    ),
+                                  ),
+                                ] else if (_currentStep == 2) ...[
+                                  _buildSectionCard(
+                                    icon: Iconsax.call,
+                                    accentColor: AppColors.success,
+                                    title: "Contact Information",
+                                    subtitle:
+                                        "Address and a short note about the employee",
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) =>
+                                          _buildContactFormFields(constraints, 2),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildSectionCard(
+                                    icon: Iconsax.setting_2,
+                                    accentColor: AppColors.primary,
+                                    title: "Other Details",
+                                    subtitle:
+                                        "Login access, notifications and employment type",
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) =>
+                                          _buildOthersFormFields(constraints, 4),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
