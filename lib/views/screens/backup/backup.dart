@@ -35,6 +35,12 @@ class _BackupListingState extends State<BackupListing> {
   BackupModel? _selectedBackup;
   late BuildContext blocContext;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   final Map<String, List<String>> _exampleSubcollectionsMap = {
     'users': [
       'activityLogs',
@@ -191,81 +197,114 @@ class _BackupListingState extends State<BackupListing> {
           blocContext = context;
           return Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            appBar: AppBar(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              elevation: 0,
-              leading: Back(color: Theme.of(context).colorScheme.onSurface),
-              centerTitle: false,
-              title: Text(
-                "Security Vault",
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 18,
-                ),
-              ),
-              actions: [
-                if (_busy)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: 16.0),
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  )
-                else
-                  IconButton(
-                    onPressed: () =>
-                        blocContext.read<BackupBloc>().add(StreamBackup()),
-                    icon: Icon(
-                      Iconsax.refresh,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                const SizedBox(width: 8),
-              ],
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(1),
-                child: Container(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                  height: 1,
-                ),
-              ),
-            ),
-            body: BlocBuilder<BackupBloc, BackupState>(
-              builder: (context, state) {
-                if (state is BackupLoading) {
-                  return const Center(child: WaitingLoading());
-                }
-                if (state is BackupError) {
-                  return _buildErrorState(state.message);
-                }
-                if (state is BackupLoaded) {
-                  final items = state.backups.where((b) {
-                    if (_search.isEmpty) return true;
-                    final s = _search.toLowerCase();
-                    return b.path.toLowerCase().contains(s) ||
-                        b.url.toLowerCase().contains(s);
-                  }).toList();
+            body: Column(
+              children: [
+                _buildHeader(context),
+                Expanded(
+                  child: BlocBuilder<BackupBloc, BackupState>(
+                    builder: (context, state) {
+                      if (state is BackupLoading) {
+                        return const Center(child: WaitingLoading());
+                      }
+                      if (state is BackupError) {
+                        return _buildErrorState(state.message);
+                      }
+                      if (state is BackupLoaded) {
+                        final items = state.backups.where((b) {
+                          if (_search.isEmpty) return true;
+                          final s = _search.toLowerCase();
+                          return b.path.toLowerCase().contains(s) ||
+                              b.url.toLowerCase().contains(s);
+                        }).toList();
 
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final bool isDesktop = constraints.maxWidth > 1100;
-                      return isDesktop
-                          ? _buildDesktopLayout(items)
-                          : _buildMobileLayout(items);
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            final bool isDesktop = constraints.maxWidth > 1100;
+                            return isDesktop
+                                ? _buildDesktopLayout(items)
+                                : _buildMobileLayout(items);
+                          },
+                        );
+                      }
+                      return const SizedBox.shrink();
                     },
-                  );
-                }
-                return const SizedBox.shrink();
-              },
+                  ),
+                ),
+              ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.of(context).padding.top + 16,
+        12,
+        16,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Back(color: Colors.white),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Iconsax.cloud, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Security Vault",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Manage cloud backups and data snapshots",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_busy)
+            const Padding(
+              padding: EdgeInsets.only(right: 8.0),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              onPressed: () =>
+                  blocContext.read<BackupBloc>().add(StreamBackup()),
+              icon: const Icon(Iconsax.refresh, color: Colors.white, size: 20),
+            ),
+        ],
       ),
     );
   }

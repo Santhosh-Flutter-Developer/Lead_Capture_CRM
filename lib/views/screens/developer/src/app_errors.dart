@@ -29,6 +29,12 @@ class _AppErrorsState extends State<AppErrors> {
   List<Map<String, dynamic>> _errors = [];
   Map<String, dynamic>? _selectedError;
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -89,63 +95,87 @@ class _AppErrorsState extends State<AppErrors> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        centerTitle: false,
-        leading: Back(color: Theme.of(context).colorScheme.onSurface),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "System Logs",
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              "Latest 100 entries",
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
+      body: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(
+            child: _loading
+                ? const Center(child: WaitingLoading())
+                : _errors.isEmpty
+                ? _buildEmptyState()
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bool isDesktop = constraints.maxWidth > 1100;
+                      return isDesktop
+                          ? _buildDesktopLayout()
+                          : _buildMobileLayout();
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.of(context).padding.top + 16,
+        12,
+        16,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Iconsax.refresh,
-              color: Theme.of(context).colorScheme.primary,
-              size: 20,
+      ),
+      child: Row(
+        children: [
+          Back(color: Colors.white),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: const Icon(
+              Iconsax.close_circle,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "System Logs",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Latest 100 entries",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Iconsax.refresh, color: Colors.white, size: 20),
             onPressed: _loadErrors,
             tooltip: "Reload",
           ),
-          const SizedBox(width: 8),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            height: 1,
-          ),
-        ),
       ),
-      body: _loading
-          ? const Center(child: WaitingLoading())
-          : _errors.isEmpty
-          ? _buildEmptyState()
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final bool isDesktop = constraints.maxWidth > 1100;
-                return isDesktop ? _buildDesktopLayout() : _buildMobileLayout();
-              },
-            ),
     );
   }
 

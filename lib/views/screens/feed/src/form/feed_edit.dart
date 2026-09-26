@@ -352,191 +352,205 @@ class _FeedEditState extends State<FeedEdit> {
             return Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header (Author Info)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColors.primary.withValues(alpha: 0.08),
-                                AppColors.primary.withValues(alpha: 0.02),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.primary,
-                                    width: 1.5,
-                                  ),
+                  child: Padding(
+                   padding: const EdgeInsets.only(right: 8.0),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header (Author Info)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.primary.withValues(alpha: 0.08),
+                                    AppColors.primary.withValues(alpha: 0.02),
+                                  ],
                                 ),
-                                child: CircleAvatar(
-                                  radius: 20,
-                                  backgroundImage: NetworkImage(
-                                    _feedModel.authorAvatar.isNotEmpty
-                                        ? _feedModel.authorAvatar
-                                        : AppStrings.emptyProfilePhotoUrl,
-                                  ),
-                                ),
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    _feedModel.authorName,
-                                    style: Theme.of(context).textTheme.bodyMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurface,
-                                        ),
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.public,
-                                        size: 11,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
+                                  Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.primary,
+                                        width: 1.5,
                                       ),
-                                      const SizedBox(width: 4),
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 20,
+                                      backgroundImage: NetworkImage(
+                                        _feedModel.authorAvatar.isNotEmpty
+                                            ? _feedModel.authorAvatar
+                                            : AppStrings.emptyProfilePhotoUrl,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        "Editing Feed post",
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
+                                        _feedModel.authorName,
+                                        style: Theme.of(context).textTheme.bodyMedium
                                             ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
                                             ),
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.public,
+                                            size: 11,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            "Editing Feed post",
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Content Input
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
                             ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: TextField(
-                          controller: _contentController,
-                          maxLines: null,
-                          minLines: 3,
-                          decoration: InputDecoration(
-                            hintText: "What's on your mind?",
-                            border: InputBorder.none,
-                            hintStyle: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
+                      
+                            const SizedBox(height: 20),
+                      
+                            // Content Input
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onSurfaceVariant,
+                                  ).colorScheme.outlineVariant,
                                 ),
-                          ),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                        ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // --- MEDIA SECTION (Existing + New) ---
-                        if (_existingMedia.isNotEmpty ||
-                            _newMediaFiles.isNotEmpty)
-                          Container(
-                            height: 200,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              children: [
-                                // Existing Media (Network)
-                                ..._existingMedia.map(
-                                  (media) => _buildMediaPreview(
-                                    imageProvider: NetworkImage(media.url),
-                                    onRemove: () {
-                                      setState(() {
-                                        _existingMedia.remove(media);
-                                      });
-                                    },
+                              child: TextField(
+                              controller: _contentController,
+                              maxLines: null,
+                              minLines: 3,
+                              decoration: InputDecoration(
+                                hintText: "What's on your mind?",
+                                border: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                hintStyle: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
+                            ),
+                            ),
+                      
+                            const SizedBox(height: 20),
+                      
+                            // --- MEDIA SECTION (Existing + New) ---
+                            if (_existingMedia.isNotEmpty ||
+                                _newMediaFiles.isNotEmpty)
+                              Container(
+                                height: 200,
+                                margin: const EdgeInsets.only(bottom: 20),
+                                child: ListView(
+                                  scrollDirection: Axis.horizontal,
+                                  children: [
+                                    // Existing Media (Network)
+                                    ..._existingMedia.map(
+                                      (media) => _buildMediaPreview(
+                                        imageProvider: NetworkImage(media.url),
+                                        onRemove: () {
+                                          setState(() {
+                                            _existingMedia.remove(media);
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    // New Media (File)
+                                    ..._newMediaFiles.map(
+                                      (file) => _buildMediaPreview(
+                                        imageProvider: MemoryImage(file.bytes!),
+                                        onRemove: () {
+                                          setState(() {
+                                            _newMediaFiles.remove(file);
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                // New Media (File)
-                                ..._newMediaFiles.map(
-                                  (file) => _buildMediaPreview(
-                                    imageProvider: MemoryImage(file.bytes!),
-                                    onRemove: () {
-                                      setState(() {
-                                        _newMediaFiles.remove(file);
-                                      });
-                                    },
-                                  ),
+                              ),
+                      
+                            // --- FILES SECTION (Existing + New) ---
+                            if (_existingAttachments.isNotEmpty)
+                              ..._existingAttachments.map(
+                                (fileModel) => _buildFileRow(
+                                  name: fileModel.name,
+                                  onTap: () => previewAttachment(context, fileModel),
+                                  onRemove: () {
+                                    setState(() {
+                                      _existingAttachments.remove(fileModel);
+                                    });
+                                  },
                                 ),
-                              ],
-                            ),
-                          ),
-
-                        // --- FILES SECTION (Existing + New) ---
-                        if (_existingAttachments.isNotEmpty)
-                          ..._existingAttachments.map(
-                            (fileModel) => _buildFileRow(
-                              name: fileModel.name,
-                              onTap: () => previewAttachment(context, fileModel),
-                              onRemove: () {
-                                setState(() {
-                                  _existingAttachments.remove(fileModel);
-                                });
-                              },
-                            ),
-                          ),
-
-                        if (_newDocumentFiles.isNotEmpty)
-                          ..._newDocumentFiles.map(
-                            (file) => _buildFileRow(
-                              name: file.name,
-                              onRemove: () {
-                                setState(() {
-                                  _newDocumentFiles.remove(file);
-                                });
-                              },
-                            ),
-                          ),
-
-                        // Poll Section
-                        if (_isPollActive) _buildPollCreator(),
-                      ],
+                              ),
+                      
+                            if (_newDocumentFiles.isNotEmpty)
+                              ..._newDocumentFiles.map(
+                                (file) => _buildFileRow(
+                                  name: file.name,
+                                  onRemove: () {
+                                    setState(() {
+                                      _newDocumentFiles.remove(file);
+                                    });
+                                  },
+                                ),
+                              ),
+                      
+                            // Poll Section
+                            if (_isPollActive) _buildPollCreator(),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

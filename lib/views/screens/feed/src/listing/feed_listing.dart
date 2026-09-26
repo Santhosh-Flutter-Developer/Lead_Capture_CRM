@@ -38,12 +38,20 @@ class FeedListing extends StatefulWidget {
 
 class _FeedListingState extends State<FeedListing> {
   String? _currentUserUid;
+  ScrollController _scrollController = ScrollController();
+
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
     context.read<FeedBloc>().add(LoadFeeds());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -204,62 +212,72 @@ class _FeedListingState extends State<FeedListing> {
 
             return RefreshIndicator(
               onRefresh: () async => _refreshFeed(),
-              child: ScrollConfiguration(
-                // The app shell (desktop_main_screen.dart) already wraps
-                // every page in its own Scrollbar. Flutter's default
-                // behavior additionally auto-draws a scrollbar on any
-                // Scrollable on web/desktop, which was showing up right
-                // next to the shell's one - two adjacent scrollbars for
-                // what looks like a single scroll region. This disables
-                // just the automatic one for Feed's own list/grid.
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(scrollbars: false),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: isNarrow
-                        // Single column on mobile/narrow screens: a plain
-                        // list lets each card size itself to its own content
-                        // (image, poll, files, caption can all differ in
-                        // height), instead of forcing every card into the
-                        // same fixed-aspect-ratio box — which is what caused
-                      // the repeated overflow errors on narrow widths.
-                      ? ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: state.feeds.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            return FeedCard(
-                              key: ValueKey(state.feeds[index].uid),
-                              feed: state.feeds[index],
-                              currentUserUid: _currentUserUid,
-                              onRefresh: _refreshFeed,
-                              fixedMediaHeight: 280,
-                            );
-                          },
-                        )
-                      : GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio:
-                                    0.72, // Taller aspect ratio for Instagram-like feel with text
-                              ),
-                          itemCount: state.feeds.length,
-                          itemBuilder: (context, index) {
-                            return FeedCard(
-                              key: ValueKey(state.feeds[index].uid),
-                              feed: state.feeds[index],
-                              currentUserUid: _currentUserUid,
-                              onRefresh: _refreshFeed,
-                            );
-                          },
-                        ),
+              child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                child: ScrollConfiguration(
+                  // The app shell (desktop_main_screen.dart) already wraps
+                  // every page in its own Scrollbar. Flutter's default
+                  // behavior additionally auto-draws a scrollbar on any
+                  // Scrollable on web/desktop, which was showing up right
+                  // next to the shell's one - two adjacent scrollbars for
+                  // what looks like a single scroll region. This disables
+                  // just the automatic one for Feed's own list/grid.
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      child: isNarrow
+                          // Single column on mobile/narrow screens: a plain
+                          // list lets each card size itself to its own content
+                          // (image, poll, files, caption can all differ in
+                          // height), instead of forcing every card into the
+                          // same fixed-aspect-ratio box — which is what caused
+                        // the repeated overflow errors on narrow widths.
+                        ? ListView.separated(
+                          controller: _scrollController,
+                            padding: const EdgeInsets.all(12),
+                            itemCount: state.feeds.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              return FeedCard(
+                                key: ValueKey(state.feeds[index].uid),
+                                feed: state.feeds[index],
+                                currentUserUid: _currentUserUid,
+                                onRefresh: _refreshFeed,
+                                fixedMediaHeight: 280,
+                              );
+                            },
+                          )
+                        : GridView.builder(
+                           controller: _scrollController,
+                            padding: const EdgeInsets.all(12),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio:
+                                      0.72, // Taller aspect ratio for Instagram-like feel with text
+                                ),
+                            itemCount: state.feeds.length,
+                            itemBuilder: (context, index) {
+                              return FeedCard(
+                                key: ValueKey(state.feeds[index].uid),
+                                feed: state.feeds[index],
+                                currentUserUid: _currentUserUid,
+                                onRefresh: _refreshFeed,
+                              );
+                            },
+                          ),
+                    ),
                   ),
                 ),
               ),
@@ -323,6 +341,7 @@ class FeedCardState extends State<FeedCard> {
   late String _postAuthorName;
   late String _postAuthorAvatar;
   bool _isAdmin = false;
+    ScrollController viewpostscrollController = ScrollController();
 
   Future<void> _checkAdmin() async {
     final isAdmin = await Spdb.isAdminLoggedIn();
@@ -331,6 +350,12 @@ class FeedCardState extends State<FeedCard> {
         _isAdmin = isAdmin;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    viewpostscrollController.dispose();
+    super.dispose();
   }
 
   int get _commentCount {
@@ -627,440 +652,555 @@ class FeedCardState extends State<FeedCard> {
                         
                         // Text, Poll and Comments section
                         Expanded(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Images section
-                        if (widget.feed.mediaImages.isNotEmpty)
-                          SizedBox(
-                            height: imageAreaHeight,
-                            child: Stack(
-                              children: [
-                                PageView.builder(
-                                  controller: dialogPageController,
-                                  itemCount: widget.feed.mediaImages.length,
-                                  onPageChanged: (index) {
-                                    setDialogState(() {
-                                      dialogImageIndex = index;
-                                    });
-                                  },
-                                  itemBuilder: (context, index) {
-                                    return Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color.lerp(
+                          child: Scrollbar(
+                    controller: viewpostscrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                            child: SingleChildScrollView(
+                              controller: viewpostscrollController,
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Images section
+                                                    if (widget.feed.mediaImages.isNotEmpty)
+                            SizedBox(
+                              height: imageAreaHeight,
+                              child: Stack(
+                                children: [
+                                  PageView.builder(
+                                    controller: dialogPageController,
+                                    itemCount: widget.feed.mediaImages.length,
+                                    onPageChanged: (index) {
+                                      setDialogState(() {
+                                        dialogImageIndex = index;
+                                      });
+                                    },
+                                    itemBuilder: (context, index) {
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Color.lerp(
+                                                Colors.black,
+                                                accent,
+                                                0.25,
+                                              )!,
                                               Colors.black,
-                                              accent,
-                                              0.25,
-                                            )!,
-                                            Colors.black,
-                                          ],
-                                        ),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Image.network(
-                                          widget.feed.mediaImages[index].url,
-                                          fit: BoxFit.contain,
-                                          width: double.infinity,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                if (widget.feed.mediaImages.length > 1)
-                                  Positioned(
-                                    left: 12,
-                                    right: 12,
-                                    bottom: 10,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Swipe to see all images',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                            ],
                                           ),
                                         ),
-                                        const Spacer(),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
+                                        alignment: Alignment.center,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: Image.network(
+                                            widget.feed.mediaImages[index].url,
+                                            fit: BoxFit.contain,
+                                            width: double.infinity,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(
-                                              14,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  if (widget.feed.mediaImages.length > 1)
+                                    Positioned(
+                                      left: 12,
+                                      right: 12,
+                                      bottom: 10,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
                                             ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: List.generate(
-                                              widget.feed.mediaImages.length,
-                                              (idx) => Container(
-                                                width: 6,
-                                                height: 6,
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: dialogImageIndex == idx
-                                                      ? Colors.white
-                                                      : Colors.white54,
-                                                ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black54,
+                                              borderRadius: BorderRadius.circular(
+                                                14,
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (widget.feed.mediaImages.length > 1)
-                                  Positioned(
-                                    left: 6,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: IconButton(
-                                      onPressed: dialogImageIndex == 0
-                                          ? null
-                                          : () {
-                                              dialogPageController.previousPage(
-                                                duration: const Duration(
-                                                  milliseconds: 220,
-                                                ),
-                                                curve: Curves.easeOut,
-                                              );
-                                            },
-                                      icon: const Icon(
-                                        Icons.chevron_left,
-                                        color: Colors.white,
-                                        size: 30,
-                                      ),
-                                    ),
-                                  ),
-                                if (widget.feed.mediaImages.length > 1)
-                                  Positioned(
-                                    right: 6,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: IconButton(
-                                      onPressed:
-                                          dialogImageIndex ==
-                                              widget.feed.mediaImages.length - 1
-                                          ? null
-                                          : () {
-                                              dialogPageController.nextPage(
-                                                duration: const Duration(
-                                                  milliseconds: 220,
-                                                ),
-                                                curve: Curves.easeOut,
-                                              );
-                                            },
-                                      icon: const Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.white,
-                                        size: 30,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                                if (widget.feed.content.trim().isNotEmpty) ...[
-                                  SelectableText(
-                                    widget.feed.content,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      height: 1.4,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
-                    
-                                if (pollModel != null) ...[
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      color: accent.withValues(alpha: 0.05),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: accent.withValues(alpha: 0.3),
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: accent,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.bar_chart_rounded,
-                                                size: 13,
+                                            child: Text(
+                                              'Swipe to see all images',
+                                              style: const TextStyle(
                                                 color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                pollModel.question,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
+                                          ),
+                                          const Spacer(),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black54,
+                                              borderRadius: BorderRadius.circular(
+                                                14,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: List.generate(
+                                                widget.feed.mediaImages.length,
+                                                (idx) => Container(
+                                                  width: 6,
+                                                  height: 6,
+                                                  margin:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: dialogImageIndex == idx
+                                                        ? Colors.white
+                                                        : Colors.white54,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (widget.feed.mediaImages.length > 1)
+                                    Positioned(
+                                      left: 6,
+                                      top: 0,
+                                      bottom: 0,
+                                      child: IconButton(
+                                        onPressed: dialogImageIndex == 0
+                                            ? null
+                                            : () {
+                                                dialogPageController.previousPage(
+                                                  duration: const Duration(
+                                                    milliseconds: 220,
+                                                  ),
+                                                  curve: Curves.easeOut,
+                                                );
+                                              },
+                                        icon: const Icon(
+                                          Icons.chevron_left,
+                                          color: Colors.white,
+                                          size: 30,
+                                        ),
+                                      ),
+                                    ),
+                                  if (widget.feed.mediaImages.length > 1)
+                                    Positioned(
+                                      right: 6,
+                                      top: 0,
+                                      bottom: 0,
+                                      child: IconButton(
+                                        onPressed:
+                                            dialogImageIndex ==
+                                                widget.feed.mediaImages.length - 1
+                                            ? null
+                                            : () {
+                                                dialogPageController.nextPage(
+                                                  duration: const Duration(
+                                                    milliseconds: 220,
+                                                  ),
+                                                  curve: Curves.easeOut,
+                                                );
+                                              },
+                                        icon: const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.white,
+                                          size: 30,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 10),
+                                  if (widget.feed.content.trim().isNotEmpty) ...[
+                                    SelectableText(
+                                      widget.feed.content,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.4,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                                
+                                  if (pollModel != null) ...[
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: accent.withValues(alpha: 0.05),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: accent.withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: accent,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.bar_chart_rounded,
+                                                  size: 13,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  pollModel.question,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          ...pollModel.options.map((option) {
+                                            final isSelected =
+                                                selectedOptionId == option.optionId;
+                                            final pct = totalVotes == 0
+                                                ? 0
+                                                : ((option.votes / totalVotes) *
+                                                          100)
+                                                      .round();
+                                                
+                                            return GestureDetector(
+                                              onTap: hasCurrentUserVoted
+                                                  ? null
+                                                  : () {
+                                                      setDialogState(() {
+                                                        selectedOptionId =
+                                                            option.optionId;
+                                                      });
+                                                    },
+                                              child: Container(
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 8,
+                                                ),
+                                                clipBehavior: Clip.antiAlias,
+                                                decoration: BoxDecoration(
                                                   color: Theme.of(
                                                     context,
-                                                  ).colorScheme.onSurface,
+                                                  ).colorScheme.surface,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? accent
+                                                        : Theme.of(
+                                                            context,
+                                                          ).colorScheme.outlineVariant,
+                                                    width: isSelected ? 1.5 : 1,
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        ...pollModel.options.map((option) {
-                                          final isSelected =
-                                              selectedOptionId == option.optionId;
-                                          final pct = totalVotes == 0
-                                              ? 0
-                                              : ((option.votes / totalVotes) *
-                                                        100)
-                                                    .round();
-                    
-                                          return GestureDetector(
-                                            onTap: hasCurrentUserVoted
-                                                ? null
-                                                : () {
-                                                    setDialogState(() {
-                                                      selectedOptionId =
-                                                          option.optionId;
-                                                    });
-                                                  },
-                                            child: Container(
-                                              margin: const EdgeInsets.only(
-                                                bottom: 8,
-                                              ),
-                                              clipBehavior: Clip.antiAlias,
-                                              decoration: BoxDecoration(
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.surface,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: isSelected
-                                                      ? accent
-                                                      : Theme.of(
-                                                          context,
-                                                        ).colorScheme.outlineVariant,
-                                                  width: isSelected ? 1.5 : 1,
-                                                ),
-                                              ),
-                                              child: Stack(
-                                                children: [
-                                                  if (totalVotes > 0)
-                                                    Positioned.fill(
-                                                      child: FractionallySizedBox(
-                                                        alignment:
-                                                            Alignment.centerLeft,
-                                                        widthFactor: pct / 100,
-                                                        child: Container(
-                                                          color: accent
-                                                              .withValues(
-                                                                alpha: 0.14,
-                                                              ),
+                                                child: Stack(
+                                                  children: [
+                                                    if (totalVotes > 0)
+                                                      Positioned.fill(
+                                                        child: FractionallySizedBox(
+                                                          alignment:
+                                                              Alignment.centerLeft,
+                                                          widthFactor: pct / 100,
+                                                          child: Container(
+                                                            color: accent
+                                                                .withValues(
+                                                                  alpha: 0.14,
+                                                                ),
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 10,
-                                                          vertical: 9,
-                                                        ),
-                                                    child: Row(
-                                                      children: [
-                                                        if (isSelected) ...[
-                                                          Icon(
-                                                            Icons.check_circle,
-                                                            size: 15,
-                                                            color: accent,
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 10,
+                                                            vertical: 9,
                                                           ),
-                                                          const SizedBox(
-                                                            width: 6,
-                                                          ),
-                                                        ],
-                                                        Expanded(
-                                                          child: Text(
-                                                            option.title,
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              color: Theme.of(
-                                                                context,
-                                                              ).colorScheme.onSurface,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
+                                                      child: Row(
+                                                        children: [
+                                                          if (isSelected) ...[
+                                                            Icon(
+                                                              Icons.check_circle,
+                                                              size: 15,
+                                                              color: accent,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                          ],
+                                                          Expanded(
+                                                            child: Text(
+                                                              option.title,
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
                                                             ),
                                                           ),
-                                                        ),
-                                                        Text(
-                                                          '${option.votes} votes${totalVotes > 0 ? ' ($pct%)' : ''}',
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: accent,
+                                                          Text(
+                                                            '${option.votes} votes${totalVotes > 0 ? ' ($pct%)' : ''}',
+                                                            style: TextStyle(
+                                                              fontSize: 11,
+                                                              fontWeight:
+                                                                  FontWeight.w700,
+                                                              color: accent,
+                                                            ),
                                                           ),
-                                                        ),
-                                                      ],
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        }),
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            if (widget.currentUserUid != null)
-                                              ElevatedButton(
-                                                onPressed:
-                                                    (selectedOptionId == null ||
-                                                        hasCurrentUserVoted ||
-                                                        isVoting)
-                                                    ? null
-                                                    : () async {
-                                                        final feedId =
-                                                            widget.feed.uid;
-                                                        if (feedId == null) {
-                                                          FlushBar.show(
-                                                            context,
-                                                            'Feed id is missing',
-                                                            isSuccess: false,
-                                                          );
-                                                          return;
-                                                        }
-                    
-                                                        setDialogState(() {
-                                                          isVoting = true;
-                                                        });
-                    
-                                                        try {
-                                                          await FeedService.votePoll(
-                                                            feedId: feedId,
-                                                            optionId:
-                                                                selectedOptionId!,
-                                                          );
-                    
-                                                          setDialogState(() {
-                                                            final option = pollModel
-                                                                .options
-                                                                .firstWhere(
-                                                                  (o) =>
-                                                                      o.optionId ==
-                                                                      selectedOptionId,
-                                                                );
-                                                            option.votes += 1;
-                                                            if (widget
-                                                                    .currentUserUid !=
-                                                                null) {
-                                                              pollModel
-                                                                  .votedUserIds
-                                                                  .add(
-                                                                    widget
-                                                                        .currentUserUid!,
-                                                                  );
-                                                            }
-                                                            isVoting = false;
-                                                          });
-                    
-                                                          if (mounted) {
-                                                            widget.onRefresh();
-                                                          }
-                                                        } catch (e) {
-                                                          setDialogState(() {
-                                                            isVoting = false;
-                                                          });
-                                                          if (mounted) {
-                                                            FlushBar.show(
-                                                              context,
-                                                              e.toString(),
-                                                              isSuccess: false,
-                                                            );
-                                                          }
-                                                        }
-                                                      },
-                                                child: Text(
-                                                  hasCurrentUserVoted
-                                                      ? 'Already Participated'
-                                                      : isVoting
-                                                      ? 'Voting...'
-                                                      : 'Participate',
+                                                  ],
                                                 ),
                                               ),
-                                            if (widget.currentUserUid ==
-                                                widget.feed.authorId)
-                                              OutlinedButton(
-                                                onPressed: () {
-                                                  Navigator.pop(dialogContext);
-                                                  _openPostEdit();
-                                                },
-                                                child: const Text('Manage Poll'),
-                                              ),
-                                          ],
+                                            );
+                                          }),
+                                          const SizedBox(height: 6),
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              if (widget.currentUserUid != null)
+                                                ElevatedButton(
+                                                  onPressed:
+                                                      (selectedOptionId == null ||
+                                                          hasCurrentUserVoted ||
+                                                          isVoting)
+                                                      ? null
+                                                      : () async {
+                                                          final feedId =
+                                                              widget.feed.uid;
+                                                          if (feedId == null) {
+                                                            FlushBar.show(
+                                                              context,
+                                                              'Feed id is missing',
+                                                              isSuccess: false,
+                                                            );
+                                                            return;
+                                                          }
+                                                
+                                                          setDialogState(() {
+                                                            isVoting = true;
+                                                          });
+                                                
+                                                          try {
+                                                            await FeedService.votePoll(
+                                                              feedId: feedId,
+                                                              optionId:
+                                                                  selectedOptionId!,
+                                                            );
+                                                
+                                                            setDialogState(() {
+                                                              final option = pollModel
+                                                                  .options
+                                                                  .firstWhere(
+                                                                    (o) =>
+                                                                        o.optionId ==
+                                                                        selectedOptionId,
+                                                                  );
+                                                              option.votes += 1;
+                                                              if (widget
+                                                                      .currentUserUid !=
+                                                                  null) {
+                                                                pollModel
+                                                                    .votedUserIds
+                                                                    .add(
+                                                                      widget
+                                                                          .currentUserUid!,
+                                                                    );
+                                                              }
+                                                              isVoting = false;
+                                                            });
+                                                
+                                                            if (mounted) {
+                                                              widget.onRefresh();
+                                                            }
+                                                          } catch (e) {
+                                                            setDialogState(() {
+                                                              isVoting = false;
+                                                            });
+                                                            if (mounted) {
+                                                              FlushBar.show(
+                                                                context,
+                                                                e.toString(),
+                                                                isSuccess: false,
+                                                              );
+                                                            }
+                                                          }
+                                                        },
+                                                  child: Text(
+                                                    hasCurrentUserVoted
+                                                        ? 'Already Participated'
+                                                        : isVoting
+                                                        ? 'Voting...'
+                                                        : 'Participate',
+                                                  ),
+                                                ),
+                                              if (widget.currentUserUid ==
+                                                  widget.feed.authorId)
+                                                OutlinedButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(dialogContext);
+                                                    _openPostEdit();
+                                                  },
+                                                  child: const Text('Manage Poll'),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                                
+                                  if (widget.feed.attachments.isNotEmpty) ...[
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Iconsax.folder_open,
+                                          size: 15,
+                                          color: accent,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Attachments (${widget.feed.attachments.length})',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
-                    
-                                if (widget.feed.attachments.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: Theme.of(context).dividerColor,
+                                        ),
+                                      ),
+                                      child: ListView.separated(
+                                        shrinkWrap: true,
+                                        primary: false,
+                                        padding: const EdgeInsets.all(10),
+                                        itemCount: widget.feed.attachments.length,
+                                        separatorBuilder: (context, index) =>
+                                            const Divider(height: 14),
+                                        itemBuilder: (context, index) {
+                                          final file =
+                                              widget.feed.attachments[index];
+                                          return Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: accent.withValues(
+                                                    alpha: 0.12,
+                                                  ),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  Iconsax.document,
+                                                  size: 14,
+                                                  color: accent,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      file.name,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: FeedAppColors
+                                                            .textPrimary,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      _formatFileSize(file.size),
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: FeedAppColors
+                                                            .textSecondary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              TextButton(
+                                                onPressed: () =>
+                                                    previewAttachment(
+                                                      context,
+                                                      file,
+                                                    ),
+                                                child: const Text('Open'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                                
+                                 
+                                  const SizedBox(height: 8),
+                                                
                                   Row(
                                     children: [
                                       Icon(
-                                        Iconsax.folder_open,
+                                        Iconsax.message_text,
                                         size: 15,
                                         color: accent,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'Attachments (${widget.feed.attachments.length})',
+                                        'Comments (${dialogComments.length})',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
@@ -1072,494 +1212,389 @@ class FeedCardState extends State<FeedCard> {
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                    child: ListView.separated(
-                                      shrinkWrap: true,
-                                      primary: false,
-                                      padding: const EdgeInsets.all(10),
-                                      itemCount: widget.feed.attachments.length,
-                                      separatorBuilder: (context, index) =>
-                                          const Divider(height: 14),
-                                      itemBuilder: (context, index) {
-                                        final file =
-                                            widget.feed.attachments[index];
-                                        return Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: accent.withValues(
-                                                  alpha: 0.12,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(
-                                                Iconsax.document,
-                                                size: 14,
-                                                color: accent,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    file.name,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: FeedAppColors
-                                                          .textPrimary,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    _formatFileSize(file.size),
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color: FeedAppColors
-                                                          .textSecondary,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  previewAttachment(
-                                                    context,
-                                                    file,
-                                                  ),
-                                              child: const Text('Open'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
-                    
-                                const Divider(height: 1),
-                                const SizedBox(height: 8),
-                    
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Iconsax.message_text,
-                                      size: 15,
-                                      color: accent,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Comments (${dialogComments.length})',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
+                                  SizedBox(
+                                    height: 300,
+                                    child: Container(
+                                      decoration: BoxDecoration(
                                         color: Theme.of(
                                           context,
-                                        ).colorScheme.onSurface,
+                                        ).colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: Theme.of(context).dividerColor,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  height: 300,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surface,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                    ),
-                                    child: dialogComments.isEmpty
-                                        ? Center(
-                                            child: Text(
-                                              'No comments yet',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
+                                      child: dialogComments.isEmpty
+                                          ? Center(
+                                              child: Text(
+                                                'No comments yet',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurfaceVariant,
+                                                ),
                                               ),
-                                            ),
-                                          )
-                                        : Scrollbar(
-                                            thumbVisibility: true,
-                                            child: ListView.separated(
-                                              physics:
-                                                  const AlwaysScrollableScrollPhysics(),
-                                              primary: false,
-                                              padding: const EdgeInsets.all(10),
-                                              itemCount: dialogComments.length,
-                                              separatorBuilder:
-                                                  (context, index) =>
-                                                      const SizedBox(height: 10),
-                                              itemBuilder: (context, index) {
-                                                final comment =
-                                                    dialogComments[index];
-                                                final liveAuthor =
-                                                    commentAuthors[comment
-                                                        .authorId];
-                                                final authorName =
-                                                    liveAuthor?.name ??
-                                                    comment.authorName;
-                                                final authorAvatar =
-                                                    liveAuthor?.avatar ??
-                                                    comment.authorAvatar;
-                                                final canDelete = _isAdmin ||
-                                                    widget.currentUserUid ==
-                                                    comment.authorId;
-                    
-                                                return Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        InkWell(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
+                                            )
+                                          : Scrollbar(
+                                              thumbVisibility: true,
+                                              child: ListView.separated(
+                                                physics:
+                                                    const AlwaysScrollableScrollPhysics(),
+                                                primary: false,
+                                                padding: const EdgeInsets.all(10),
+                                                itemCount: dialogComments.length,
+                                                separatorBuilder:
+                                                    (context, index) =>
+                                                        const SizedBox(height: 10),
+                                                itemBuilder: (context, index) {
+                                                  final comment =
+                                                      dialogComments[index];
+                                                  final liveAuthor =
+                                                      commentAuthors[comment
+                                                          .authorId];
+                                                  final authorName =
+                                                      liveAuthor?.name ??
+                                                      comment.authorName;
+                                                  final authorAvatar =
+                                                      liveAuthor?.avatar ??
+                                                      comment.authorAvatar;
+                                                  final canDelete = _isAdmin ||
+                                                      widget.currentUserUid ==
+                                                      comment.authorId;
+                                                
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          InkWell(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            onTap: () =>
+                                                                _openUserProfileFromComment(
+                                                                  comment.authorId,
+                                                                ),
+                                                            child: CircleAvatar(
+                                                              radius: 12,
+                                                              backgroundColor:
+                                                                  FeedAppColors
+                                                                      .background,
+                                                              backgroundImage: NetworkImage(
+                                                                authorAvatar
+                                                                        .isNotEmpty
+                                                                    ? authorAvatar
+                                                                    : AppStrings
+                                                                          .emptyProfilePhotoUrl,
                                                               ),
-                                                          onTap: () =>
-                                                              _openUserProfileFromComment(
-                                                                comment.authorId,
-                                                              ),
-                                                          child: CircleAvatar(
-                                                            radius: 12,
-                                                            backgroundColor:
-                                                                FeedAppColors
-                                                                    .background,
-                                                            backgroundImage: NetworkImage(
-                                                              authorAvatar
-                                                                      .isNotEmpty
-                                                                  ? authorAvatar
-                                                                  : AppStrings
-                                                                        .emptyProfilePhotoUrl,
                                                             ),
                                                           ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .start,
-                                                            children: [
-                                                              InkWell(
-                                                                onTap: () =>
-                                                                    _openUserProfileFromComment(
-                                                                      comment
-                                                                          .authorId,
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                InkWell(
+                                                                  onTap: () =>
+                                                                      _openUserProfileFromComment(
+                                                                        comment
+                                                                            .authorId,
+                                                                      ),
+                                                                  child: Text(
+                                                                    authorName,
+                                                                    style: const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                      fontSize: 11,
+                                                                      color: FeedAppColors
+                                                                          .textPrimary,
                                                                     ),
-                                                                child: Text(
-                                                                  authorName,
-                                                                  style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    fontSize: 11,
-                                                                    color: FeedAppColors
-                                                                        .textPrimary,
                                                                   ),
                                                                 ),
-                                                              ),
-                                                              Text(
-                                                                timeago.format(
-                                                                  comment
-                                                                      .createdAt,
-                                                                  locale:
-                                                                      'en_short',
+                                                                Text(
+                                                                  timeago.format(
+                                                                    comment
+                                                                        .createdAt,
+                                                                    locale:
+                                                                        'en_short',
+                                                                  ),
+                                                                  style: const TextStyle(
+                                                                    fontSize: 9,
+                                                                    color: FeedAppColors
+                                                                        .textSecondary,
+                                                                  ),
                                                                 ),
-                                                                style: const TextStyle(
-                                                                  fontSize: 9,
-                                                                  color: FeedAppColors
-                                                                      .textSecondary,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        if (canDelete)
-                                                          IconButton(
-                                                            icon: const Icon(
-                                                              Icons
-                                                                  .delete_outline,
-                                                              size: 18,
-                                                              color: Colors.red,
+                                                              ],
                                                             ),
-                                                            onPressed: () async {
-                                                              final shouldDelete = await showDialog<bool>(
-                                                                context: context,
-                                                                builder: (confirmContext) {
-                                                                  return AlertDialog(
-                                                                    title: const Text(
-                                                                      'Delete Comment',
-                                                                    ),
-                                                                    content:
-                                                                        const Text(
-                                                                          'Are you sure you want to delete this comment?',
-                                                                        ),
-                                                                    actions: [
-                                                                      TextButton(
-                                                                        onPressed: () =>
-                                                                            Navigator.pop(
-                                                                              confirmContext,
-                                                                              false,
-                                                                            ),
-                                                                        child: const Text(
-                                                                          'Cancel',
-                                                                        ),
-                                                                      ),
-                                                                      TextButton(
-                                                                        onPressed: () =>
-                                                                            Navigator.pop(
-                                                                              confirmContext,
-                                                                              true,
-                                                                            ),
-                                                                        child: const Text(
-                                                                          'Delete',
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  );
-                                                                },
-                                                              );
-                    
-                                                              if (shouldDelete !=
-                                                                  true) {
-                                                                return;
-                                                              }
-                    
-                                                              try {
-                                                                await FeedService.deleteComment(
-                                                                  feedId:
-                                                                      widget
-                                                                          .feed
-                                                                          .uid ??
-                                                                      '',
-                                                                  commentId: comment
-                                                                      .commentId,
-                                                                );
-                    
-                                                                setDialogState(() {
-                                                                  dialogComments
-                                                                      .removeWhere(
-                                                                        (c) =>
-                                                                            c.commentId ==
-                                                                            comment
-                                                                                .commentId,
-                                                                      );
-                                                                });
-                    
-                                                                if (mounted) {
-                                                                  widget
-                                                                      .onRefresh();
-                                                                }
-                                                              } catch (e) {
-                                                                if (mounted) {
-                                                                  FlushBar.show(
-                                                                    context,
-                                                                    e.toString(),
-                                                                    isSuccess:
-                                                                        false,
-                                                                  );
-                                                                }
-                                                              }
-                                                            },
                                                           ),
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      comment.content,
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        height: 1.3,
-                                                        color: FeedAppColors
-                                                            .textPrimary,
+                                                          if (canDelete)
+                                                            IconButton(
+                                                              icon: const Icon(
+                                                                Icons
+                                                                    .delete_outline,
+                                                                size: 18,
+                                                                color: Colors.red,
+                                                              ),
+                                                              onPressed: () async {
+                                                                final shouldDelete = await showDialog<bool>(
+                                                                  context: context,
+                                                                  builder: (confirmContext) {
+                                                                    return AlertDialog(
+                                                                      title: const Text(
+                                                                        'Delete Comment',
+                                                                      ),
+                                                                      content:
+                                                                          const Text(
+                                                                            'Are you sure you want to delete this comment?',
+                                                                          ),
+                                                                      actions: [
+                                                                        TextButton(
+                                                                          onPressed: () =>
+                                                                              Navigator.pop(
+                                                                                confirmContext,
+                                                                                false,
+                                                                              ),
+                                                                          child: const Text(
+                                                                            'Cancel',
+                                                                          ),
+                                                                        ),
+                                                                        TextButton(
+                                                                          onPressed: () =>
+                                                                              Navigator.pop(
+                                                                                confirmContext,
+                                                                                true,
+                                                                              ),
+                                                                          child: const Text(
+                                                                            'Delete',
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    );
+                                                                  },
+                                                                );
+                                                
+                                                                if (shouldDelete !=
+                                                                    true) {
+                                                                  return;
+                                                                }
+                                                
+                                                                try {
+                                                                  await FeedService.deleteComment(
+                                                                    feedId:
+                                                                        widget
+                                                                            .feed
+                                                                            .uid ??
+                                                                        '',
+                                                                    commentId: comment
+                                                                        .commentId,
+                                                                  );
+                                                
+                                                                  setDialogState(() {
+                                                                    dialogComments
+                                                                        .removeWhere(
+                                                                          (c) =>
+                                                                              c.commentId ==
+                                                                              comment
+                                                                                  .commentId,
+                                                                        );
+                                                                  });
+                                                
+                                                                  if (mounted) {
+                                                                    widget
+                                                                        .onRefresh();
+                                                                  }
+                                                                } catch (e) {
+                                                                  if (mounted) {
+                                                                    FlushBar.show(
+                                                                      context,
+                                                                      e.toString(),
+                                                                      isSuccess:
+                                                                          false,
+                                                                    );
+                                                                  }
+                                                                }
+                                                              },
+                                                            ),
+                                                        ],
                                                       ),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: dialogCommentController,
-                                        minLines: 1,
-                                        maxLines: 3,
-                                        decoration: InputDecoration(
-                                          hintText: 'Add a comment...',
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 10,
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        comment.content,
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          height: 1.3,
+                                                          color: FeedAppColors
+                                                              .textPrimary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
                                               ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: dialogCommentController,
+                                          minLines: 1,
+                                          maxLines: 3,
+                                          decoration: InputDecoration(
+                                            hintText: 'Add a comment...',
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 10,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(
+                                                10,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: isPostingComment
-                                          ? null
-                                          : () async {
-                                              final feedId = widget.feed.uid;
-                                              final uid = widget.currentUserUid;
-                                              final content =
-                                                  dialogCommentController.text
-                                                      .trim();
-                    
-                                              if (feedId == null ||
-                                                  feedId.isEmpty) {
-                                                FlushBar.show(
-                                                  context,
-                                                  'Feed id is missing',
-                                                  isSuccess: false,
-                                                );
-                                                return;
-                                              }
-                    
-                                              if (uid == null || uid.isEmpty) {
-                                                FlushBar.show(
-                                                  context,
-                                                  'User not found',
-                                                  isSuccess: false,
-                                                );
-                                                return;
-                                              }
-                    
-                                              if (content.isEmpty) {
-                                                return;
-                                              }
-                    
-                                              setDialogState(() {
-                                                isPostingComment = true;
-                                              });
-                    
-                                              try {
-                                                String authorName = 'Anonymous';
-                                                String authorAvatar = '';
-                    
-                                                final isAdmin =
-                                                    await Spdb.isAdminLoggedIn();
-                                                if (isAdmin) {
-                                                  final admin =
-                                                      await AdminService.getAdmin(
-                                                        uid: uid,
-                                                      );
-                                                  authorName =
-                                                      admin?.name ?? 'Anonymous';
-                                                  authorAvatar =
-                                                      admin?.profileImageUrl ??
-                                                      '';
-                                                } else {
-                                                  // Bug fix: this previously
-                                                  // called AdminService.getAdmin
-                                                  // here too, so an employee's
-                                                  // uid (not present in the
-                                                  // Admin collection) always
-                                                  // resolved to null, making
-                                                  // every employee comment show
-                                                  // as "Anonymous".
-                                                  final employee =
-                                                      await EmployeeService
-                                                          .getEmployee(
-                                                        uid: uid,
-                                                      );
-                                                  authorName =
-                                                      employee?.name ??
-                                                      'Anonymous';
-                                                  authorAvatar =
-                                                      employee?.profileImageUrl ??
-                                                      '';
-                                                }
-                    
-                                                final newComment = CommentModel(
-                                                  commentId: DateTime.now()
-                                                      .millisecondsSinceEpoch
-                                                      .toString(),
-                                                  authorId: uid,
-                                                  authorName: authorName,
-                                                  authorAvatar: authorAvatar,
-                                                  content: content,
-                                                  createdAt: DateTime.now(),
-                                                );
-                    
-                                                await FeedService.addComment(
-                                                  feedId: feedId,
-                                                  comment: newComment,
-                                                );
-                    
-                                                setDialogState(() {
-                                                  commentAuthors[uid] =
-                                                      _CommentAuthorDisplay(
-                                                        name: authorName,
-                                                        avatar: authorAvatar,
-                                                      );
-                                                  dialogComments.insert(
-                                                    0,
-                                                    newComment,
-                                                  );
-                                                  dialogCommentController.clear();
-                                                  isPostingComment = false;
-                                                });
-                    
-                                                if (mounted) {
-                                                  widget.onRefresh();
-                                                }
-                                              } catch (e) {
-                                                setDialogState(() {
-                                                  isPostingComment = false;
-                                                });
-                                                if (mounted) {
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        onPressed: isPostingComment
+                                            ? null
+                                            : () async {
+                                                final feedId = widget.feed.uid;
+                                                final uid = widget.currentUserUid;
+                                                final content =
+                                                    dialogCommentController.text
+                                                        .trim();
+                                                
+                                                if (feedId == null ||
+                                                    feedId.isEmpty) {
                                                   FlushBar.show(
                                                     context,
-                                                    e.toString(),
+                                                    'Feed id is missing',
                                                     isSuccess: false,
                                                   );
+                                                  return;
                                                 }
-                                              }
-                                            },
-                                      child: Text(
-                                        isPostingComment ? 'Posting...' : 'Post',
+                                                
+                                                if (uid == null || uid.isEmpty) {
+                                                  FlushBar.show(
+                                                    context,
+                                                    'User not found',
+                                                    isSuccess: false,
+                                                  );
+                                                  return;
+                                                }
+                                                
+                                                if (content.isEmpty) {
+                                                  return;
+                                                }
+                                                
+                                                setDialogState(() {
+                                                  isPostingComment = true;
+                                                });
+                                                
+                                                try {
+                                                  String authorName = 'Anonymous';
+                                                  String authorAvatar = '';
+                                                
+                                                  final isAdmin =
+                                                      await Spdb.isAdminLoggedIn();
+                                                  if (isAdmin) {
+                                                    final admin =
+                                                        await AdminService.getAdmin(
+                                                          uid: uid,
+                                                        );
+                                                    authorName =
+                                                        admin?.name ?? 'Anonymous';
+                                                    authorAvatar =
+                                                        admin?.profileImageUrl ??
+                                                        '';
+                                                  } else {
+                                                    // Bug fix: this previously
+                                                    // called AdminService.getAdmin
+                                                    // here too, so an employee's
+                                                    // uid (not present in the
+                                                    // Admin collection) always
+                                                    // resolved to null, making
+                                                    // every employee comment show
+                                                    // as "Anonymous".
+                                                    final employee =
+                                                        await EmployeeService
+                                                            .getEmployee(
+                                                          uid: uid,
+                                                        );
+                                                    authorName =
+                                                        employee?.name ??
+                                                        'Anonymous';
+                                                    authorAvatar =
+                                                        employee?.profileImageUrl ??
+                                                        '';
+                                                  }
+                                                
+                                                  final newComment = CommentModel(
+                                                    commentId: DateTime.now()
+                                                        .millisecondsSinceEpoch
+                                                        .toString(),
+                                                    authorId: uid,
+                                                    authorName: authorName,
+                                                    authorAvatar: authorAvatar,
+                                                    content: content,
+                                                    createdAt: DateTime.now(),
+                                                  );
+                                                
+                                                  await FeedService.addComment(
+                                                    feedId: feedId,
+                                                    comment: newComment,
+                                                  );
+                                                
+                                                  setDialogState(() {
+                                                    commentAuthors[uid] =
+                                                        _CommentAuthorDisplay(
+                                                          name: authorName,
+                                                          avatar: authorAvatar,
+                                                        );
+                                                    dialogComments.insert(
+                                                      0,
+                                                      newComment,
+                                                    );
+                                                    dialogCommentController.clear();
+                                                    isPostingComment = false;
+                                                  });
+                                                
+                                                  if (mounted) {
+                                                    widget.onRefresh();
+                                                  }
+                                                } catch (e) {
+                                                  setDialogState(() {
+                                                    isPostingComment = false;
+                                                  });
+                                                  if (mounted) {
+                                                    FlushBar.show(
+                                                      context,
+                                                      e.toString(),
+                                                      isSuccess: false,
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                        child: Text(
+                                          isPostingComment ? 'Posting...' : 'Post',
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

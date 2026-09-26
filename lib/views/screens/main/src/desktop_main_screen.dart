@@ -290,17 +290,19 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
                       children: [
                         Header(selectedMenu: _selectedMenu),
                         Expanded(
+                          // No Scrollbar here: this wraps whichever screen
+                          // `_buildMainContent()` returns, and each of those
+                          // screens (Dashboard, the listing pages, etc.)
+                          // already owns its own scroll view + ScrollController
+                          // and renders its own working, draggable Scrollbar.
+                          // A Scrollbar here had no controller to attach to
+                          // (it can't see a descendant screen's own
+                          // ScrollController through that screen's Scaffold),
+                          // so it rendered a thumb that looked interactive but
+                          // couldn't actually be dragged.
                           child: Padding(
-                            padding: const EdgeInsets.only(right:8.0),
-                            child: Scrollbar(
-                              // controller: _scrollController,
-                              thumbVisibility: true,
-                              interactive: true,
-                              trackVisibility: true,
-                              radius: const Radius.circular(8),
-                              thickness: 8,
-                              child: _buildMainContent(),
-                            ),
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: _buildMainContent(),
                           ),
                         ),
                       ],

@@ -171,6 +171,88 @@ class _SharedprefsDataState extends State<SharedprefsData> {
     return 'UNK';
   }
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.of(context).padding.top + 16,
+        12,
+        16,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Back(color: Colors.white),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Iconsax.data, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Storage Inspector",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Inspect and edit local key-value storage",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _loading ? null : _loadAll,
+            icon: _loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
+                : const Icon(Iconsax.refresh, color: Colors.white, size: 20),
+          ),
+          IconButton(
+            onPressed: _prefs.isEmpty ? null : _clearAll,
+            icon: Icon(
+              Iconsax.trash,
+              color: _prefs.isEmpty
+                  ? Colors.white.withValues(alpha: 0.4)
+                  : Colors.white,
+              size: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _filteredPrefs.entries.toList()
@@ -178,72 +260,34 @@ class _SharedprefsDataState extends State<SharedprefsData> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        leading: Back(color: Theme.of(context).colorScheme.onSurface),
-        title: Text(
-          "Storage Inspector",
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _loadAll,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    Iconsax.refresh,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-          ),
-          IconButton(
-            onPressed: _prefs.isEmpty ? null : _clearAll,
-            icon: Icon(
-              Iconsax.trash,
-              color: Theme.of(context).colorScheme.error,
-              size: 20,
+      body: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isDesktop = constraints.maxWidth > 1000;
+                return Column(
+                  children: [
+                    _buildHeaderSearch(items.length, isDesktop),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _loadAll,
+                        child: _loading
+                            ? const Center(child: WaitingLoading())
+                            : items.isEmpty
+                            ? ListView(children: [_buildEmptyState()])
+                            : isDesktop
+                            ? _buildDesktopGrid(items)
+                            : _buildMobileList(items),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(width: 8),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            height: 1,
-          ),
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isDesktop = constraints.maxWidth > 1000;
-          return Column(
-            children: [
-              _buildHeaderSearch(items.length, isDesktop),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: _loadAll,
-                  child: _loading
-                      ? const Center(child: WaitingLoading())
-                      : items.isEmpty
-                      ? ListView(children: [_buildEmptyState()])
-                      : isDesktop
-                      ? _buildDesktopGrid(items)
-                      : _buildMobileList(items),
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }
@@ -543,11 +587,15 @@ class _SharedprefsDataState extends State<SharedprefsData> {
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
         ),
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               const Text(
                 "DATA TYPE",
                 style: TextStyle(
@@ -596,6 +644,7 @@ class _SharedprefsDataState extends State<SharedprefsData> {
                 ),
               ),
             ],
+          ),
           ),
         ),
         actions: [

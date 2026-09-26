@@ -377,53 +377,35 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                   : InkWell(
                       onTap: () =>
                           Navigate.routeReplace(context, RouteScreen()),
-                      child: Row(
-                        children: [
-                          (networkLogo != null && networkLogo.isNotEmpty)
-                              ? Image.network(
-                                  networkLogo,
-                                  height: 34,
-                                  fit: BoxFit.contain,
-                                  frameBuilder:
-                                      (
-                                        context,
-                                        child,
-                                        frame,
-                                        wasSynchronouslyLoaded,
-                                      ) {
-                                        return wasSynchronouslyLoaded
-                                            ? child
-                                            : AnimatedOpacity(
-                                                opacity: frame == null
-                                                    ? 0
-                                                    : 1,
-                                                duration: const Duration(
-                                                  seconds: 1,
-                                                ),
-                                                curve: Curves.easeOut,
-                                                child: child,
-                                              );
-                                      },
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      _buildDefaultLogoAsset(),
-                                )
-                              : _buildDefaultLogoAsset(),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "Lead Capture CRM",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: DesktopColors.lightText,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: (networkLogo != null && networkLogo.isNotEmpty)
+                          ? Image.network(
+                              networkLogo,
+                              height: 34,
+                              fit: BoxFit.contain,
+                              frameBuilder:
+                                  (
+                                    context,
+                                    child,
+                                    frame,
+                                    wasSynchronouslyLoaded,
+                                  ) {
+                                    return wasSynchronouslyLoaded
+                                        ? child
+                                        : AnimatedOpacity(
+                                            opacity: frame == null
+                                                ? 0
+                                                : 1,
+                                            duration: const Duration(
+                                              seconds: 1,
+                                            ),
+                                            curve: Curves.easeOut,
+                                            child: child,
+                                          );
+                                  },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildDefaultLogoAsset(),
+                            )
+                          : _buildDefaultLogoAsset(),
                     ),
             ),
           ),

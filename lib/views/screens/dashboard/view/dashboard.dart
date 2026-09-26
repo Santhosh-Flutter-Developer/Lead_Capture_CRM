@@ -72,6 +72,12 @@ class _DashboardState extends State<Dashboard>
   final Map<String, PermissionModel?> _permissions = {};
   bool _permissionsLoaded = false;
 
+  // Drives the page's Scrollbar so its thumb can actually be grabbed and
+  // dragged. Without a real controller attached to both the Scrollbar and
+  // the SingleChildScrollView it wraps, the thumb renders (thumbVisibility)
+  // but has no ScrollPosition to act on, so dragging it does nothing.
+  final ScrollController _scrollController = ScrollController();
+
   /// Master gate for the whole Dashboard page. Individual sections/cards
   /// below are additionally filtered by the permission of the specific
   /// page they lead to (Leads, Deals, Tasks, Tickets, Employees) so an
@@ -114,6 +120,7 @@ class _DashboardState extends State<Dashboard>
   @override
   void dispose() {
     _entranceController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -173,7 +180,15 @@ class _DashboardState extends State<Dashboard>
                 opacity: _fadeAnimation,
                 child: SlideTransition(
                   position: _slideAnimation,
-                  child: SingleChildScrollView(
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,6 +344,7 @@ class _DashboardState extends State<Dashboard>
                     ),
                   ],
                 ),
+                  ),
                   ),
                 ),
               ),
@@ -1052,7 +1068,6 @@ Widget _buildKpiGrid(
           icon: Icons.bar_chart_rounded,
           progress: _calculateProgress(data.totalLeads, 200),
           gradientColors: blueGradient,
-          trend: 12.5,
           onTap: () => _openSheet(context, const LeadsListing()),
         ),
       ),
@@ -1065,7 +1080,6 @@ Widget _buildKpiGrid(
           icon: Icons.check_circle_outline_rounded,
           progress: _calculateProgress(data.convertedLeads, data.totalLeads),
           gradientColors: greenGradient,
-          trend: 5.2,
           onTap: () => _openSheet(context, const DealsListing()),
         ),
       ),
@@ -1078,7 +1092,6 @@ Widget _buildKpiGrid(
           icon: Icons.work_outline_rounded,
           progress: _calculateProgress(data.ongoingDeals, 50),
           gradientColors: orangeGradient,
-          trend: -2.4,
           onTap: () => _openSheet(context, const DealsListing()),
         ),
       ),

@@ -27,6 +27,7 @@ class CommentSheetState extends State<CommentSheet> {
   bool _isPosting = false;
   CommentModel? _replyingTo;
   bool _isAdmin = false;
+  ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -387,13 +388,22 @@ class CommentSheetState extends State<CommentSheet> {
                 }
                 if (_comments.isEmpty) return _buildEmptyState();
 
-                return ListView.separated(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: _comments.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 24),
-                  itemBuilder: (context, index) =>
-                      _buildCommentItem(_comments[index]),
+                return Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child:  ListView.separated(
+                      controller: _scrollController,
+                    padding: const EdgeInsets.all(20),
+                    itemCount: _comments.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 24),
+                    itemBuilder: (context, index) =>
+                        _buildCommentItem(_comments[index]),
+                  ),
                 );
               },
             ),
@@ -813,6 +823,7 @@ class CommentSheetState extends State<CommentSheet> {
   void dispose() {
     _commentController.dispose();
     _editCommentController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }
