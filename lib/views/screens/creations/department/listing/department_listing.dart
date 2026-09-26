@@ -63,11 +63,18 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
   final List<DepartmentModel> _selectedDepartments = [];
   PermissionModel? permissions;
   final ScrollController _hScrollController = ScrollController();
-
+final ScrollController _scrollController = ScrollController();
   @override
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _hScrollController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -120,28 +127,37 @@ class _DepartmentListingViewState extends State<DepartmentListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshDepartments(),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                  children: [
-                    if (isWide) ...[
-                      _buildHeaderBanner(context, state.department.length),
-                      const SizedBox(height: 20),
+                child:Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                      controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, state.department.length),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildToolbar(
+                        context,
+                        controllerRead,
+                        state.department.length,
+                      ),
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: state.department.isEmpty
+                                  ? "No departments available"
+                                  : "No matching records found",
+                            )
+                          : _buildTableCard(context, controllerWatch, controllerRead),
                     ],
-                    _buildToolbar(
-                      context,
-                      controllerRead,
-                      state.department.length,
-                    ),
-                    const SizedBox(height: 18),
-                    controllerWatch.paginatedItems.isEmpty
-                        ? NoData(
-                            text: state.department.isEmpty
-                                ? "No departments available"
-                                : "No matching records found",
-                          )
-                        : _buildTableCard(context, controllerWatch, controllerRead),
-                  ],
+                  ),
                 ),
               );
             }

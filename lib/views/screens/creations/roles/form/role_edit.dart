@@ -24,6 +24,8 @@ class _RoleEditState extends State<RoleEdit> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   RoleModel? _roleModel;
   late Future<void> _future;
+  final ScrollController _scrollController = ScrollController();
+  
 
   @override
   void initState() {
@@ -75,6 +77,7 @@ class _RoleEditState extends State<RoleEdit> {
   void dispose() {
     _roleNameController.dispose();
     _descriptionController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -108,36 +111,48 @@ class _RoleEditState extends State<RoleEdit> {
               children: [
                 _buildHeader(context),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        _sectionCard(
-                          context,
-                          icon: Iconsax.info_circle,
-                          title: "Role Information",
-                          subtitle:
-                              "Give this role a clear name and description",
-                          child: LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildFormFields(constraints),
-                          ),
+                  child:Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
                         ),
-                        const SizedBox(height: 20),
-                        _sectionCard(
-                          context,
-                          icon: Iconsax.security_safe,
-                          title: "Permissions",
-                          subtitle:
-                              "Choose what this role can view, create, edit or delete on each page",
-                          child: RolePermissionTable(rows: _rows),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            _sectionCard(
+                              context,
+                              icon: Iconsax.info_circle,
+                              title: "Role Information",
+                              subtitle:
+                                  "Give this role a clear name and description",
+                              child: LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    _buildFormFields(constraints),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _sectionCard(
+                              context,
+                              icon: Iconsax.security_safe,
+                              title: "Permissions",
+                              subtitle:
+                                  "Choose what this role can view, create, edit or delete on each page",
+                              child: RolePermissionTable(rows: _rows),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

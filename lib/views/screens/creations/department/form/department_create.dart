@@ -16,11 +16,12 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
+final ScrollController _scrollController = ScrollController();
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -38,19 +39,32 @@ class _DepartmentCreateState extends State<DepartmentCreate> {
           children: [
             _buildHeader(context, isEdit: false),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: _sectionCard(
-                  context,
-                  icon: Iconsax.info_circle,
-                  title: "Department Information",
-                  subtitle: "Give this department a clear name and description",
-                  child: LayoutBuilder(
-                    builder: (context, constraints) =>
-                        _buildFormFields(constraints),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: _sectionCard(
+                      context,
+                      icon: Iconsax.info_circle,
+                      title: "Department Information",
+                      subtitle: "Give this department a clear name and description",
+                      child: LayoutBuilder(
+                        builder: (context, constraints) =>
+                            _buildFormFields(constraints),
+                      ),
+                    ),
                   ),
                 ),
               ),

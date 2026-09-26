@@ -63,11 +63,17 @@ class _RolesListingViewState extends State<RolesListingView> {
   final List<RoleModel> _selectedRoles = [];
   PermissionModel? permissions;
   final ScrollController _hScrollController = ScrollController();
-
+final ScrollController _scrollController = ScrollController();
   @override
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _scrollController.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -88,7 +94,6 @@ class _RolesListingViewState extends State<RolesListingView> {
     final controllerWatch =
         context.watch<PaginatedDataController<RoleModel>>();
     final isWide = _isWide(context);
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: isWide
@@ -119,24 +124,33 @@ class _RolesListingViewState extends State<RolesListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshRoles(),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                  children: [
-                    if (isWide) ...[
-                      _buildHeaderBanner(context, state.roles.length),
-                      const SizedBox(height: 20),
+                child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, state.roles.length),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildToolbar(context, controllerRead, state.roles.length),
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: state.roles.isEmpty
+                                  ? "No roles available"
+                                  : "No matching records found",
+                            )
+                          : _buildTableCard(context, controllerWatch, controllerRead),
                     ],
-                    _buildToolbar(context, controllerRead, state.roles.length),
-                    const SizedBox(height: 18),
-                    controllerWatch.paginatedItems.isEmpty
-                        ? NoData(
-                            text: state.roles.isEmpty
-                                ? "No roles available"
-                                : "No matching records found",
-                          )
-                        : _buildTableCard(context, controllerWatch, controllerRead),
-                  ],
+                  ),
                 ),
               );
             }

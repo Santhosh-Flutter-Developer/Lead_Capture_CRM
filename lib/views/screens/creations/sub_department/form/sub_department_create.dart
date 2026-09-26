@@ -17,11 +17,13 @@ class _SubDepartmentCreateState extends State<SubDepartmentCreate> {
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   DepartmentModel? _selectedDepartment;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -39,20 +41,33 @@ class _SubDepartmentCreateState extends State<SubDepartmentCreate> {
           children: [
             _buildHeader(context, isEdit: false),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: _sectionCard(
-                  context,
-                  icon: Iconsax.info_circle,
-                  title: "Sub Department Information",
-                  subtitle:
-                      "Link this sub department to its parent department",
-                  child: LayoutBuilder(
-                    builder: (context, constraints) =>
-                        _buildFormFields(constraints),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: _sectionCard(
+                      context,
+                      icon: Iconsax.info_circle,
+                      title: "Sub Department Information",
+                      subtitle:
+                          "Link this sub department to its parent department",
+                      child: LayoutBuilder(
+                        builder: (context, constraints) =>
+                            _buildFormFields(constraints),
+                      ),
+                    ),
                   ),
                 ),
               ),
