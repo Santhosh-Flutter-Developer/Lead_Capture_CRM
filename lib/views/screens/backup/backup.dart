@@ -109,32 +109,86 @@ class _BackupListingState extends State<BackupListing> {
     return '${diff.inDays}d ago';
   }
 
+  Color _typeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'export':
+        return const Color(0xFF6366F1); // indigo
+      case 'import':
+        return const Color(0xFF10B981); // green
+      case 'auto':
+      case 'scheduled':
+        return const Color(0xFFF59E0B); // amber
+      case 'manual':
+        return const Color(0xFF06B6D4); // cyan
+      default:
+        return const Color(0xFF8B5CF6); // purple
+    }
+  }
+
+  IconData _typeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'export':
+        return Iconsax.export_3;
+      case 'import':
+        return Iconsax.import_1;
+      case 'auto':
+      case 'scheduled':
+        return Iconsax.clock;
+      case 'manual':
+        return Iconsax.finger_cricle;
+      default:
+        return Iconsax.cloud;
+    }
+  }
+
   Widget _avatar(String text, {double size = 48}) {
-    final initial = (text.isNotEmpty)
-        ? text.trim().substring(0, 1).toUpperCase()
-        : '?';
+    final color = _typeColor(text);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary,
-            Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-          ],
+          colors: [color, color.withValues(alpha: 0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(size * 0.3),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: size * 0.4,
-        ),
+      child: Icon(_typeIcon(text), color: Colors.white, size: size * 0.44),
+    );
+  }
+
+  Widget _typePill(String type) {
+    final color = _typeColor(type);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_typeIcon(type), size: 12, color: color),
+          const SizedBox(width: 5),
+          Text(
+            type.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -415,10 +469,26 @@ class _BackupListingState extends State<BackupListing> {
         child: TextField(
           onChanged: (v) => setState(() => _search = v.trim()),
           decoration: InputDecoration(
-            prefixIcon: Icon(
-              Iconsax.search_normal,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: _brandGradient),
+                  shape: BoxShape.circle,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(6.0),
+                  child: Icon(
+                    Iconsax.search_normal_1,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
             ),
             hintText: 'Filter registry...',
             hintStyle: TextStyle(
@@ -442,18 +512,46 @@ class _BackupListingState extends State<BackupListing> {
           top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
       ),
-      child: ElevatedButton.icon(
-        onPressed: _busy ? null : () => exportBackup(blocContext),
-        icon: const Icon(Iconsax.export_3, size: 18),
-        label: const Text("Create New Snapshot"),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: _brandGradient,
           ),
-          elevation: 0,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: _busy ? null : () => exportBackup(blocContext),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Iconsax.export_3, size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Create New Snapshot",
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -469,14 +567,27 @@ class _BackupListingState extends State<BackupListing> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              letterSpacing: 1.2,
-            ),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
           ),
         ),
         ...items.map((item) => _buildBackupItem(item, isDesktop)),
@@ -486,9 +597,10 @@ class _BackupListingState extends State<BackupListing> {
 
   Widget _buildBackupItem(BackupModel item, bool isDesktop) {
     final isSelected = _selectedBackup?.uid == item.uid;
+    final color = _typeColor(item.type);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: InkWell(
         onTap: () {
           if (isDesktop) {
@@ -497,24 +609,32 @@ class _BackupListingState extends State<BackupListing> {
             _showMobileDetailSheet(item);
           }
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.05)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
-                  : Colors.transparent,
+                  ? color.withValues(alpha: 0.5)
+                  : Theme.of(context).colorScheme.outlineVariant,
+              width: isSelected ? 1.4 : 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.shadow.withValues(
+                  alpha: 0.04,
+                ),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              _avatar(item.type, size: 40),
-              const SizedBox(width: 16),
+              _avatar(item.type, size: 44),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,29 +645,42 @@ class _BackupListingState extends State<BackupListing> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 13,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _timeAgo(item.timestamp),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _typePill(item.type),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Iconsax.clock,
+                          size: 11,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          _timeAgo(item.timestamp),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              if (isSelected)
-                Icon(
-                  Iconsax.arrow_right_3,
-                  size: 14,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              Icon(
+                Iconsax.arrow_right_3,
+                size: 14,
+                color: isSelected
+                    ? color
+                    : Theme.of(context).colorScheme.outlineVariant,
+              ),
             ],
           ),
         ),
@@ -556,48 +689,52 @@ class _BackupListingState extends State<BackupListing> {
   }
 
   Widget _buildDetailContent(BackupModel item) {
+    final color = _typeColor(item.type);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _avatar(item.type, size: 64),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.path,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Theme.of(context).colorScheme.onSurface,
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.15)),
+          ),
+          child: Row(
+            children: [
+              _avatar(item.type, size: 64),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.path,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                  Text(
-                    "Snapshot Type: ${item.type}",
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    _typePill(item.type),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 40),
-        _buildDetailSection("REGISTRY DETAILS", [
+        _buildDetailSection("REGISTRY DETAILS", Iconsax.document_text, [
           _detailRow(
+            Iconsax.calendar_1,
             "Timestamp",
             DateFormat('MMMM dd, yyyy • hh:mm:ss a').format(item.timestamp),
           ),
-          _detailRow("UID", item.uid ?? ''),
+          _detailRow(Iconsax.user, "UID", item.uid ?? ''),
         ]),
         const SizedBox(height: 32),
-        _buildDetailSection("STORAGE VAULT URL", [
+        _buildDetailSection("STORAGE VAULT URL", Iconsax.link, [
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -618,17 +755,44 @@ class _BackupListingState extends State<BackupListing> {
             ),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: item.url));
-              FlushBar.show(context, 'Link copied to clipboard');
-            },
-            icon: const Icon(Iconsax.copy, size: 16),
-            label: const Text("Copy Link"),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: _brandGradient),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4364F7).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: item.url));
+                  FlushBar.show(context, 'Link copied to clipboard');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Iconsax.copy, size: 16, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        "Copy Link",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -639,12 +803,38 @@ class _BackupListingState extends State<BackupListing> {
         Row(
           children: [
             const Spacer(),
-            TextButton.icon(
-              onPressed: () => _confirmDelete(item),
-              icon: const Icon(Iconsax.trash, size: 18),
-              label: const Text("Delete Record"),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
+            Material(
+              color: Theme.of(
+                context,
+              ).colorScheme.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _confirmDelete(item),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 11,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Iconsax.trash,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Delete Record",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -653,18 +843,28 @@ class _BackupListingState extends State<BackupListing> {
     );
   }
 
-  Widget _buildDetailSection(String title, List<Widget> children) {
+  Widget _buildDetailSection(String title, IconData icon, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            letterSpacing: 1.5,
-          ),
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ...children,
@@ -672,19 +872,30 @@ class _BackupListingState extends State<BackupListing> {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 13,
-              ),
+            width: 130,
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 13,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
