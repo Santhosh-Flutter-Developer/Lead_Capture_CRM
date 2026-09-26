@@ -16,6 +16,19 @@ class AdminModel {
   final DateTime? lastActive;
   final List<Map<String, dynamic>>? devices; // Added devices
 
+  // The following are shown and editable on the shared Employee/Admin edit
+  // form even while "Make as Admin" is on. They must be persisted here so
+  // they aren't silently discarded when a record is saved as an Admin
+  // (previously these had no home on AdminModel at all).
+  final String? address;
+  final String? about;
+  final String? skills;
+  final String? employeeType;
+  final String? maritalStatus;
+  final bool? loginAllowed;
+  final bool? receiveEmailNotifications;
+  final bool? outsideOffice;
+
   AdminModel({
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -29,6 +42,14 @@ class AdminModel {
     required this.createdBy,
     this.lastActive,
     this.devices,
+    this.address,
+    this.about,
+    this.skills,
+    this.employeeType,
+    this.maritalStatus,
+    this.loginAllowed,
+    this.receiveEmailNotifications,
+    this.outsideOffice,
   }) : isActive = isActive ?? true,
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
@@ -44,6 +65,14 @@ class AdminModel {
       'createdBy': createdBy.toMap(),
       'lastActive': lastActive?.millisecondsSinceEpoch,
       'devices': devices,
+      'address': address?.encrypt,
+      'about': about?.encrypt,
+      'skills': skills?.encrypt,
+      'employeeType': employeeType,
+      'maritalStatus': maritalStatus,
+      'loginAllowed': loginAllowed,
+      'receiveEmailNotifications': receiveEmailNotifications,
+      'outsideOffice': outsideOffice,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
@@ -60,6 +89,14 @@ class AdminModel {
       'createdBy': createdBy.toMap(),
       'lastActive': lastActive?.millisecondsSinceEpoch,
       'devices': devices,
+      'address': address?.encrypt,
+      'about': about?.encrypt,
+      'skills': skills?.encrypt,
+      'employeeType': employeeType,
+      'maritalStatus': maritalStatus,
+      'loginAllowed': loginAllowed,
+      'receiveEmailNotifications': receiveEmailNotifications,
+      'outsideOffice': outsideOffice,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
   }
@@ -82,6 +119,14 @@ class AdminModel {
     DateTime? updatedAt,
     DateTime? lastActive,
     List<Map<String, dynamic>>? devices,
+    String? address,
+    String? about,
+    String? skills,
+    String? employeeType,
+    String? maritalStatus,
+    bool? loginAllowed,
+    bool? receiveEmailNotifications,
+    bool? outsideOffice,
   }) {
     return AdminModel(
       uid: uid ?? this.uid,
@@ -96,6 +141,15 @@ class AdminModel {
       updatedAt: updatedAt ?? this.updatedAt,
       lastActive: lastActive ?? this.lastActive,
       devices: devices ?? this.devices,
+      address: address ?? this.address,
+      about: about ?? this.about,
+      skills: skills ?? this.skills,
+      employeeType: employeeType ?? this.employeeType,
+      maritalStatus: maritalStatus ?? this.maritalStatus,
+      loginAllowed: loginAllowed ?? this.loginAllowed,
+      receiveEmailNotifications:
+          receiveEmailNotifications ?? this.receiveEmailNotifications,
+      outsideOffice: outsideOffice ?? this.outsideOffice,
     );
   }
 
@@ -130,6 +184,26 @@ class AdminModel {
           ? (map['devices'] as List)
                 .map((e) => Map<String, dynamic>.from(e))
                 .toList()
+          : null,
+      address: map['address'] != null && map['address'] is String
+          ? (map['address'] as String).decrypt
+          : null,
+      about: map['about'] != null && map['about'] is String
+          ? (map['about'] as String).decrypt
+          : null,
+      skills: map['skills'] != null && map['skills'] is String
+          ? (map['skills'] as String).decrypt
+          : null,
+      employeeType: map['employeeType'] as String?,
+      maritalStatus: map['maritalStatus'] as String?,
+      loginAllowed: map['loginAllowed'] is bool
+          ? map['loginAllowed'] as bool
+          : null,
+      receiveEmailNotifications: map['receiveEmailNotifications'] is bool
+          ? map['receiveEmailNotifications'] as bool
+          : null,
+      outsideOffice: map['outsideOffice'] is bool
+          ? map['outsideOffice'] as bool
           : null,
     );
   }

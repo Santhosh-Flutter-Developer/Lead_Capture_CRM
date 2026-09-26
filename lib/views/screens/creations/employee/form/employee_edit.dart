@@ -109,9 +109,26 @@ class _EmployeeEditState extends State<EmployeeEdit> {
         _passwordController.text = widget.admin!.password;
         _mobileNumberController.text = widget.admin!.mobileNumber;
         _selectedDateOfBirth = widget.admin!.createdAt;
+        _profileImageUrl = widget.admin!.profileImageUrl;
         isAdmin = true;
 
-        // Try to fetch employee data from trash if it exists
+        // Pull the fields that live directly on the admin record now.
+        _addressController.text = widget.admin!.address ?? '';
+        _aboutController.text = widget.admin!.about ?? '';
+        _skillsController.text = widget.admin!.skills ?? '';
+        _employeeType = widget.admin!.employeeType;
+        _maritalStatus = widget.admin!.maritalStatus ?? 'Single';
+        _loginAllowed = (widget.admin!.loginAllowed ?? true) ? 'Yes' : 'No';
+        _receiveEmailNotifications =
+            (widget.admin!.receiveEmailNotifications ?? true) ? 'Yes' : 'No';
+        _outsideOffice = (widget.admin!.outsideOffice ?? false)
+            ? 'Yes'
+            : 'No';
+
+        // Backward compatibility: older records converted to Admin before
+        // this fix don't have these fields on the admin document yet. For
+        // those, fall back to whatever was captured in the trash entry
+        // when the employee document was deleted.
         try {
           final cid = await Spdb.getCid();
           final snap = await FirebaseFirestore.instance
@@ -139,16 +156,33 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               _preservedRole = employee!.role;
               _preservedReportingTo = List.from(employee!.reportingTo ?? []);
 
-              _skillsController.text = employee!.skills;
-              _addressController.text = employee!.address;
-              _aboutController.text = employee!.about;
-              _loginAllowed = employee!.loginAllowed ? 'Yes' : 'No';
-              _receiveEmailNotifications = employee!.receiveEmailNotifications
-                  ? 'Yes'
-                  : 'No';
-              _maritalStatus = employee!.maritalStatus;
-              _employeeType = employee!.employeeType;
-              _outsideOffice = employee!.outsideOffice ? 'Yes' : 'No';
+              // Only use the trashed values as a fallback when the admin
+              // document itself doesn't already have them.
+              if (widget.admin!.skills == null) {
+                _skillsController.text = employee!.skills;
+              }
+              if (widget.admin!.address == null) {
+                _addressController.text = employee!.address;
+              }
+              if (widget.admin!.about == null) {
+                _aboutController.text = employee!.about;
+              }
+              if (widget.admin!.loginAllowed == null) {
+                _loginAllowed = employee!.loginAllowed ? 'Yes' : 'No';
+              }
+              if (widget.admin!.receiveEmailNotifications == null) {
+                _receiveEmailNotifications =
+                    employee!.receiveEmailNotifications ? 'Yes' : 'No';
+              }
+              if (widget.admin!.maritalStatus == null) {
+                _maritalStatus = employee!.maritalStatus;
+              }
+              if (widget.admin!.employeeType == null) {
+                _employeeType = employee!.employeeType;
+              }
+              if (widget.admin!.outsideOffice == null) {
+                _outsideOffice = employee!.outsideOffice ? 'Yes' : 'No';
+              }
             }
           }
         } catch (e) {
@@ -1635,6 +1669,10 @@ class _EmployeeEditState extends State<EmployeeEdit> {
               _selectedProfileImage!,
               StorageFolder.adminProfile,
             );
+          } else if (!_oldProfileImageRemoved) {
+            // Keep the existing photo instead of wiping it out just
+            // because no new image was picked this time.
+            profileImageUrl = _profileImageUrl;
           }
 
           AdminModel adminModel = AdminModel(
@@ -1646,6 +1684,18 @@ class _EmployeeEditState extends State<EmployeeEdit> {
             profileImageUrl: profileImageUrl,
             isActive: _isActive,
             createdBy: await Spdb.getUser(),
+            // Preserve the fields that stay visible/editable on this form
+            // even while "Make as Admin" is on, so they aren't silently
+            // discarded (this used to be the cause of Address/About/etc.
+            // appearing empty the next time this record was edited).
+            address: _addressController.text.trim(),
+            about: _aboutController.text.trim(),
+            skills: _skillsController.text.trim(),
+            employeeType: _employeeType,
+            maritalStatus: _maritalStatus,
+            loginAllowed: _loginAllowed == 'Yes',
+            receiveEmailNotifications: _receiveEmailNotifications == 'Yes',
+            outsideOffice: _outsideOffice == 'Yes',
           );
 
           await AdminService.updateAdmin(id: widget.uid, data: adminModel);

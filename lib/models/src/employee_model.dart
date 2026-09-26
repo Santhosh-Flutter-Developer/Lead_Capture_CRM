@@ -608,6 +608,14 @@ extension AdminToRow on AdminModel {
       createdAt: createdAt,
       updatedAt: updatedAt,
       devices: devices,
+      address: address,
+      about: about,
+      skills: skills,
+      employeeType: employeeType,
+      maritalStatus: maritalStatus,
+      loginAllowed: loginAllowed,
+      receiveEmailNotifications: receiveEmailNotifications,
+      outsideOffice: outsideOffice,
     );
   }
 }
@@ -670,6 +678,15 @@ extension UserRowToAdmin on UserRowModel {
       createdBy: createdBy,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      devices: devices,
+      address: address,
+      about: about,
+      skills: skills,
+      employeeType: employeeType,
+      maritalStatus: maritalStatus,
+      loginAllowed: loginAllowed,
+      receiveEmailNotifications: receiveEmailNotifications,
+      outsideOffice: outsideOffice,
     );
   }
 }
