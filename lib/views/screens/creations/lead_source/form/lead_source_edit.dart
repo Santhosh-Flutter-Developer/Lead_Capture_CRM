@@ -17,7 +17,7 @@ class _LeadSourceEditState extends State<LeadSourceEdit> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
+final ScrollController _vScrollController = ScrollController();
   late Future _future;
   LeadSourceModel? _leadSourceModel;
 
@@ -44,6 +44,7 @@ class _LeadSourceEditState extends State<LeadSourceEdit> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -193,18 +194,30 @@ class _LeadSourceEditState extends State<LeadSourceEdit> {
                       ),
                     );
                   } else {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Form(
-                        key: _formKey,
-                        child: _buildSectionCard(
-                          icon: Iconsax.global,
-                          title: "Source Information",
-                          subtitle:
-                              "Give this lead source a name and description",
-                          child: LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildFormFields(constraints),
+                    return Padding(
+                      padding: const EdgeInsets.only(right:8.0),
+                      child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+                          controller: _vScrollController,
+                          padding: const EdgeInsets.all(20),
+                          child: Form(
+                            key: _formKey,
+                            child: _buildSectionCard(
+                              icon: Iconsax.global,
+                              title: "Source Information",
+                              subtitle:
+                                  "Give this lead source a name and description",
+                              child: LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    _buildFormFields(constraints),
+                              ),
+                            ),
                           ),
                         ),
                       ),

@@ -16,6 +16,7 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -27,6 +28,7 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -84,7 +86,8 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
     required Widget child,
     Color? accentColor,
   }) {
-    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+    final Color badgeColor =
+        accentColor ?? Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -160,17 +163,31 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: _buildSectionCard(
-                    icon: Iconsax.global,
-                    title: "Source Information",
-                    subtitle: "Give this lead source a name and description",
-                    child: LayoutBuilder(
-                      builder: (context, constraints) =>
-                          _buildFormFields(constraints),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                  controller: _vScrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  trackVisibility: true,
+                  radius: const Radius.circular(8),
+                  thickness: 8,
+                  child: SingleChildScrollView(
+                    controller: _vScrollController,
+
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: _buildSectionCard(
+                        icon: Iconsax.global,
+                        title: "Source Information",
+                        subtitle:
+                            "Give this lead source a name and description",
+                        child: LayoutBuilder(
+                          builder: (context, constraints) =>
+                              _buildFormFields(constraints),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -241,8 +258,9 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -353,8 +371,7 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
       try {
         futureLoading(context);
 
-        String? duplicateError =
-            await LeadSourceService.checkLeadSourceExists(
+        String? duplicateError = await LeadSourceService.checkLeadSourceExists(
           name: _nameController.text.trim(),
         );
 
@@ -376,10 +393,7 @@ class _LeadSourceCreateState extends State<LeadSourceCreate> {
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
-        Navigator.pop(context, {
-          "status": true,
-          "name": leadSourceModel.name,
-        });
+        Navigator.pop(context, {"status": true, "name": leadSourceModel.name});
 
         FlushBar.show(context, 'Source created successfully', isSuccess: true);
       } catch (e, st) {

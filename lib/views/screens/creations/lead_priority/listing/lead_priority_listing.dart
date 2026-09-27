@@ -60,11 +60,18 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
   PermissionModel? permissions;
   bool _permissionsLoaded = false;
   final ScrollController _hScrollController = ScrollController();
-
+final ScrollController _vScrollController = ScrollController();
   @override
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {  
+    _hScrollController.dispose();
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -121,32 +128,41 @@ class _LeadPriorityListingViewState extends State<LeadPriorityListingView> {
               }
               return RefreshIndicator(
                 onRefresh: _refreshLeadPriority,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                  children: [
-                    if (isWide) ...[
-                      _buildHeaderBanner(context, state.leadPriority.length),
-                      const SizedBox(height: 20),
+                child: Scrollbar(
+                  controller: _vScrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  trackVisibility: true,
+                  radius: const Radius.circular(8),
+                  thickness: 8,
+                  child: ListView(
+                    controller: _vScrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, state.leadPriority.length),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildToolbar(
+                        context,
+                        controllerRead,
+                        state.leadPriority.length,
+                      ),
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: state.leadPriority.isEmpty
+                                  ? "No lead priorities available"
+                                  : "No matching records found",
+                            )
+                          : _buildTableCard(
+                              context,
+                              controllerWatch,
+                              controllerRead,
+                            ),
                     ],
-                    _buildToolbar(
-                      context,
-                      controllerRead,
-                      state.leadPriority.length,
-                    ),
-                    const SizedBox(height: 18),
-                    controllerWatch.paginatedItems.isEmpty
-                        ? NoData(
-                            text: state.leadPriority.isEmpty
-                                ? "No lead priorities available"
-                                : "No matching records found",
-                          )
-                        : _buildTableCard(
-                            context,
-                            controllerWatch,
-                            controllerRead,
-                          ),
-                  ],
+                  ),
                 ),
               );
             }

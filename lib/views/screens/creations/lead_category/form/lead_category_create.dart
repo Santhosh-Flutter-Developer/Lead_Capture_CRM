@@ -16,6 +16,7 @@ class _LeadCategoryCreateState extends State<LeadCategoryCreate> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -27,6 +28,7 @@ class _LeadCategoryCreateState extends State<LeadCategoryCreate> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -164,17 +166,29 @@ class _LeadCategoryCreateState extends State<LeadCategoryCreate> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: _buildSectionCard(
-                    icon: Iconsax.category,
-                    title: "Category Information",
-                    subtitle: "Give this lead category a name and description",
-                    child: LayoutBuilder(
-                      builder: (context, constraints) =>
-                          _buildFormFields(constraints),
+              child: Padding(
+                padding: const EdgeInsets.only(right:8.0),
+                child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+                    controller: _vScrollController,
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: _buildSectionCard(
+                        icon: Iconsax.category,
+                        title: "Category Information",
+                        subtitle: "Give this lead category a name and description",
+                        child: LayoutBuilder(
+                          builder: (context, constraints) =>
+                              _buildFormFields(constraints),
+                        ),
+                      ),
                     ),
                   ),
                 ),

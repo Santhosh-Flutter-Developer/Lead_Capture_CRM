@@ -17,6 +17,7 @@ class LeadStatusReorder extends StatefulWidget {
 class _LeadStatusReorderState extends State<LeadStatusReorder> {
   // Local list to manage the reordering
   final List<LeadStatusModel> _leadStatusList = [];
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF7B2FF7),
@@ -35,6 +36,12 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
     // 3. Re-sync order numbers in case they are sparse (e.g., 1, 5, 10)
     // This ensures our list starts from a clean 1, 2, 3... state.
     _updateOrderNumbers();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   void _updateOrderNumbers() {
@@ -110,138 +117,147 @@ class _LeadStatusReorderState extends State<LeadStatusReorder> {
 
             // --- LIST VIEW ---
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                child: ReorderableListView(
-                  physics: const BouncingScrollPhysics(),
-                  buildDefaultDragHandles: false,
-                  onReorder: (int oldIndex, int newIndex) {
-                    setState(() {
-                      if (newIndex > oldIndex) newIndex -= 1;
-
-                      final item = _leadStatusList.removeAt(oldIndex);
-                      _leadStatusList.insert(newIndex, item);
-
-                      _updateOrderNumbers();
-                    });
-                  },
-
-                  children: [
-                    for (final (index, status) in _leadStatusList.indexed)
-                      Container(
-                        key: ValueKey(status.uid),
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.shadow.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+              child: Scrollbar(
+                controller: _vScrollController,
+                thumbVisibility: true,
+                interactive: true,
+                trackVisibility: true,
+                radius: const Radius.circular(8),
+                thickness: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: ReorderableListView(
+                    scrollController: _vScrollController,
+                    physics: const BouncingScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    onReorder: (int oldIndex, int newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) newIndex -= 1;
+                  
+                        final item = _leadStatusList.removeAt(oldIndex);
+                        _leadStatusList.insert(newIndex, item);
+                  
+                        _updateOrderNumbers();
+                      });
+                    },
+                  
+                    children: [
+                      for (final (index, status) in _leadStatusList.indexed)
+                        Container(
+                          key: ValueKey(status.uid),
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.outlineVariant,
                             ),
-                          ],
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 6,
-                            horizontal: 16,
-                          ),
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Color(status.color),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              status.orderNumber.toString(),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color:
-                                        Color(status.color).computeLuminance() >
-                                            0.5
-                                        ? AppColors.black
-                                        : AppColors.white,
-                                  ),
-                            ),
-                          ),
-                          title: Row(
-                            children: [
-                              Text(
-                                status.name,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.shadow.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                              if (status.isFinal) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.success.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    "Final",
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: AppColors.success,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
-                          subtitle: Text(
-                            "Drag to reorder",
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                              horizontal: 16,
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Color(status.color),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                status.orderNumber.toString(),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          Color(status.color).computeLuminance() >
+                                              0.5
+                                          ? AppColors.black
+                                          : AppColors.white,
+                                    ),
+                              ),
+                            ),
+                            title: Row(
+                              children: [
+                                Text(
+                                  status.name,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                                ),
+                                if (status.isFinal) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.success.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      "Final",
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: AppColors.success,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Text(
+                              "Drag to reorder",
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            trailing: ReorderableDragStartListener(
+                              index: index,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.drag_indicator_rounded,
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
                                 ),
-                          ),
-                          trailing: ReorderableDragStartListener(
-                            index: index,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.drag_indicator_rounded,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

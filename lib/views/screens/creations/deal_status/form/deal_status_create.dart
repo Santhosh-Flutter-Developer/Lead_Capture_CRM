@@ -19,6 +19,7 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
   Color _selectedColor = const Color(0xFF64748B);
   bool _isFinal = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -30,6 +31,7 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -167,17 +169,29 @@ class _DealStatusCreateState extends State<DealStatusCreate> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: _buildSectionCard(
-                    icon: Iconsax.dollar_circle,
-                    title: "Status Information",
-                    subtitle: "Give this status a name, color and description",
-                    child: LayoutBuilder(
-                      builder: (context, constraints) =>
-                          _buildFormFields(constraints),
+              child: Padding(
+                padding: const EdgeInsets.only(right:8.0),
+                child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+                    controller: _vScrollController,
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: _buildSectionCard(
+                        icon: Iconsax.dollar_circle,
+                        title: "Status Information",
+                        subtitle: "Give this status a name, color and description",
+                        child: LayoutBuilder(
+                          builder: (context, constraints) =>
+                              _buildFormFields(constraints),
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -18,6 +18,7 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
   Color _selectedColor = const Color(0xFF64748B);
   bool _isFinal = false;
   bool _showFinalWarning = false;
@@ -50,6 +51,7 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -107,7 +109,8 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
     required Widget child,
     Color? accentColor,
   }) {
-    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+    final Color badgeColor =
+        accentColor ?? Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -193,24 +196,36 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
                     return Center(
                       child: Text(
                         'Error: ${snapshot.error}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: AppColors.danger),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.danger,
+                        ),
                       ),
                     );
                   } else {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Form(
-                        key: _formKey,
-                        child: _buildSectionCard(
-                          icon: Iconsax.status_up,
-                          title: "Status Information",
-                          subtitle:
-                              "Update this status's name, color and description",
-                          child: LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildFormFields(constraints),
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Scrollbar(
+                        controller: _vScrollController,
+                        thumbVisibility: true,
+                        interactive: true,
+                        trackVisibility: true,
+                        radius: const Radius.circular(8),
+                        thickness: 8,
+                        child: SingleChildScrollView(
+                          controller: _vScrollController,
+                          padding: const EdgeInsets.all(20),
+                          child: Form(
+                            key: _formKey,
+                            child: _buildSectionCard(
+                              icon: Iconsax.status_up,
+                              title: "Status Information",
+                              subtitle:
+                                  "Update this status's name, color and description",
+                              child: LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    _buildFormFields(constraints),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -284,8 +299,9 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -463,9 +479,9 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
       decoration: BoxDecoration(
         color: _isFinal
             ? AppColors.success.withValues(alpha: 0.08)
-            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.35,
-              ),
+            : Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: _isFinal
@@ -489,9 +505,9 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
               Expanded(
                 child: Text(
                   'Final Lead Status',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               Switch(
@@ -535,8 +551,7 @@ class _LeadStatusEditState extends State<LeadStatusEdit> {
       try {
         futureLoading(context);
 
-        String? duplicateError =
-            await LeadStatusService.checkLeadStatusExists(
+        String? duplicateError = await LeadStatusService.checkLeadStatusExists(
           name: _nameController.text.trim(),
           excludeUid: widget.uid,
         );
