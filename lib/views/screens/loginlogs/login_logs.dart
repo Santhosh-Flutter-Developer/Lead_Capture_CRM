@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
-import 'package:leadcapture/utils/src/platform.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/views/views.dart';
@@ -20,6 +19,7 @@ class LoginLogsListing extends StatefulWidget {
 class _LoginLogsListingState extends State<LoginLogsListing> {
   final TextEditingController _searchController = TextEditingController();
   String _search = '';
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -40,6 +40,7 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
   @override
   void dispose() {
     _searchController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -138,41 +139,50 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                   behavior: ScrollConfiguration.of(
                     context,
                   ).copyWith(scrollbars: false),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      if (!widget.showAppbar) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                          child: _buildHeaderBanner(context),
-                        ),
-                      ],
-                      if (filteredList.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 100),
-                          child: NoData(
-                            text: "No login records found for this query",
+                  child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                      controller: _vScrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        if (!widget.showAppbar) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                            child: _buildHeaderBanner(context),
                           ),
-                        )
-                      else
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1400),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: grouped.entries.map((entry) {
-                                  return _buildSection(entry.key, entry.value);
-                                }).toList(),
+                        ],
+                        if (filteredList.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 100),
+                            child: NoData(
+                              text: "No login records found for this query",
+                            ),
+                          )
+                        else
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1400),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: grouped.entries.map((entry) {
+                                    return _buildSection(entry.key, entry.value);
+                                  }).toList(),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -228,12 +238,11 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                   children: [
                     Text(
                       "Access Logs",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineSmall?.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -260,9 +269,9 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
               decoration: InputDecoration(
                 isDense: true,
                 hintText: 'Filter by user, device, or IP address...',
-                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.grey500,
-                ),
+                hintStyle: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
                 prefixIcon: const Icon(
                   Iconsax.search_normal_1,
                   size: 16,
@@ -280,9 +289,18 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                       )
                     : null,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none
+                ),
               ),
             ),
           ),
@@ -380,9 +398,7 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(
-              alpha: 0.05,
-            ),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -420,9 +436,7 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -494,10 +508,7 @@ class _LoginLogsListingState extends State<LoginLogsListing> {
                       const SizedBox(height: 6),
                       _buildInfoRow(Iconsax.global, item.loginAlert.ipAddress),
                       const SizedBox(height: 4),
-                      _buildInfoRow(
-                        Iconsax.location,
-                        item.loginAlert.location,
-                      ),
+                      _buildInfoRow(Iconsax.location, item.loginAlert.location),
                     ],
                   ),
                 ),

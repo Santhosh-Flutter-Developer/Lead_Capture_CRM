@@ -21,7 +21,7 @@ class TrashScreen extends StatefulWidget {
 
 class _TrashScreenState extends State<TrashScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  final ScrollController _vScrollController = ScrollController();
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
     Color(0xFF4364F7),
@@ -47,6 +47,12 @@ class _TrashScreenState extends State<TrashScreen> {
         _search = _searchController.text.trim().toLowerCase();
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -263,7 +269,10 @@ class _TrashScreenState extends State<TrashScreen> {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(
-          children: [_buildHeader(context), const Expanded(child: WaitingLoading())],
+          children: [
+            _buildHeader(context),
+            const Expanded(child: WaitingLoading()),
+          ],
         ),
       );
     }
@@ -364,9 +373,9 @@ class _TrashScreenState extends State<TrashScreen> {
               decoration: InputDecoration(
                 isDense: true,
                 hintText: 'Search deleted items',
-                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.grey500,
-                ),
+                hintStyle: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
                 prefixIcon: const Icon(
                   Iconsax.search_normal_1,
                   size: 16,
@@ -384,9 +393,19 @@ class _TrashScreenState extends State<TrashScreen> {
                       )
                     : null,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+                border: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(12)
+                ),
+                
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(12)
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(12)
+                ),
               ),
             ),
           ),
@@ -398,183 +417,194 @@ class _TrashScreenState extends State<TrashScreen> {
   Widget _buildBody(BuildContext context) {
     return Stack(
       children: [
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _trashRef!.snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return WaitingLoading();
-              }
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _trashRef!.snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return WaitingLoading();
+            }
 
-              if (!snapshot.hasData) {
-                return WaitingLoading();
-              }
+            if (!snapshot.hasData) {
+              return WaitingLoading();
+            }
 
-              final docs = snapshot.data!.docs;
+            final docs = snapshot.data!.docs;
 
-              final filteredDocs = docs.where((doc) {
-                if (_search.isEmpty) return true;
+            final filteredDocs = docs.where((doc) {
+              if (_search.isEmpty) return true;
 
-                final data = doc.data();
-                final inner = (data['data'] ?? {}) as Map<String, dynamic>;
+              final data = doc.data();
+              final inner = (data['data'] ?? {}) as Map<String, dynamic>;
 
-                final title = inner['title']?.toString().toLowerCase() ?? '';
-                final name = inner['name']?.toString().toLowerCase() ?? '';
-                final path = (data['originalPath'] ?? '')
-                    .toString()
-                    .toLowerCase();
+              final title = inner['title']?.toString().toLowerCase() ?? '';
+              final name = inner['name']?.toString().toLowerCase() ?? '';
+              final path = (data['originalPath'] ?? '')
+                  .toString()
+                  .toLowerCase();
 
-                return title.contains(_search) ||
-                    name.contains(_search) ||
-                    path.contains(_search);
-              }).toList();
+              return title.contains(_search) ||
+                  name.contains(_search) ||
+                  path.contains(_search);
+            }).toList();
 
-              if (filteredDocs.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Iconsax.trash,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+            if (filteredDocs.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Iconsax.trash,
+                      size: 64,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _search.isEmpty ? "No deleted items" : "No results found",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _search.isEmpty ? "No deleted items" : "No results found",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _search.isEmpty
+                          ? "Items you delete will appear here"
+                          : "Try a different search term",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _search.isEmpty
-                            ? "Items you delete will appear here"
-                            : "Try a different search term",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              _lastSnapshot = snapshot.data;
-
-              final grouped = _groupByDay(filteredDocs);
-
-              return RefreshIndicator(
-                onRefresh: () async {},
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
-                  child: ListView(
-                    children: [
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1400),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: grouped.entries.map((entry) {
-                              return _buildSection(entry.key, entry.value);
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
-            },
-          ),
+            }
 
-          if (_isProcessing)
-            Container(
-              color: AppColors.black.withValues(alpha: 0.2),
-              child: WaitingLoading(),
-            ),
+            _lastSnapshot = snapshot.data;
 
-          if (_selectionMode)
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                      color: Colors.black.withValues(alpha: 0.08),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    /// Selected Count
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.error.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        "${_selectedIds.length} selected",
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
+            final grouped = _groupByDay(filteredDocs);
 
-                    const SizedBox(width: 16),
-
-                    SizedBox(
-                      height: 40,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.restore, size: 16),
-                        label: const Text("Restore"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+            return RefreshIndicator(
+              onRefresh: () async {},
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: ListView(
+                      controller:_vScrollController,
+                      children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1400),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: grouped.entries.map((entry) {
+                                return _buildSection(entry.key, entry.value);
+                              }).toList(),
+                            ),
                           ),
                         ),
-                        onPressed: _selectedIds.isEmpty || _isProcessing
-                            ? null
-                            : _restoreSelected,
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
+            );
+          },
+        ),
+
+        if (_isProcessing)
+          Container(
+            color: AppColors.black.withValues(alpha: 0.2),
+            child: WaitingLoading(),
+          ),
+
+        if (_selectionMode)
+          Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  /// Selected Count
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "${_selectedIds.length} selected",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  SizedBox(
+                    height: 40,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.restore, size: 16),
+                      label: const Text("Restore"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onPressed: _selectedIds.isEmpty || _isProcessing
+                          ? null
+                          : _restoreSelected,
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ],
-      );
+          ),
+      ],
+    );
   }
 
   Widget _buildSection(String label, List docs) {
@@ -663,9 +693,9 @@ class _TrashScreenState extends State<TrashScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.shadow.withValues(
-                alpha: 0.05,
-              ),
+              color: Theme.of(
+                context,
+              ).colorScheme.shadow.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -733,9 +763,7 @@ class _TrashScreenState extends State<TrashScreen> {
                         Icon(
                           Iconsax.folder,
                           size: 14,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 6),
 

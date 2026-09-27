@@ -52,11 +52,18 @@ class SettingsListing extends StatefulWidget {
 }
 
 class _SettingsListingState extends State<SettingsListing> {
+  final ScrollController _vScrollController = ScrollController();
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
     Color(0xFF4364F7),
     Color(0xFF6FB1FC),
   ];
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
+  }
 
   Widget _buildHeaderBanner(BuildContext context) {
     return Container(
@@ -249,14 +256,13 @@ class _SettingsListingState extends State<SettingsListing> {
                   trailing: SizedBox(
                     width: 140,
                     child: TextField(
-                      onChanged: (val) => context
-                          .read<SettingsBloc>()
-                          .add(UpdateSettingsEvent("appName", val)),
-                      controller:
-                          TextEditingController(text: settings.appName)
-                            ..selection = TextSelection.fromPosition(
-                              TextPosition(offset: settings.appName.length),
-                            ),
+                      onChanged: (val) => context.read<SettingsBloc>().add(
+                        UpdateSettingsEvent("appName", val),
+                      ),
+                      controller: TextEditingController(text: settings.appName)
+                        ..selection = TextSelection.fromPosition(
+                          TextPosition(offset: settings.appName.length),
+                        ),
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                         fontSize: 13,
@@ -303,18 +309,27 @@ class _SettingsListingState extends State<SettingsListing> {
               behavior: ScrollConfiguration.of(
                 context,
               ).copyWith(scrollbars: false),
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  if (!widget.showAppbar) _buildHeaderBanner(context),
-                  notificationsCard,
-                  const SizedBox(height: 28),
-                  appearanceCard,
-                  const SizedBox(height: 28),
-                  systemCard,
-                  const SizedBox(height: 40),
-                  _buildFooter(),
-                ],
+              child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                  controller: _vScrollController,
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    if (!widget.showAppbar) _buildHeaderBanner(context),
+                    notificationsCard,
+                    const SizedBox(height: 28),
+                    appearanceCard,
+                    const SizedBox(height: 28),
+                    systemCard,
+                    const SizedBox(height: 40),
+                    _buildFooter(),
+                  ],
+                ),
               ),
             );
           }
@@ -339,8 +354,7 @@ class _SettingsListingState extends State<SettingsListing> {
         int columns = (width / (minTileWidth + spacing)).floor();
         columns = columns.clamp(1, 4);
 
-        final double itemWidth =
-            (width - spacing * (columns - 1)) / columns;
+        final double itemWidth = (width - spacing * (columns - 1)) / columns;
 
         return Wrap(
           spacing: spacing,
@@ -379,8 +393,9 @@ class _SettingsListingState extends State<SettingsListing> {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     Text(
                       subtitle,
@@ -408,9 +423,7 @@ class _SettingsListingState extends State<SettingsListing> {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(
-              alpha: 0.05,
-            ),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
