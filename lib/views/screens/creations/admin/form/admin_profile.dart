@@ -19,6 +19,7 @@ class AdminProfile extends StatefulWidget {
 class _AdminProfileState extends State<AdminProfile> {
   PermissionModel? _permissions;
   late AdminModel _admin;
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -31,6 +32,12 @@ class _AdminProfileState extends State<AdminProfile> {
     super.initState();
     _admin = widget.admin;
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -296,7 +303,9 @@ class _AdminProfileState extends State<AdminProfile> {
                     ),
                   ),
                   Text(
-                    _admin.isActive ? 'Active administrator' : 'Inactive administrator',
+                    _admin.isActive
+                        ? 'Active administrator'
+                        : 'Inactive administrator',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.white.withValues(alpha: 0.85),
                     ),
@@ -331,14 +340,26 @@ class _AdminProfileState extends State<AdminProfile> {
             children: [
               _buildHeader(context, canEdit, width),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildProfileCard(context, canEdit),
-                      const SizedBox(height: 20),
-                      _buildDetailsCard(context),
-                    ],
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                      controller: _vScrollController,
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          _buildProfileCard(context, canEdit),
+                          const SizedBox(height: 20),
+                          _buildDetailsCard(context),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -456,9 +477,7 @@ class _AdminProfileState extends State<AdminProfile> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _admin.isActive
-                      ? Iconsax.tick_circle
-                      : Iconsax.close_circle,
+                  _admin.isActive ? Iconsax.tick_circle : Iconsax.close_circle,
                   size: 14,
                   color: Colors.white,
                 ),
@@ -523,8 +542,9 @@ class _AdminProfileState extends State<AdminProfile> {
                   children: [
                     Text(
                       "Admin Details",
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     Text(
                       "Contact details and account status",

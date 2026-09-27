@@ -278,18 +278,21 @@ class _SharedprefsDataState extends State<SharedprefsData> {
                         child: _loading
                             ? const Center(child: WaitingLoading())
                             : items.isEmpty
-                            ? Scrollbar(
-                                controller: _vScrollController,
-                                thumbVisibility: true,
-                                interactive: true,
-                                trackVisibility: true,
-                                radius: const Radius.circular(8),
-                                thickness: 8,
-                                child: ListView(
+                            ? Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Scrollbar(
                                   controller: _vScrollController,
-                                  children: [_buildEmptyState()],
+                                  thumbVisibility: true,
+                                  interactive: true,
+                                  trackVisibility: true,
+                                  radius: const Radius.circular(8),
+                                  thickness: 8,
+                                  child: ListView(
+                                    controller: _vScrollController,
+                                    children: [_buildEmptyState()],
+                                  ),
                                 ),
-                              )
+                            )
                             : isDesktop
                             ? _buildDesktopGrid(items)
                             : _buildMobileList(items),

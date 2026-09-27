@@ -26,6 +26,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
 
   XFile? _newProfileImage;
   Uint8List? _newProfileImageBytes;
@@ -56,6 +57,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
     _emailController.dispose();
     _passwordController.dispose();
     _mobileController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -113,7 +115,8 @@ class _AdminUpdateState extends State<AdminUpdate> {
     required Widget child,
     Color? accentColor,
   }) {
-    final Color badgeColor = accentColor ?? Theme.of(context).colorScheme.primary;
+    final Color badgeColor =
+        accentColor ?? Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -190,32 +193,44 @@ class _AdminUpdateState extends State<AdminUpdate> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: [
-                        _buildSectionCard(
-                          icon: Iconsax.gallery,
-                          title: "Profile Picture",
-                          subtitle:
-                              "Update this administrator's profile picture",
-                          child: Center(child: _buildProfileUploader()),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                    controller: _vScrollController,
+                    child: Form(
+                      key: _formKey,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          children: [
+                            _buildSectionCard(
+                              icon: Iconsax.gallery,
+                              title: "Profile Picture",
+                              subtitle:
+                                  "Update this administrator's profile picture",
+                              child: Center(child: _buildProfileUploader()),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildSectionCard(
+                              icon: Iconsax.personalcard,
+                              accentColor: AppColors.secondary,
+                              title: "Admin Details",
+                              subtitle: "Account name, login and contact details",
+                              child: LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    _buildAdminDetails(constraints, 2),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        _buildSectionCard(
-                          icon: Iconsax.personalcard,
-                          accentColor: AppColors.secondary,
-                          title: "Admin Details",
-                          subtitle: "Account name, login and contact details",
-                          child: LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildAdminDetails(constraints, 2),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -278,8 +293,9 @@ class _AdminUpdateState extends State<AdminUpdate> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -507,10 +523,7 @@ class _AdminUpdateState extends State<AdminUpdate> {
                               _existingProfileUrl!,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Iconsax.gallery_slash,
-                                    size: 32,
-                                  ),
+                                  const Icon(Iconsax.gallery_slash, size: 32),
                             )
                           : Icon(
                               Iconsax.user,
