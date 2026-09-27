@@ -78,6 +78,65 @@ class _TicketCreateState extends State<TicketCreate> {
     }
   }
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Back(color: AppColors.white),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Iconsax.ticket,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Create New Ticket",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Log a new support request",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -86,34 +145,37 @@ class _TicketCreateState extends State<TicketCreate> {
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: FormWidgets.buildHeader(
-            context: context,
-            title: "Create New Ticket",
-          ),
-          body: FutureBuilder(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const WaitingLoading();
-              } else if (snapshot.hasError) {
-                return ErrorDisplay(error: snapshot.error.toString());
-              }
+          body: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(
+                child: FutureBuilder(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const WaitingLoading();
+                    } else if (snapshot.hasError) {
+                      return ErrorDisplay(error: snapshot.error.toString());
+                    }
 
-              return Form(
-                key: _formKey,
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop ? 1400 : double.infinity,
-                    ),
-                    padding: const EdgeInsets.all(24.0),
-                    child: isDesktop
-                        ? _buildDesktopLayout()
-                        : _buildMobileLayout(),
-                  ),
+                    return Form(
+                      key: _formKey,
+                      child: Center(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: isDesktop ? 1400 : double.infinity,
+                          ),
+                          padding: const EdgeInsets.all(24.0),
+                          child: isDesktop
+                              ? _buildDesktopLayout()
+                              : _buildMobileLayout(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           ),
           bottomNavigationBar: _buildActionBottomBar(),
         );
@@ -354,10 +416,11 @@ class _TicketCreateState extends State<TicketCreate> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.03),
-            blurRadius: 10,
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -368,22 +431,32 @@ class _TicketCreateState extends State<TicketCreate> {
         children: [
           Row(
             children: [
-              Icon(
-                icon,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          Divider(color: AppColors.grey200, thickness: 1),
+          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -799,40 +872,97 @@ class _TicketCreateState extends State<TicketCreate> {
 
   Widget _buildActionBottomBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: const Offset(0, -3),
           ),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Discard"),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.pop(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 15,
+                ),
+                child: Text(
+                  "Discard",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ),
-            icon: const Icon(Iconsax.add_circle),
-            label: const Text(
-              "Create Ticket",
-              style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: _brandGradient,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            onPressed: _submitForm,
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _submitForm,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 15,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Iconsax.add_circle,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Create Ticket",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
