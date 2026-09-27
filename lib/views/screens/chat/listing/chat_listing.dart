@@ -11,7 +11,6 @@ import '/models/models.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
 import 'bloc/chat_bloc.dart';
-import '/services/firebase/src/admin_service.dart';
 
 const String _pageTitle = "Chat";
 
@@ -301,6 +300,7 @@ class _ChatListPanelState extends State<ChatListPanel> {
   List<dynamic> _allUsers = []; // All employees and admins for search
   List<dynamic> _filteredUsers = []; // Filtered users from search
   bool _showUserResults = false; // Whether to show user search results
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -338,6 +338,7 @@ class _ChatListPanelState extends State<ChatListPanel> {
     _searchController.removeListener(_filterChats);
     _cacheListenable.removeListener(_filterChats);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -547,119 +548,131 @@ class _ChatListPanelState extends State<ChatListPanel> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: widget.onRefresh ?? () async {},
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _getItemCount(),
-                itemBuilder: (context, index) {
-                  // Show user search results first if available
-                  if (_showUserResults && index < _filteredUsers.length) {
-                    final user = _filteredUsers[index];
-                    return _UserSearchResultItem(
-                      user: user,
-                      onTap: () => _startChatWithUser(user),
-                    );
-                  }
-                  
-                  // Show divider between user results and chat results
-                  if (_showUserResults && _filteredChats.isNotEmpty && index == _filteredUsers.length) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text(
-                        'Existing Chats',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    );
-                  }
-                  
-                  // Show chat results
-                  final chatIndex = _showUserResults && _filteredChats.isNotEmpty 
-                      ? index - _filteredUsers.length - 1 
-                      : index;
-                  
-                  if (_filteredChats.isEmpty) {
-                    return SizedBox(
-                      height: 300,
-                      child: NoData(text: "No chats available"),
-                    );
-                  }
-                  final chat = _filteredChats[chatIndex];
-
-                  final originalIndex = widget.chats.indexOf(chat);
-                  final isSelected = chat.uid == widget.selectedChatUid;
-
-                  return _ChatListItem(
-                    chat: chat,
-                    isSelected: isSelected,
-                    onTap: () => widget.onSelect(originalIndex),
-                    currentUserUid: widget.currentUserUid,
-                    onAction: (action) async {
-                      switch (action) {
-                        case ChatAction.pin:
-                          await ChatService.toggleChatPin(
-                            chatId: chat.uid!,
-                            value: !chat.isPinnedForUser(widget.currentUserUid),
-                          );
-                          break;
-
-                        case ChatAction.favorite:
-                          await ChatService.toggleChatFavorite(
-                            chatId: chat.uid!,
-                            value: !chat.isFavoriteForUser(
-                              widget.currentUserUid,
-                            ),
-                          );
-                          break;
-                        case ChatAction.delete:
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Delete chat'),
-                              content: const Text(
-                                'This chat will be permanently deleted. Continue?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(),
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Delete'),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (confirm == true) {
-                            final chatId = chat.uid!;
-                            final deletedChat = chat; // ✅ backup
-
-                            // ✅ DELETE
-                            await ChatService.deleteChat(chatId: chatId);
-
-                            if (!context.mounted) return;
-
-                            // ✅ SHOW UNDO
-                            FlushBar.show(
-                              context,
-                              'Chat deleted',
-                              actionLabel: 'UNDO',
-                              onActionPressed: () async {
-                                await ChatService.restoreChat(deletedChat);
-                                if (!context.mounted) return;
-                                context.read<ChatBloc>().add(StreamChat());
-                              },
-                            );
-                          }
-                          break;
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: _getItemCount(),
+                    itemBuilder: (context, index) {
+                      // Show user search results first if available
+                      if (_showUserResults && index < _filteredUsers.length) {
+                        final user = _filteredUsers[index];
+                        return _UserSearchResultItem(
+                          user: user,
+                          onTap: () => _startChatWithUser(user),
+                        );
                       }
+                      
+                      // Show divider between user results and chat results
+                      if (_showUserResults && _filteredChats.isNotEmpty && index == _filteredUsers.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Text(
+                            'Existing Chats',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      // Show chat results
+                      final chatIndex = _showUserResults && _filteredChats.isNotEmpty 
+                          ? index - _filteredUsers.length - 1 
+                          : index;
+                      
+                      if (_filteredChats.isEmpty) {
+                        return SizedBox(
+                          height: 300,
+                          child: NoData(text: "No chats available"),
+                        );
+                      }
+                      final chat = _filteredChats[chatIndex];
+                  
+                      final originalIndex = widget.chats.indexOf(chat);
+                      final isSelected = chat.uid == widget.selectedChatUid;
+                  
+                      return _ChatListItem(
+                        chat: chat,
+                        isSelected: isSelected,
+                        onTap: () => widget.onSelect(originalIndex),
+                        currentUserUid: widget.currentUserUid,
+                        onAction: (action) async {
+                          switch (action) {
+                            case ChatAction.pin:
+                              await ChatService.toggleChatPin(
+                                chatId: chat.uid!,
+                                value: !chat.isPinnedForUser(widget.currentUserUid),
+                              );
+                              break;
+                  
+                            case ChatAction.favorite:
+                              await ChatService.toggleChatFavorite(
+                                chatId: chat.uid!,
+                                value: !chat.isFavoriteForUser(
+                                  widget.currentUserUid,
+                                ),
+                              );
+                              break;
+                            case ChatAction.delete:
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete chat'),
+                                  content: const Text(
+                                    'This chat will be permanently deleted. Continue?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(),
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                  
+                              if (confirm == true) {
+                                final chatId = chat.uid!;
+                                final deletedChat = chat; // ✅ backup
+                  
+                                // ✅ DELETE
+                                await ChatService.deleteChat(chatId: chatId);
+                  
+                                if (!context.mounted) return;
+                  
+                                // ✅ SHOW UNDO
+                                FlushBar.show(
+                                  context,
+                                  'Chat deleted',
+                                  actionLabel: 'UNDO',
+                                  onActionPressed: () async {
+                                    await ChatService.restoreChat(deletedChat);
+                                    if (!context.mounted) return;
+                                    context.read<ChatBloc>().add(StreamChat());
+                                  },
+                                );
+                              }
+                              break;
+                          }
+                        },
+                      );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
             ),
 

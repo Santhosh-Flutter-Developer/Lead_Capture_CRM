@@ -152,95 +152,108 @@ class _MediaTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ScrollController scrollController = ScrollController();
     if (media.isEmpty) {
       return _buildEmptyState(context, Iconsax.gallery, "No media shared yet");
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: media.length,
-      itemBuilder: (_, index) {
-        final file = media[index];
-
-        final mime = (file.mimeType).toLowerCase();
-        final ext = file.extension.toLowerCase();
-
-        final videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
-        final isVideo =
-            mime.startsWith('video/') || videoExtensions.contains(ext);
-
-        return GestureDetector(
-          onTap: () {
-            if (isVideo) {
-              navigate.route(context, VideoPlay(file: file));
-            } else {
-              navigate.route(
-                context,
-                GalleryScreen(images: media, initialIndex: index),
-              );
-            }
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(11),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  /// IMAGE
-                  if (!isVideo)
-                    CachedNetworkImage(
-                      imageUrl: file.url,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Shimmer.fromColors(
-                        baseColor: Colors.grey[300]!,
-                        highlightColor: Colors.grey[100]!,
-                        child: Container(color: Colors.white),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                        child: const Icon(Iconsax.gallery_slash),
-                      ),
-                    ),
-
-                  /// VIDEO THUMBNAIL (Fallback UI)
-                  if (isVideo)
-                    Container(
-                      color: Colors.black,
-                      child: const Center(
-                        child: Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.white,
-                          size: 40,
-                        ),
-                      ),
-                    ),
-
-                  /// PLAY ICON OVERLAY (for video)
-                  if (isVideo)
-                    const Center(
-                      child: Icon(
-                        Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 40,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Scrollbar(
+        controller: scrollController,
+        thumbVisibility: true,
+        interactive: true,
+        trackVisibility: true,
+        radius: const Radius.circular(8),
+        thickness: 8,
+        child: GridView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
           ),
-        );
-      },
+          itemCount: media.length,
+          itemBuilder: (_, index) {
+            final file = media[index];
+
+            final mime = (file.mimeType).toLowerCase();
+            final ext = file.extension.toLowerCase();
+
+            final videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+            final isVideo =
+                mime.startsWith('video/') || videoExtensions.contains(ext);
+
+            return GestureDetector(
+              onTap: () {
+                if (isVideo) {
+                  navigate.route(context, VideoPlay(file: file));
+                } else {
+                  navigate.route(
+                    context,
+                    GalleryScreen(images: media, initialIndex: index),
+                  );
+                }
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      /// IMAGE
+                      if (!isVideo)
+                        CachedNetworkImage(
+                          imageUrl: file.url,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                            child: const Icon(Iconsax.gallery_slash),
+                          ),
+                        ),
+
+                      /// VIDEO THUMBNAIL (Fallback UI)
+                      if (isVideo)
+                        Container(
+                          color: Colors.black,
+                          child: const Center(
+                            child: Icon(
+                              Icons.play_circle_fill,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+
+                      /// PLAY ICON OVERLAY (for video)
+                      if (isVideo)
+                        const Center(
+                          child: Icon(
+                            Icons.play_circle_fill,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -251,75 +264,88 @@ class _LinksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ScrollController _scrollController = ScrollController();
     if (links.isEmpty) {
       return _buildEmptyState(context, Iconsax.link, "No links found in chat");
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: links.length,
-      itemBuilder: (_, index) {
-        final url = links[index];
-        final domain = Uri.parse(url).host;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        interactive: true,
+        trackVisibility: true,
+        radius: const Radius.circular(8),
+        thickness: 8,
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(16),
+          itemCount: links.length,
+          itemBuilder: (_, index) {
+            final url = links[index];
+            final domain = Uri.parse(url).host;
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-          child: ListTile(
-            onTap: () => launchUrl(Uri.parse(url)),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Iconsax.link_1,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-            ),
-            title: Text(
-              url,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                domain.isEmpty ? "External Link" : domain,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
                 ),
               ),
-            ),
-            trailing: Icon(
-              Iconsax.export_1,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        );
-      },
+              child: ListTile(
+                onTap: () => launchUrl(Uri.parse(url)),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Iconsax.link_1,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    domain.isEmpty ? "External Link" : domain,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                trailing: Icon(
+                  Iconsax.export_1,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -330,6 +356,7 @@ class _DocsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ScrollController _scrollController = ScrollController();
     if (docs.isEmpty) {
       return _buildEmptyState(
         context,
@@ -338,75 +365,91 @@ class _DocsTab extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: docs.length,
-      itemBuilder: (_, index) {
-        final file = docs[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        interactive: true,
+        trackVisibility: true,
+        radius: const Radius.circular(8),
+        thickness: 8,
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          itemBuilder: (_, index) {
+            final file = docs[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Iconsax.document_text,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-            ),
-            title: Text(
-              path.basename(file.name),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '${file.size} KB • ${file.extension.toUpperCase()}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
                 ),
               ),
-            ),
-            trailing: Icon(
-              Iconsax.arrow_circle_down,
-              size: 22,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            onTap: () async {
-              if (file.url.isEmpty) {
-                FlushBar.show(context, "Invalid file URL", isSuccess: false);
-                return;
-              }
-              await Download.downloadFromUrl(context, file.url, file.name);
-            },
-          ),
-        );
-      },
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Iconsax.document_text,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  path.basename(file.name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '${file.size} KB • ${file.extension.toUpperCase()}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                trailing: Icon(
+                  Iconsax.arrow_circle_down,
+                  size: 22,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                onTap: () async {
+                  if (file.url.isEmpty) {
+                    FlushBar.show(
+                      context,
+                      "Invalid file URL",
+                      isSuccess: false,
+                    );
+                    return;
+                  }
+                  await Download.downloadFromUrl(context, file.url, file.name);
+                },
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }

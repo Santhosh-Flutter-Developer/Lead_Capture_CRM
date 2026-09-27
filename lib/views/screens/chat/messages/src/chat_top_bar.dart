@@ -294,6 +294,8 @@ class ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
                 fontSize: 14,
               ),
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               isDense: true,
               icon: Icon(
                 Iconsax.search_normal,
@@ -591,6 +593,8 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
         decoration: InputDecoration(
           hintText: 'Search messages...',
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           isDense: true,
           icon: const Icon(Iconsax.search_normal, size: 18),
         ),

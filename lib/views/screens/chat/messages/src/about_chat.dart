@@ -47,6 +47,7 @@ class _AboutChatState extends State<AboutChat> {
   bool canEditGroup = false;
 
   String currentUserUid = '';
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -55,6 +56,12 @@ class _AboutChatState extends State<AboutChat> {
     currentUserUid = widget.currentUserUid ?? '';
 
     _init();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -158,13 +165,14 @@ class _AboutChatState extends State<AboutChat> {
               child: Padding(
                 padding: const EdgeInsets.only(right:8.0),
                 child: Scrollbar(
-                                // controller: _scrollController,
+                                 controller: _scrollController,
                                 thumbVisibility: true,
                                 interactive: true,
                                 trackVisibility: true,
                                 radius: const Radius.circular(8),
                                 thickness: 8,
                   child: SingleChildScrollView(
+                    controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                   
                     child: Column(
@@ -505,27 +513,31 @@ class _AboutChatState extends State<AboutChat> {
               ),
 
               subtitle: uid == widget.chat.createdBy
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.orange.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          "Group Owner",
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.orange,
-                            fontWeight: FontWeight.bold,
+                  ? Row(
+                    children: [
+                      Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.orange.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              "Group Owner",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.orange,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    )
+                    ],
+                  )
                   : Text(
                       "Member",
 

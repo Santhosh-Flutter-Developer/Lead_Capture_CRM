@@ -40,6 +40,8 @@ class _CreateChatState extends State<CreateChat>
     Color(0xFF4364F7),
     Color(0xFF6FB1FC),
   ];
+  final ScrollController _scrollController = ScrollController();
+  final ScrollController _groupscrollController = ScrollController();
 
   @override
   void initState() {
@@ -86,6 +88,8 @@ class _CreateChatState extends State<CreateChat>
   void dispose() {
     _chatMessage.dispose();
     _tabController.dispose();
+    _scrollController.dispose();
+    _groupscrollController.dispose();
     super.dispose();
   }
 
@@ -316,367 +320,391 @@ class _CreateChatState extends State<CreateChat>
                       controller: _tabController,
                       children: [
                         // -------------------- Individual Chat Tab --------------------
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSectionCard(
-                                icon: Iconsax.user,
-                                title: "Select a person",
-                                subtitle:
-                                    "Choose who you'd like to start chatting with",
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    FormDropdownSearch(
-                                      label: 'Select User',
-                                      items: _members
-                                          .map((e) => e.name)
-                                          .toList(),
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          var selected = _members.firstWhere(
-                                            (m) => m.name == value,
-                                          );
-                                          setState(() {
-                                            _selectedUserId =
-                                                selected.uid ??
-                                                selected.id ??
-                                                "";
-                                            _selectedUser = selected;
-                                          });
-                                        } else {
-                                          setState(() {
-                                            _selectedUserId = null;
-                                            _selectedUser = null;
-                                          });
-                                        }
-                                      },
-                                    ),
-                                    if (_selectedUser != null) ...[
-                                      const SizedBox(height: 10),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
+                        Padding(
+                          padding: const EdgeInsets.only(right:8.0),
+                          child: Scrollbar(
+                                              controller: _scrollController,
+                                              thumbVisibility: true,
+                                              interactive: true,
+                                              trackVisibility: true,
+                                              radius: const Radius.circular(8),
+                                              thickness: 8,
+                                              child: SingleChildScrollView(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSectionCard(
+                                    icon: Iconsax.user,
+                                    title: "Select a person",
+                                    subtitle:
+                                        "Choose who you'd like to start chatting with",
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        FormDropdownSearch(
+                                          label: 'Select User',
+                                          items: _members
+                                              .map((e) => e.name)
+                                              .toList(),
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              var selected = _members.firstWhere(
+                                                (m) => m.name == value,
+                                              );
+                                              setState(() {
+                                                _selectedUserId =
+                                                    selected.uid ??
+                                                    selected.id ??
+                                                    "";
+                                                _selectedUser = selected;
+                                              });
+                                            } else {
+                                              setState(() {
+                                                _selectedUserId = null;
+                                                _selectedUser = null;
+                                              });
+                                            }
+                                          },
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withValues(alpha: 0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              _selectedUser is AdminModel
-                                                  ? Iconsax.shield_tick
-                                                  : Iconsax.user,
-                                              size: 14,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
+                                        if (_selectedUser != null) ...[
+                                          const SizedBox(height: 10),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              _selectedUser is AdminModel
-                                                  ? "Admin"
-                                                  : "Employee",
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.primary,
-                                              ),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
                                             ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              _buildSectionCard(
-                                icon: Iconsax.message_text,
-                                accentColor: AppColors.secondary,
-                                title: "First message",
-                                subtitle:
-                                    "This starts the conversation with them",
-                                child: TextFormField(
-                                  controller: _chatMessage,
-                                  maxLines: 3,
-                                  enableSuggestions: true,
-                                  autocorrect: true,
-                                  spellCheckConfiguration:
-                                      const SpellCheckConfiguration(),
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter chat message',
-                                    filled: true,
-                                    fillColor: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest
-                                        .withValues(alpha: 0.4),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: BorderSide.none,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  _selectedUser is AdminModel
+                                                      ? Iconsax.shield_tick
+                                                      : Iconsax.user,
+                                                  size: 14,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  _selectedUser is AdminModel
+                                                      ? "Admin"
+                                                      : "Employee",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              _buildPrimaryButton(
-                                label: "Create Chat",
-                                icon: Iconsax.message,
-                                onTap: () async {
-                                  final selectedUser = _selectedUserId;
-
-                                  if (selectedUser == null ||
-                                      selectedUser.isEmpty) {
-                                    FlushBar.show(
-                                      context,
-                                      "Please select a user to chat with.",
-                                      isSuccess: false,
-                                    );
-                                    return;
-                                  }
-
-                                  if (_chatMessage.text.isEmpty) {
-                                    FlushBar.show(
-                                      context,
-                                      "Please enter the chat message.",
-                                      isSuccess: false,
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    futureLoading(context);
-
-                                    debugPrint(
-                                      "the chat selected user on the create chat $selectedUser ",
-                                    );
-                                    final chatId =
-                                        await ChatService.createIndividualChat(
-                                          userId: selectedUser,
+                                  const SizedBox(height: 20),
+                                  _buildSectionCard(
+                                    icon: Iconsax.message_text,
+                                    accentColor: AppColors.secondary,
+                                    title: "First message",
+                                    subtitle:
+                                        "This starts the conversation with them",
+                                    child: TextFormField(
+                                      controller: _chatMessage,
+                                      maxLines: 3,
+                                      enableSuggestions: true,
+                                      autocorrect: true,
+                                      spellCheckConfiguration:
+                                          const SpellCheckConfiguration(),
+                                      textCapitalization:
+                                          TextCapitalization.sentences,
+                                      decoration: InputDecoration(
+                                        hintText: 'Enter chat message',
+                                        filled: true,
+                                        fillColor: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest
+                                            .withValues(alpha: 0.4),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _buildPrimaryButton(
+                                    label: "Create Chat",
+                                    icon: Iconsax.message,
+                                    onTap: () async {
+                                      final selectedUser = _selectedUserId;
+                            
+                                      if (selectedUser == null ||
+                                          selectedUser.isEmpty) {
+                                        FlushBar.show(
+                                          context,
+                                          "Please select a user to chat with.",
+                                          isSuccess: false,
                                         );
-
-                                    await ChatService.sendChatMessage(
-                                      chatId: chatId,
-                                      message: _chatMessage.text,
-                                      attachments: [],
-                                      replyFor: null,
-                                    );
-
-                                    _chatMessage.clear();
-                                    setState(() {});
-
-                                    if (Navigator.canPop(context)) {
-                                      Navigator.pop(context);
-                                    }
-                                    Navigator.pop(context, true);
-                                    FlushBar.show(context, "Chat created");
-                                  } catch (e, st) {
-                                    await ErrorService.recordError(e, st);
-                                    debugPrint(
-                                      "${e.toString()}, ${st.toString()}",
-                                    );
-                                    if (Navigator.canPop(context)) {
-                                      Navigator.pop(context);
-                                    }
-                                    FlushBar.show(
-                                      context,
-                                      e.toString(),
-                                      isSuccess: false,
-                                      error: e,
-                                      stackTrace: st,
-                                    );
-                                  }
-                                },
+                                        return;
+                                      }
+                            
+                                      if (_chatMessage.text.isEmpty) {
+                                        FlushBar.show(
+                                          context,
+                                          "Please enter the chat message.",
+                                          isSuccess: false,
+                                        );
+                                        return;
+                                      }
+                            
+                                      try {
+                                        futureLoading(context);
+                            
+                                        debugPrint(
+                                          "the chat selected user on the create chat $selectedUser ",
+                                        );
+                                        final chatId =
+                                            await ChatService.createIndividualChat(
+                                              userId: selectedUser,
+                                            );
+                            
+                                        await ChatService.sendChatMessage(
+                                          chatId: chatId,
+                                          message: _chatMessage.text,
+                                          attachments: [],
+                                          replyFor: null,
+                                        );
+                            
+                                        _chatMessage.clear();
+                                        setState(() {});
+                            
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.pop(context);
+                                        }
+                                        Navigator.pop(context, true);
+                                        FlushBar.show(context, "Chat created");
+                                      } catch (e, st) {
+                                        await ErrorService.recordError(e, st);
+                                        debugPrint(
+                                          "${e.toString()}, ${st.toString()}",
+                                        );
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.pop(context);
+                                        }
+                                        FlushBar.show(
+                                          context,
+                                          e.toString(),
+                                          isSuccess: false,
+                                          error: e,
+                                          stackTrace: st,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
 
                         // -------------------- Group Chat Tab --------------------
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSectionCard(
-                                icon: Iconsax.people,
-                                title: "Group Details",
-                                subtitle:
-                                    "Give your group a name and a short description",
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Group Name",
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
+                        Padding(
+                          padding: const EdgeInsets.only(right:8.0),
+                          child: Scrollbar(
+                                              controller: _groupscrollController,
+                                              thumbVisibility: true,
+                                              interactive: true,
+                                              trackVisibility: true,
+                                              radius: const Radius.circular(8),
+                                              thickness: 8,
+                                              child: SingleChildScrollView(
+                              controller: _groupscrollController,
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSectionCard(
+                                    icon: Iconsax.people,
+                                    title: "Group Details",
+                                    subtitle:
+                                        "Give your group a name and a short description",
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Group Name",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        FormFields(
+                                          controller: _groupName,
+                                          hintText: "Enter group name",
+                                          prefixIcon: const Icon(
+                                            Iconsax.people,
+                                            size: 18,
                                           ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    FormFields(
-                                      controller: _groupName,
-                                      hintText: "Enter group name",
-                                      prefixIcon: const Icon(
-                                        Iconsax.people,
-                                        size: 18,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    Text(
-                                      "Description",
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
+                                        ),
+                                        const SizedBox(height: 18),
+                                        Text(
+                                          "Description",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        FormFields(
+                                          controller: _description,
+                                          hintText: "Enter group description",
+                                          maxLines: 3,
+                                          prefixIcon: const Icon(
+                                            Iconsax.document_text,
+                                            size: 18,
                                           ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 6),
-                                    FormFields(
-                                      controller: _description,
-                                      hintText: "Enter group description",
-                                      maxLines: 3,
-                                      prefixIcon: const Icon(
-                                        Iconsax.document_text,
-                                        size: 18,
-                                      ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildSectionCard(
+                                    icon: Iconsax.profile_2user,
+                                    accentColor: AppColors.secondary,
+                                    title: "Add Members",
+                                    subtitle:
+                                        "Pick who should be part of this group",
+                                    child: FormMultiDropdowns(
+                                      isRequired: true,
+                                      items: _members
+                                          .map<Object>((e) => e.name)
+                                          .toList(),
+                                      onListChanged: (selectedList) {
+                                        setState(() {
+                                          _selectedMembers.clear();
+                                          _selectedMembers.addAll(
+                                            _members
+                                                .where(
+                                                  (m) =>
+                                                      selectedList.contains(
+                                                        m.name,
+                                                      ),
+                                                )
+                                                .toList(),
+                                          );
+                                        });
+                                      },
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _buildPrimaryButton(
+                                    label: "Create Group",
+                                    icon: Iconsax.messages_2,
+                                    onTap: () async {
+                                      if (_groupName.text.isEmpty ||
+                                          _selectedMembers.isEmpty) {
+                                        FlushBar.show(
+                                          context,
+                                          "Please fill all required fields.",
+                                          isSuccess: false,
+                                        );
+                                        return;
+                                      }
+                            
+                                      try {
+                                        futureLoading(context);
+                            
+                                        var sessionUser = await Spdb.getUser();
+                            
+                                        final creatorName = sessionUser.name;
+                                        final creatorUid = sessionUser.uid;
+                            
+                                        List<String> participants =
+                                            _selectedMembers
+                                                .map<String>(
+                                                  (e) => e.uid ?? e.id ?? '',
+                                                )
+                                                .toList();
+                            
+                                        if (!participants.contains(creatorUid)) {
+                                          participants.add(creatorUid);
+                                        }
+                            
+                                        participants.sort();
+                                        final participantsKey = participants.join(
+                                          '_',
+                                        );
+                            
+                                        ChatModel chatModel = ChatModel(
+                                          createdBy: creatorUid,
+                                          participants: participants,
+                                          participantsKey: participantsKey,
+                                          title: _groupName.text,
+                                          description: _description.text,
+                                          isGroupChat: true,
+                                          isPinned: false,
+                                          isFavorite: false,
+                                          lastMessage: LastMessageModel(
+                                            message: "$creatorName created group",
+                                            timestamp: DateTime.now(),
+                                            senderId: creatorUid,
+                                          ),
+                                        );
+                            
+                                        await ChatService.createGroupChat(
+                                          model: chatModel,
+                                        );
+                            
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.pop(context);
+                                        }
+                                        Navigator.pop(context, true);
+                            
+                                        FlushBar.show(
+                                          context,
+                                          "Group chat created",
+                                        );
+                                      } catch (e, st) {
+                                        await ErrorService.recordError(e, st);
+                            
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.pop(context);
+                                        }
+                            
+                                        FlushBar.show(
+                                          context,
+                                          e.toString(),
+                                          isSuccess: false,
+                                          error: e,
+                                          stackTrace: st,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 20),
-                              _buildSectionCard(
-                                icon: Iconsax.profile_2user,
-                                accentColor: AppColors.secondary,
-                                title: "Add Members",
-                                subtitle:
-                                    "Pick who should be part of this group",
-                                child: FormMultiDropdowns(
-                                  isRequired: true,
-                                  items: _members
-                                      .map<Object>((e) => e.name)
-                                      .toList(),
-                                  onListChanged: (selectedList) {
-                                    setState(() {
-                                      _selectedMembers.clear();
-                                      _selectedMembers.addAll(
-                                        _members
-                                            .where(
-                                              (m) =>
-                                                  selectedList.contains(
-                                                    m.name,
-                                                  ),
-                                            )
-                                            .toList(),
-                                      );
-                                    });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              _buildPrimaryButton(
-                                label: "Create Group",
-                                icon: Iconsax.messages_2,
-                                onTap: () async {
-                                  if (_groupName.text.isEmpty ||
-                                      _selectedMembers.isEmpty) {
-                                    FlushBar.show(
-                                      context,
-                                      "Please fill all required fields.",
-                                      isSuccess: false,
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    futureLoading(context);
-
-                                    var sessionUser = await Spdb.getUser();
-
-                                    final creatorName = sessionUser.name;
-                                    final creatorUid = sessionUser.uid;
-
-                                    List<String> participants =
-                                        _selectedMembers
-                                            .map<String>(
-                                              (e) => e.uid ?? e.id ?? '',
-                                            )
-                                            .toList();
-
-                                    if (!participants.contains(creatorUid)) {
-                                      participants.add(creatorUid);
-                                    }
-
-                                    participants.sort();
-                                    final participantsKey = participants.join(
-                                      '_',
-                                    );
-
-                                    ChatModel chatModel = ChatModel(
-                                      createdBy: creatorUid,
-                                      participants: participants,
-                                      participantsKey: participantsKey,
-                                      title: _groupName.text,
-                                      description: _description.text,
-                                      isGroupChat: true,
-                                      isPinned: false,
-                                      isFavorite: false,
-                                      lastMessage: LastMessageModel(
-                                        message: "$creatorName created group",
-                                        timestamp: DateTime.now(),
-                                        senderId: creatorUid,
-                                      ),
-                                    );
-
-                                    await ChatService.createGroupChat(
-                                      model: chatModel,
-                                    );
-
-                                    if (Navigator.canPop(context)) {
-                                      Navigator.pop(context);
-                                    }
-                                    Navigator.pop(context, true);
-
-                                    FlushBar.show(
-                                      context,
-                                      "Group chat created",
-                                    );
-                                  } catch (e, st) {
-                                    await ErrorService.recordError(e, st);
-
-                                    if (Navigator.canPop(context)) {
-                                      Navigator.pop(context);
-                                    }
-
-                                    FlushBar.show(
-                                      context,
-                                      e.toString(),
-                                      isSuccess: false,
-                                      error: e,
-                                      stackTrace: st,
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ],

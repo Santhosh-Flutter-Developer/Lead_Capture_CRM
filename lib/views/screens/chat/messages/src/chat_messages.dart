@@ -12,7 +12,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 // import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:line_icons/line_icon.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -453,11 +452,22 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
 
     return Stack(
       children: [
-        CustomScrollView(
-          controller: widget.scrollController,
-          reverse: true, // This makes the list start at the bottom
-          slivers: slivers.reversed
-              .toList(), // This reverses the *order of groups* (e.g., Today, Yesterday)
+        Padding(
+          padding: const EdgeInsets.only(right:8.0),
+          child: Scrollbar(
+                      controller: widget.scrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: CustomScrollView(
+              controller: widget.scrollController,
+              reverse: true, // This makes the list start at the bottom
+              slivers: slivers.reversed
+                  .toList(), // This reverses the *order of groups* (e.g., Today, Yesterday)
+            ),
+          ),
         ),
         if (_showGoToBottomButton)
           Positioned(

@@ -549,6 +549,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         keyboardType: TextInputType.multiline,
                         textCapitalization: TextCapitalization.sentences,
                         textInputAction: TextInputAction.newline,
+                        
                         minLines: 1,
                         maxLines: 5,
                         onChanged: (value) async {
@@ -578,6 +579,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           // );
                         },
                         decoration: InputDecoration(
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 10,

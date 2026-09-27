@@ -34,6 +34,7 @@ class _EditGroupChatState extends State<EditGroupChat> {
     Color(0xFF4364F7),
     Color(0xFF6FB1FC),
   ];
+  final ScrollController _groupscrollController = ScrollController();
 
   @override
   void initState() {
@@ -80,6 +81,7 @@ class _EditGroupChatState extends State<EditGroupChat> {
   void dispose() {
     _groupName.dispose();
     _description.dispose();
+    _groupscrollController.dispose();
     super.dispose();
   }
 
@@ -271,123 +273,135 @@ class _EditGroupChatState extends State<EditGroupChat> {
                   } else if (snapshot.hasError) {
                     return ErrorDisplay(error: snapshot.error.toString());
                   } else {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionCard(
-                            icon: Iconsax.people,
-                            title: "Group Details",
-                            subtitle:
-                                "The name and description shown to all members",
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Group Name",
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
+                    return Padding(
+                      padding: const EdgeInsets.only(right:8.0),
+                      child: Scrollbar(
+                      controller: _groupscrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                          controller: _groupscrollController,
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSectionCard(
+                                icon: Iconsax.people,
+                                title: "Group Details",
+                                subtitle:
+                                    "The name and description shown to all members",
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Group Name",
+                                      style: Theme.of(context).textTheme.bodyMedium
+                                          ?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    FormFields(
+                                      controller: _groupName,
+                                      hintText: "Enter group name",
+                                      prefixIcon: const Icon(
+                                        Iconsax.people,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Text(
+                                      "Description",
+                                      style: Theme.of(context).textTheme.bodyMedium
+                                          ?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    FormFields(
+                                      controller: _description,
+                                      hintText: "Enter group description",
+                                      maxLines: 3,
+                                      prefixIcon: const Icon(
+                                        Iconsax.document_text,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 6),
-                                FormFields(
-                                  controller: _groupName,
-                                  hintText: "Enter group name",
-                                  prefixIcon: const Icon(
-                                    Iconsax.people,
-                                    size: 18,
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                Text(
-                                  "Description",
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 6),
-                                FormFields(
-                                  controller: _description,
-                                  hintText: "Enter group description",
-                                  maxLines: 3,
-                                  prefixIcon: const Icon(
-                                    Iconsax.document_text,
-                                    size: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          _buildSectionCard(
-                            icon: Iconsax.profile_2user,
-                            accentColor: AppColors.secondary,
-                            title: "Members",
-                            subtitle: "Who is part of this group",
-                            child: FormMultiDropdowns(
-                              items: _members
-                                  .map<String>((e) => e.name.trim())
-                                  .toList(),
-                              selectedItems: _selectedMembers
-                                  .map<String>((e) => e.name.trim())
-                                  .toList(),
-                              onListChanged: (list) {
-                                setState(() {
-                                  _selectedMembers = _members
-                                      .where((m) => list.contains(m.name.trim()))
-                                      .toList();
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildPrimaryButton(
-                            label: "Update Group",
-                            icon: Iconsax.messages_2,
-                            onTap: () async {
-                              if (_groupName.text.isEmpty ||
-                                  _selectedMembers.isEmpty) {
-                                FlushBar.show(
-                                  context,
-                                  "Please fill all required fields.",
-                                  isSuccess: false,
-                                );
-                                return;
-                              }
-
-                              try {
-                                futureLoading(context);
-
-                                await ChatService.updateGroupChat(
-                                  chatId: widget.chat.uid!,
-                                  title: _groupName.text.trim(),
-                                  description: _description.text.trim(),
-                                  participantIds: _selectedMembers
-                                      .map<String>((e) => e.uid ?? e.id ?? '')
+                              ),
+                              const SizedBox(height: 20),
+                              _buildSectionCard(
+                                icon: Iconsax.profile_2user,
+                                accentColor: AppColors.secondary,
+                                title: "Members",
+                                subtitle: "Who is part of this group",
+                                child: FormMultiDropdowns(
+                                  items: _members
+                                      .map<String>((e) => e.name.trim())
                                       .toList(),
-                                );
-
-                                if (Navigator.canPop(context)) {
-                                  Navigator.pop(context);
-                                }
-                                Navigator.pop(context, true);
-                                FlushBar.show(context, "Group chat updated");
-                              } catch (e, st) {
-                                await ErrorService.recordError(e, st);
-                                debugPrint("${e.toString()}, ${st.toString()}");
-                                if (Navigator.canPop(context)) {
-                                  Navigator.pop(context);
-                                }
-                                FlushBar.show(
-                                  context,
-                                  e.toString(),
-                                  isSuccess: false,
-                                  error: e,
-                                  stackTrace: st,
-                                );
-                              }
-                            },
+                                  selectedItems: _selectedMembers
+                                      .map<String>((e) => e.name.trim())
+                                      .toList(),
+                                  onListChanged: (list) {
+                                    setState(() {
+                                      _selectedMembers = _members
+                                          .where((m) => list.contains(m.name.trim()))
+                                          .toList();
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              _buildPrimaryButton(
+                                label: "Update Group",
+                                icon: Iconsax.messages_2,
+                                onTap: () async {
+                                  if (_groupName.text.isEmpty ||
+                                      _selectedMembers.isEmpty) {
+                                    FlushBar.show(
+                                      context,
+                                      "Please fill all required fields.",
+                                      isSuccess: false,
+                                    );
+                                    return;
+                                  }
+                        
+                                  try {
+                                    futureLoading(context);
+                        
+                                    await ChatService.updateGroupChat(
+                                      chatId: widget.chat.uid!,
+                                      title: _groupName.text.trim(),
+                                      description: _description.text.trim(),
+                                      participantIds: _selectedMembers
+                                          .map<String>((e) => e.uid ?? e.id ?? '')
+                                          .toList(),
+                                    );
+                        
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    }
+                                    Navigator.pop(context, true);
+                                    FlushBar.show(context, "Group chat updated");
+                                  } catch (e, st) {
+                                    await ErrorService.recordError(e, st);
+                                    debugPrint("${e.toString()}, ${st.toString()}");
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    }
+                                    FlushBar.show(
+                                      context,
+                                      e.toString(),
+                                      isSuccess: false,
+                                      error: e,
+                                      stackTrace: st,
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     );
                   }
