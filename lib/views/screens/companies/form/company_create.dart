@@ -24,6 +24,7 @@ class _CompaniesCreateState extends State<CompaniesCreate> {
   final _stateController = TextEditingController();
   final _cityController = TextEditingController();
   final _pincodeController = TextEditingController();
+  final _vScrollController = ScrollController();
 
   Uint8List? _logoBytes;
   String? _logoUrl;
@@ -42,6 +43,7 @@ class _CompaniesCreateState extends State<CompaniesCreate> {
     _stateController.dispose();
     _cityController.dispose();
     _pincodeController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -130,23 +132,35 @@ class _CompaniesCreateState extends State<CompaniesCreate> {
         context: context,
         title: "Add New Branch",
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLogoSection(),
-              const SizedBox(height: 24),
-              _buildBasicInfoSection(),
-              const SizedBox(height: 24),
-              _buildContactInfoSection(),
-              const SizedBox(height: 24),
-              _buildAddressSection(),
-              const SizedBox(height: 32),
-              _buildSubmitButton(),
-            ],
+      body: Padding(
+        padding: const EdgeInsets.only(right:8.0),
+        child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+            controller: _vScrollController,
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLogoSection(),
+                  const SizedBox(height: 24),
+                  _buildBasicInfoSection(),
+                  const SizedBox(height: 24),
+                  _buildContactInfoSection(),
+                  const SizedBox(height: 24),
+                  _buildAddressSection(),
+                  const SizedBox(height: 32),
+                  _buildSubmitButton(),
+                ],
+              ),
+            ),
           ),
         ),
       ),

@@ -134,43 +134,40 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
               }
               return RefreshIndicator(
                 onRefresh: _refreshLeadCategory,
-                child: Padding(
-                  padding: const EdgeInsets.only(right:8.0),
-                  child: Scrollbar(
+                child: Scrollbar(
+                  controller: _vScrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  trackVisibility: true,
+                  radius: const Radius.circular(8),
+                  thickness: 8,
+                  child: ListView(
                     controller: _vScrollController,
-                    thumbVisibility: true,
-                    interactive: true,
-                    trackVisibility: true,
-                    radius: const Radius.circular(8),
-                    thickness: 8,
-                    child: ListView(
-                      controller: _vScrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                      children: [
-                        if (isWide) ...[
-                          _buildHeaderBanner(context, state.leadCategory.length),
-                          const SizedBox(height: 20),
-                        ],
-                        _buildToolbar(
-                          context,
-                          controllerRead,
-                          state.leadCategory.length,
-                        ),
-                        const SizedBox(height: 18),
-                        controllerWatch.paginatedItems.isEmpty
-                            ? NoData(
-                                text: state.leadCategory.isEmpty
-                                    ? "No lead categories available"
-                                    : "No matching records found",
-                              )
-                            : _buildTableCard(
-                                context,
-                                controllerWatch,
-                                controllerRead,
-                              ),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, state.leadCategory.length),
+                        const SizedBox(height: 20),
                       ],
-                    ),
+                      _buildToolbar(
+                        context,
+                        controllerRead,
+                        state.leadCategory.length,
+                      ),
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: state.leadCategory.isEmpty
+                                  ? "No lead categories available"
+                                  : "No matching records found",
+                            )
+                          : _buildTableCard(
+                              context,
+                              controllerWatch,
+                              controllerRead,
+                            ),
+                    ],
                   ),
                 ),
               );

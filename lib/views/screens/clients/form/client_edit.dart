@@ -42,6 +42,7 @@ class _ContactUpdateState extends State<ContactUpdate> {
 
   ClientModel? _client;
   late Future _future;
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -53,6 +54,12 @@ class _ContactUpdateState extends State<ContactUpdate> {
   void initState() {
     _future = _load();
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -151,26 +158,38 @@ class _ContactUpdateState extends State<ContactUpdate> {
                     return const WaitingLoading();
                   }
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          _buildSectionCard(
-                            icon: Iconsax.user,
-                            title: "Contact Details",
-                            subtitle: "Update the contact's core details",
-                            child: _contactFields(),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _vScrollController,
+                        padding: const EdgeInsets.all(20),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              _buildSectionCard(
+                                icon: Iconsax.user,
+                                title: "Contact Details",
+                                subtitle: "Update the contact's core details",
+                                child: _contactFields(),
+                              ),
+                              const SizedBox(height: 20),
+                              _buildSectionCard(
+                                icon: Iconsax.gallery,
+                                title: "Profile Picture",
+                                subtitle: "Optional, shown across the CRM",
+                                child: Center(child: _buildProfileImage()),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 20),
-                          _buildSectionCard(
-                            icon: Iconsax.gallery,
-                            title: "Profile Picture",
-                            subtitle: "Optional, shown across the CRM",
-                            child: Center(child: _buildProfileImage()),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   );
@@ -316,8 +335,9 @@ class _ContactUpdateState extends State<ContactUpdate> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -392,8 +412,7 @@ class _ContactUpdateState extends State<ContactUpdate> {
                 horizontalSpacing * (gridCounts - 1));
 
         final double itemWidth = canShowGrid
-            ? (currentWidth - horizontalSpacing * (gridCounts - 1)) /
-                  gridCounts
+            ? (currentWidth - horizontalSpacing * (gridCounts - 1)) / gridCounts
             : currentWidth;
 
         return Wrap(
@@ -533,7 +552,6 @@ class _ContactUpdateState extends State<ContactUpdate> {
   }
 }
 
-
 class CompanyUpdate extends StatefulWidget {
   final String uid;
   const CompanyUpdate({super.key, required this.uid});
@@ -552,6 +570,7 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
   final _postal = TextEditingController();
   final _address = TextEditingController();
   final _note = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
 
   XFile? _logo;
   Uint8List? _logoBytes;
@@ -576,6 +595,12 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
     } else {
       _future = Future.value();
     }
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -672,26 +697,38 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
                     return const WaitingLoading();
                   }
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          _buildSectionCard(
-                            icon: Iconsax.buildings,
-                            title: "Company Information",
-                            subtitle: "Update the company's core details",
-                            child: _companyFields(),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _vScrollController,
+                        padding: const EdgeInsets.all(20),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              _buildSectionCard(
+                                icon: Iconsax.buildings,
+                                title: "Company Information",
+                                subtitle: "Update the company's core details",
+                                child: _companyFields(),
+                              ),
+                              const SizedBox(height: 20),
+                              _buildSectionCard(
+                                icon: Iconsax.gallery,
+                                title: "Company Logo",
+                                subtitle: "Optional, shown across the CRM",
+                                child: Center(child: _buildLogo()),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 20),
-                          _buildSectionCard(
-                            icon: Iconsax.gallery,
-                            title: "Company Logo",
-                            subtitle: "Optional, shown across the CRM",
-                            child: Center(child: _buildLogo()),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   );
@@ -837,8 +874,9 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -913,8 +951,7 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
                 horizontalSpacing * (gridCounts - 1));
 
         final double itemWidth = canShowGrid
-            ? (currentWidth - horizontalSpacing * (gridCounts - 1)) /
-                  gridCounts
+            ? (currentWidth - horizontalSpacing * (gridCounts - 1)) / gridCounts
             : currentWidth;
 
         return Wrap(
@@ -1068,7 +1105,6 @@ class _CompanyUpdateState extends State<CompanyUpdate> {
     }
   }
 }
-
 
 class ImagePickerWidget extends StatelessWidget {
   final XFile? image;

@@ -121,15 +121,15 @@ class _DealStatusReorderState extends State<DealStatusReorder> {
 
             // --- LIST VIEW ---
             Expanded(
-              child: Scrollbar(
-                controller: _vScrollController,
-                thumbVisibility: true,
-                interactive: true,
-                trackVisibility: true,
-                radius: const Radius.circular(8),
-                thickness: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Scrollbar(
+                  controller: _vScrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  trackVisibility: true,
+                  radius: const Radius.circular(8),
+                  thickness: 8,
                   child: ReorderableListView(
                     scrollController: _vScrollController,
                     physics: const BouncingScrollPhysics(),

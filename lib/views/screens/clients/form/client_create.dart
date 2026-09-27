@@ -24,6 +24,7 @@ class _ContactCreateState extends State<ContactCreate> {
   final _clientName = TextEditingController();
   final _email = TextEditingController();
   final _mobile = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
 
   XFile? _profileImage;
   Uint8List? _profileImageBytes;
@@ -44,6 +45,7 @@ class _ContactCreateState extends State<ContactCreate> {
     _clientName.dispose();
     _email.dispose();
     _mobile.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -107,29 +109,41 @@ class _ContactCreateState extends State<ContactCreate> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      _buildSectionCard(
-                        icon: Iconsax.user,
-                        title: "Contact Details",
-                        subtitle: "Basic details about the contact",
-                        child: LayoutBuilder(
-                          builder: (context, constraints) =>
-                              _buildContactFormFields(constraints, 4),
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                    controller: _vScrollController,
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          _buildSectionCard(
+                            icon: Iconsax.user,
+                            title: "Contact Details",
+                            subtitle: "Basic details about the contact",
+                            child: LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  _buildContactFormFields(constraints, 4),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSectionCard(
+                            icon: Iconsax.gallery,
+                            title: "Profile Photo",
+                            subtitle: "Optional, shown across the CRM",
+                            child: Center(child: _buildProfileUploader()),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      _buildSectionCard(
-                        icon: Iconsax.gallery,
-                        title: "Profile Photo",
-                        subtitle: "Optional, shown across the CRM",
-                        child: Center(child: _buildProfileUploader()),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -273,8 +287,9 @@ class _ContactCreateState extends State<ContactCreate> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
@@ -551,7 +566,6 @@ class _ContactCreateState extends State<ContactCreate> {
   }
 }
 
-
 class CompanyCreate extends StatefulWidget {
   const CompanyCreate({super.key});
 
@@ -569,6 +583,7 @@ class _CompanyCreateState extends State<CompanyCreate> {
   final _postal = TextEditingController();
   final _address = TextEditingController();
   final _note = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
 
   XFile? _logo;
   Uint8List? _logoBytes;
@@ -588,6 +603,7 @@ class _CompanyCreateState extends State<CompanyCreate> {
     _postal.dispose();
     _address.dispose();
     _note.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -655,29 +671,41 @@ class _CompanyCreateState extends State<CompanyCreate> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      _buildSectionCard(
-                        icon: Iconsax.buildings,
-                        title: "Company Information",
-                        subtitle: "Basic details about the company",
-                        child: LayoutBuilder(
-                          builder: (context, constraints) =>
-                              _buildCompanyFormFields(constraints, 2),
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                  controller: _vScrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  trackVisibility: true,
+                  radius: const Radius.circular(8),
+                  thickness: 8,
+                  child: SingleChildScrollView(
+                    controller: _vScrollController,
+                    padding: const EdgeInsets.all(20),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          _buildSectionCard(
+                            icon: Iconsax.buildings,
+                            title: "Company Information",
+                            subtitle: "Basic details about the company",
+                            child: LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  _buildCompanyFormFields(constraints, 2),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSectionCard(
+                            icon: Iconsax.gallery,
+                            title: "Company Logo",
+                            subtitle: "Optional, shown across the CRM",
+                            child: Center(child: _buildLogoUploader()),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      _buildSectionCard(
-                        icon: Iconsax.gallery,
-                        title: "Company Logo",
-                        subtitle: "Optional, shown across the CRM",
-                        child: Center(child: _buildLogoUploader()),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -821,8 +849,9 @@ class _CompanyCreateState extends State<CompanyCreate> {
                       const SizedBox(width: 6),
                       Text(
                         "Cancel",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),

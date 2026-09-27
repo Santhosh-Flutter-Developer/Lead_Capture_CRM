@@ -27,6 +27,7 @@ class _CompanyEditState extends State<CompanyEdit> {
   final _stateController = TextEditingController();
   final _cityController = TextEditingController();
   final _pincodeController = TextEditingController();
+  final _vScrollController = ScrollController();
 
   Uint8List? _logoBytes;
   String? _logoUrl;
@@ -127,6 +128,7 @@ final _kioskPasswordController = TextEditingController();
     _pincodeController.dispose();
     _kioskUsernameController.dispose();
     _kioskPasswordController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -240,25 +242,37 @@ final _kioskPasswordController = TextEditingController();
 
     return Scaffold(
       appBar: FormWidgets.buildHeader(context: context, title: "Edit Company"),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLogoSection(),
-              const SizedBox(height: 24),
-              _buildBasicInfoSection(),
-              const SizedBox(height: 24),
-              _buildContactInfoSection(),
-              const SizedBox(height: 24),
-              _buildAddressSection(),
-              const SizedBox(height: 24),
-              _buildKioskSection(),
-              const SizedBox(height: 32),
-              _buildSubmitButton(),
-            ],
+      body: Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+            controller: _vScrollController,
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLogoSection(),
+                  const SizedBox(height: 24),
+                  _buildBasicInfoSection(),
+                  const SizedBox(height: 24),
+                  _buildContactInfoSection(),
+                  const SizedBox(height: 24),
+                  _buildAddressSection(),
+                  const SizedBox(height: 24),
+                  _buildKioskSection(),
+                  const SizedBox(height: 32),
+                  _buildSubmitButton(),
+                ],
+              ),
+            ),
           ),
         ),
       ),

@@ -91,8 +91,7 @@ class ClientListingView extends StatefulWidget {
   const ClientListingView({super.key, required this.section});
 
   @override
-  State<ClientListingView> createState() =>
-      _ClientListingViewState();
+  State<ClientListingView> createState() => _ClientListingViewState();
 }
 
 class _ClientListingViewState extends State<ClientListingView> {
@@ -100,6 +99,7 @@ class _ClientListingViewState extends State<ClientListingView> {
   PermissionModel? permissions;
   bool _permissionsLoaded = false;
   final ScrollController _hScrollController = ScrollController();
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -118,6 +118,12 @@ class _ClientListingViewState extends State<ClientListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -174,33 +180,42 @@ class _ClientListingViewState extends State<ClientListingView> {
               final totalCount = state.clients.where(_filterBySection).length;
               return RefreshIndicator(
                 onRefresh: () => _refreshClients(context),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                  children: [
-                    if (isWide) ...[
-                      _buildHeaderBanner(context, totalCount),
-                      const SizedBox(height: 20),
+                child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                    controller: _vScrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _buildHeaderBanner(context, totalCount),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildToolbar(
+                        context,
+                        controllerRead,
+                        controllerWatch,
+                        totalCount,
+                      ),
+                      const SizedBox(height: 18),
+                      controllerWatch.paginatedItems.isEmpty
+                          ? NoData(
+                              text: totalCount == 0
+                                  ? "No ${pageTitle.toLowerCase()}s available"
+                                  : "No matching records found",
+                            )
+                          : _buildTableCard(
+                              context,
+                              controllerWatch,
+                              controllerRead,
+                            ),
                     ],
-                    _buildToolbar(
-                      context,
-                      controllerRead,
-                      controllerWatch,
-                      totalCount,
-                    ),
-                    const SizedBox(height: 18),
-                    controllerWatch.paginatedItems.isEmpty
-                        ? NoData(
-                            text: totalCount == 0
-                                ? "No ${pageTitle.toLowerCase()}s available"
-                                : "No matching records found",
-                          )
-                        : _buildTableCard(
-                            context,
-                            controllerWatch,
-                            controllerRead,
-                          ),
-                  ],
+                  ),
                 ),
               );
             }
@@ -624,15 +639,17 @@ class _ClientListingViewState extends State<ClientListingView> {
                     controller: _hScrollController,
                     scrollDirection: Axis.horizontal,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      constraints: BoxConstraints(
+                        minWidth: constraints.maxWidth,
+                      ),
                       child: DataTable(
                         showCheckboxColumn: true,
                         sortColumnIndex: controllerWatch.sortColumnIndex,
                         sortAscending: controllerWatch.sortAscending,
                         headingRowColor: WidgetStateProperty.all(
-                          Theme.of(context).colorScheme.primary.withValues(
-                            alpha: 0.06,
-                          ),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.06),
                         ),
                         headingTextStyle: Theme.of(context).textTheme.bodySmall
                             ?.copyWith(
@@ -709,8 +726,20 @@ class _ClientListingViewState extends State<ClientListingView> {
     int index,
   ) {
     return widget.section == ClientSection.contacts
-        ? _buildContactRow(context, client, controllerWatch, controllerRead, index)
-        : _buildCompanyRow(context, client, controllerWatch, controllerRead, index);
+        ? _buildContactRow(
+            context,
+            client,
+            controllerWatch,
+            controllerRead,
+            index,
+          )
+        : _buildCompanyRow(
+            context,
+            client,
+            controllerWatch,
+            controllerRead,
+            index,
+          );
   }
 
   WidgetStateProperty<Color?> _rowColor(BuildContext context, int index) {
@@ -720,9 +749,9 @@ class _ClientListingViewState extends State<ClientListingView> {
       }
       return index.isEven
           ? Colors.transparent
-          : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
-              alpha: 0.35,
-            );
+          : Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35);
     });
   }
 
@@ -841,15 +870,19 @@ class _ClientListingViewState extends State<ClientListingView> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: CachedNetworkImage(
-              imageUrl: imageUrl ?? AppStrings.emptyProfilePhotoUrl,
-              height: 30,
-              width: 30,
-              fit: BoxFit.cover,
-            ),
-          ),
+          (imageUrl == null || imageUrl.isEmpty)
+              ? _avatarCircle(title ?? '', size: 30)
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    height: 30,
+                    width: 30,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) =>
+                        _avatarCircle(title ?? '', size: 30),
+                  ),
+                ),
           const SizedBox(width: 10),
           Text(
             title ?? '-',
@@ -858,6 +891,28 @@ class _ClientListingViewState extends State<ClientListingView> {
             ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _avatarCircle(String name, {double size = 30}) {
+    final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final color = LetterColors.getColor(letter);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        letter,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.42,
+        ),
       ),
     );
   }
@@ -1051,9 +1106,7 @@ class _ClientListingViewState extends State<ClientListingView> {
     if (!context.mounted) return;
 
     try {
-      final deletedClients = _selectedClients
-          .map((e) => e.copyWith())
-          .toList();
+      final deletedClients = _selectedClients.map((e) => e.copyWith()).toList();
 
       futureLoading(context);
 
@@ -1090,11 +1143,7 @@ class _ClientListingViewState extends State<ClientListingView> {
       await ErrorService.recordError(e, st);
       if (!context.mounted) return;
 
-      FlushBar.show(
-        context,
-        'Failed to delete clients: $e',
-        isSuccess: false,
-      );
+      FlushBar.show(context, 'Failed to delete clients: $e', isSuccess: false);
     }
   }
 }
@@ -1105,10 +1154,14 @@ class _ClientListingViewState extends State<ClientListingView> {
 class _ClientSearchFieldContact extends StatefulWidget {
   final String pageTitle;
   final ValueChanged<String> onChanged;
-  const _ClientSearchFieldContact({required this.pageTitle, required this.onChanged});
+  const _ClientSearchFieldContact({
+    required this.pageTitle,
+    required this.onChanged,
+  });
 
   @override
-  State<_ClientSearchFieldContact> createState() => _ClientSearchFieldContactState();
+  State<_ClientSearchFieldContact> createState() =>
+      _ClientSearchFieldContactState();
 }
 
 class _ClientSearchFieldContactState extends State<_ClientSearchFieldContact> {
