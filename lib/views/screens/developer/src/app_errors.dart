@@ -28,6 +28,8 @@ class _AppErrorsState extends State<AppErrors> {
   bool _loading = false;
   List<Map<String, dynamic>> _errors = [];
   Map<String, dynamic>? _selectedError;
+  final ScrollController _vScrollController = ScrollController();
+  final ScrollController _vhScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -39,6 +41,13 @@ class _AppErrorsState extends State<AppErrors> {
   void initState() {
     super.initState();
     _loadErrors();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    _vhScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadErrors() async {
@@ -196,55 +205,71 @@ class _AppErrorsState extends State<AppErrors> {
           ),
           child: Material(
             color: Colors.transparent,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _errors.length,
-              separatorBuilder: (_, _) =>
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-              itemBuilder: (context, index) {
-                final item = _errors[index];
-                final isSelected = _selectedError?["id"] == item["id"];
-                return ListTile(
-                  selected: isSelected,
-                  selectedTileColor: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.05),
-                  onTap: () => setState(() => _selectedError = item),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
-                  ),
-                  title: Text(
-                    item["error"] ?? "Unknown Exception",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      fontSize: 13,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      _formatTime(item["time"]),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Scrollbar(
+                controller: _vScrollController,
+                thumbVisibility: true,
+                interactive: true,
+                trackVisibility: true,
+                radius: const Radius.circular(8),
+                thickness: 8,
+                child: ListView.separated(
+                  controller: _vScrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _errors.length,
+                  separatorBuilder: (_, _) =>
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                  itemBuilder: (context, index) {
+                    final item = _errors[index];
+                    final isSelected = _selectedError?["id"] == item["id"];
+                    return ListTile(
+                      selected: isSelected,
+                      selectedTileColor: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.05),
+                      onTap: () => setState(() => _selectedError = item),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
                       ),
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? Icon(
-                          Iconsax.arrow_right_3,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
-                      : null,
-                );
-              },
+                      title: Text(
+                        item["error"] ?? "Unknown Exception",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          fontSize: 13,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          _formatTime(item["time"]),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? Icon(
+                              Iconsax.arrow_right_3,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -252,12 +277,24 @@ class _AppErrorsState extends State<AppErrors> {
         Expanded(
           child: _selectedError == null
               ? const Center(child: Text("Select a log to view details"))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(40),
-                  child: Center(
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 800),
-                      child: _buildLogDetails(_selectedError!),
+              : Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Scrollbar(
+                    controller: _vhScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+                      controller: _vhScrollController,
+                      padding: const EdgeInsets.all(40),
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: _buildLogDetails(_selectedError!),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -268,10 +305,19 @@ class _AppErrorsState extends State<AppErrors> {
 
   /// MOBILE LAYOUT: Traditional Expansion List
   Widget _buildMobileLayout() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _errors.length,
-      itemBuilder: (context, index) => _buildErrorCard(_errors[index]),
+    return Scrollbar(
+      controller: _vScrollController,
+      thumbVisibility: true,
+      interactive: true,
+      trackVisibility: true,
+      radius: const Radius.circular(8),
+      thickness: 8,
+      child: ListView.builder(
+        controller: _vScrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: _errors.length,
+        itemBuilder: (context, index) => _buildErrorCard(_errors[index]),
+      ),
     );
   }
 

@@ -28,6 +28,8 @@ class _TicketEditState extends State<TicketEdit> {
   final TextEditingController _clientCompanyName = TextEditingController();
   final TextEditingController _deadline = TextEditingController();
   final TextEditingController _reminder = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
+  final ScrollController _vhScrollController = ScrollController();
 
   List<EmployeeModel> _employeeList = [];
   List<ProjectModel> _projectList = [];
@@ -62,6 +64,13 @@ class _TicketEditState extends State<TicketEdit> {
   void initState() {
     super.initState();
     _future = _init();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    _vhScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -278,45 +287,54 @@ class _TicketEditState extends State<TicketEdit> {
         // LEFT COLUMN: Primary Info
         Expanded(
           flex: 2,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionCard(
-                  title: "Ticket Details",
-                  icon: Iconsax.document_text,
-                  child: Column(
-                    children: [
-                      _buildClientDropdown(),
-                      const SizedBox(height: 16),
-                      _buildCompanyDropdown(),
-                      const SizedBox(height: 16),
-                      _buildModeOfContactSelector(),
-                      const SizedBox(height: 16),
-                      FormFields(
-                        controller: _ticketTitle,
-                        label: "Ticket Title",
-                        hintText: "Enter ticket title",
-                        valid: (v) => Validation.commonValidation(
-                          input: v,
+          child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vScrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionCard(
+                    title: "Ticket Details",
+                    icon: Iconsax.document_text,
+                    child: Column(
+                      children: [
+                        _buildClientDropdown(),
+                        const SizedBox(height: 16),
+                        _buildCompanyDropdown(),
+                        const SizedBox(height: 16),
+                        _buildModeOfContactSelector(),
+                        const SizedBox(height: 16),
+                        FormFields(
+                          controller: _ticketTitle,
                           label: "Ticket Title",
-                          isReq: true,
+                          hintText: "Enter ticket title",
+                          valid: (v) => Validation.commonValidation(
+                            input: v,
+                            label: "Ticket Title",
+                            isReq: true,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildDescriptionField(),
-                    ],
+                        const SizedBox(height: 16),
+                        _buildDescriptionField(),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionCard(
-                  title: "Assignments",
-                  icon: Iconsax.user_add,
-                  child: _buildAssignmentGrid(),
-                ),
-                const SizedBox(height: 20),
-                _buildAttachmentSection(),
-              ],
+                  const SizedBox(height: 20),
+                  _buildSectionCard(
+                    title: "Assignments",
+                    icon: Iconsax.user_add,
+                    child: _buildAssignmentGrid(),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildAttachmentSection(),
+                ],
+              ),
             ),
           ),
         ),
@@ -324,79 +342,88 @@ class _TicketEditState extends State<TicketEdit> {
         // RIGHT COLUMN: Settings & Metadata
         Expanded(
           flex: 1,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildSectionCard(
-                  title: "Context",
-                  icon: Iconsax.hierarchy,
-                  child: Column(
-                    children: [
-                      _buildDropdownField(
-                        "Project",
-                        _selectedClientUid != null
-                            ? _projectList
-                                  .where((p) => p.client == _selectedClientUid)
-                                  .map((e) => e.projectName)
-                                  .toList()
-                            : _projectList.map((e) => e.projectName).toList(),
-                        initialItem: _selectedProject != null
-                            ? _projectList
-                                  .where((e) => e.uid == _selectedProject)
-                                  .map((e) => e.projectName)
-                                  .firstOrNull
-                            : null,
-                        (val) {
-                          var filteredProjects = _selectedClientUid != null
+          child: Scrollbar(
+                    controller: _vhScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vhScrollController,
+              child: Column(
+                children: [
+                  _buildSectionCard(
+                    title: "Context",
+                    icon: Iconsax.hierarchy,
+                    child: Column(
+                      children: [
+                        _buildDropdownField(
+                          "Project",
+                          _selectedClientUid != null
                               ? _projectList
-                                    .where(
-                                      (p) => p.client == _selectedClientUid,
-                                    )
+                                    .where((p) => p.client == _selectedClientUid)
+                                    .map((e) => e.projectName)
                                     .toList()
-                              : _projectList;
-                          _selectedProject = filteredProjects
-                              .firstWhere((e) => e.projectName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildDropdownField(
-                        "Task",
-                        _taskList.map((e) => e.taskName).toList(),
-                        initialItem: _selectedTask != null
-                            ? _taskList
-                                  .where((e) => e.uid == _selectedTask)
-                                  .map((e) => e.taskName)
-                                  .firstOrNull
-                            : null,
-                        (val) {
-                          _selectedTask = _taskList
-                              .firstWhere((e) => e.taskName == val)
-                              .uid;
-                        },
-                      ),
-                    ],
+                              : _projectList.map((e) => e.projectName).toList(),
+                          initialItem: _selectedProject != null
+                              ? _projectList
+                                    .where((e) => e.uid == _selectedProject)
+                                    .map((e) => e.projectName)
+                                    .firstOrNull
+                              : null,
+                          (val) {
+                            var filteredProjects = _selectedClientUid != null
+                                ? _projectList
+                                      .where(
+                                        (p) => p.client == _selectedClientUid,
+                                      )
+                                      .toList()
+                                : _projectList;
+                            _selectedProject = filteredProjects
+                                .firstWhere((e) => e.projectName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField(
+                          "Task",
+                          _taskList.map((e) => e.taskName).toList(),
+                          initialItem: _selectedTask != null
+                              ? _taskList
+                                    .where((e) => e.uid == _selectedTask)
+                                    .map((e) => e.taskName)
+                                    .firstOrNull
+                              : null,
+                          (val) {
+                            _selectedTask = _taskList
+                                .firstWhere((e) => e.taskName == val)
+                                .uid;
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionCard(
-                  title: "Ticket Settings",
-                  icon: Iconsax.calendar_1,
-                  child: Column(
-                    children: [
-                      _buildCategorySelector(),
-                      const Divider(height: 32),
-                      _buildStatusSelector(),
-                      const Divider(height: 32),
-                      _buildPrioritySelector(),
-                      const Divider(height: 32),
-                      _buildDeadlinePicker(),
-                      const SizedBox(height: 16),
-                      _buildReminderPicker(),
-                    ],
+                  const SizedBox(height: 20),
+                  _buildSectionCard(
+                    title: "Ticket Settings",
+                    icon: Iconsax.calendar_1,
+                    child: Column(
+                      children: [
+                        _buildCategorySelector(),
+                        const Divider(height: 32),
+                        _buildStatusSelector(),
+                        const Divider(height: 32),
+                        _buildPrioritySelector(),
+                        const Divider(height: 32),
+                        _buildDeadlinePicker(),
+                        const SizedBox(height: 16),
+                        _buildReminderPicker(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -406,112 +433,121 @@ class _TicketEditState extends State<TicketEdit> {
 
   /// MOBILE LAYOUT: Single Column
   Widget _buildMobileLayout() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildSectionCard(
-            title: "Ticket Details",
-            icon: Iconsax.document_text,
-            child: Column(
-              children: [
-                _buildClientDropdown(),
-                const SizedBox(height: 16),
-                _buildCompanyDropdown(),
-                const SizedBox(height: 16),
-                _buildModeOfContactSelector(),
-                const SizedBox(height: 16),
-                FormFields(
-                  controller: _ticketTitle,
-                  label: "Ticket Title",
-                  hintText: "Enter ticket title",
-                  valid: (v) => Validation.commonValidation(
-                    input: v,
+    return Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+        controller: _vScrollController,
+        child: Column(
+          children: [
+            _buildSectionCard(
+              title: "Ticket Details",
+              icon: Iconsax.document_text,
+              child: Column(
+                children: [
+                  _buildClientDropdown(),
+                  const SizedBox(height: 16),
+                  _buildCompanyDropdown(),
+                  const SizedBox(height: 16),
+                  _buildModeOfContactSelector(),
+                  const SizedBox(height: 16),
+                  FormFields(
+                    controller: _ticketTitle,
                     label: "Ticket Title",
-                    isReq: true,
+                    hintText: "Enter ticket title",
+                    valid: (v) => Validation.commonValidation(
+                      input: v,
+                      label: "Ticket Title",
+                      isReq: true,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildDescriptionField(),
-              ],
+                  const SizedBox(height: 16),
+                  _buildDescriptionField(),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Context",
-            icon: Iconsax.hierarchy,
-            child: Column(
-              children: [
-                _buildDropdownField(
-                  "Project",
-                  _selectedClientUid != null
-                      ? _projectList
-                            .where((p) => p.client == _selectedClientUid)
-                            .map((e) => e.projectName)
-                            .toList()
-                      : _projectList.map((e) => e.projectName).toList(),
-                  initialItem: _selectedProject != null
-                      ? _projectList
-                            .where((e) => e.uid == _selectedProject)
-                            .map((e) => e.projectName)
-                            .firstOrNull
-                      : null,
-                  (val) {
-                    var filteredProjects = _selectedClientUid != null
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Context",
+              icon: Iconsax.hierarchy,
+              child: Column(
+                children: [
+                  _buildDropdownField(
+                    "Project",
+                    _selectedClientUid != null
                         ? _projectList
                               .where((p) => p.client == _selectedClientUid)
+                              .map((e) => e.projectName)
                               .toList()
-                        : _projectList;
-                    _selectedProject = filteredProjects
-                        .firstWhere((e) => e.projectName == val)
-                        .uid;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildDropdownField(
-                  "Task",
-                  _taskList.map((e) => e.taskName).toList(),
-                  initialItem: _selectedTask != null
-                      ? _taskList
-                            .where((e) => e.uid == _selectedTask)
-                            .map((e) => e.taskName)
-                            .firstOrNull
-                      : null,
-                  (val) {
-                    _selectedTask = _taskList
-                        .firstWhere((e) => e.taskName == val)
-                        .uid;
-                  },
-                ),
-              ],
+                        : _projectList.map((e) => e.projectName).toList(),
+                    initialItem: _selectedProject != null
+                        ? _projectList
+                              .where((e) => e.uid == _selectedProject)
+                              .map((e) => e.projectName)
+                              .firstOrNull
+                        : null,
+                    (val) {
+                      var filteredProjects = _selectedClientUid != null
+                          ? _projectList
+                                .where((p) => p.client == _selectedClientUid)
+                                .toList()
+                          : _projectList;
+                      _selectedProject = filteredProjects
+                          .firstWhere((e) => e.projectName == val)
+                          .uid;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDropdownField(
+                    "Task",
+                    _taskList.map((e) => e.taskName).toList(),
+                    initialItem: _selectedTask != null
+                        ? _taskList
+                              .where((e) => e.uid == _selectedTask)
+                              .map((e) => e.taskName)
+                              .firstOrNull
+                        : null,
+                    (val) {
+                      _selectedTask = _taskList
+                          .firstWhere((e) => e.taskName == val)
+                          .uid;
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Ticket Settings",
-            icon: Iconsax.calendar_1,
-            child: Column(
-              children: [
-                _buildCategorySelector(),
-                const SizedBox(height: 16),
-                _buildStatusSelector(),
-                const SizedBox(height: 16),
-                _buildPrioritySelector(),
-                const SizedBox(height: 16),
-                _buildDeadlinePicker(),
-                const SizedBox(height: 16),
-                _buildReminderPicker(),
-              ],
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Ticket Settings",
+              icon: Iconsax.calendar_1,
+              child: Column(
+                children: [
+                  _buildCategorySelector(),
+                  const SizedBox(height: 16),
+                  _buildStatusSelector(),
+                  const SizedBox(height: 16),
+                  _buildPrioritySelector(),
+                  const SizedBox(height: 16),
+                  _buildDeadlinePicker(),
+                  const SizedBox(height: 16),
+                  _buildReminderPicker(),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Assignments",
-            icon: Iconsax.user_add,
-            child: _buildAssignmentGrid(),
-          ),
-          const SizedBox(height: 16),
-          _buildAttachmentSection(),
-        ],
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Assignments",
+              icon: Iconsax.user_add,
+              child: _buildAssignmentGrid(),
+            ),
+            const SizedBox(height: 16),
+            _buildAttachmentSection(),
+          ],
+        ),
       ),
     );
   }
@@ -559,9 +595,9 @@ class _TicketEditState extends State<TicketEdit> {
               const SizedBox(width: 12),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -1106,11 +1142,10 @@ class _TicketEditState extends State<TicketEdit> {
                       const SizedBox(width: 8),
                       Text(
                         "Edit Ticket",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),

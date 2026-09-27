@@ -20,6 +20,7 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
   String? _error;
   bool _loading = false;
   AuthorizationStatus? _authStatus;
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -31,6 +32,12 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
   void initState() {
     super.initState();
     _initFirebaseMessaging();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initFirebaseMessaging() async {
@@ -126,54 +133,66 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
           Expanded(
             child: _loading
                 ? const Center(child: WaitingLoading())
-                : ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 900),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (_error != null) _buildErrorBanner(_error!),
-                              if (_error != null) const SizedBox(height: 20),
-                              _buildTokenCard(
-                                icon: Iconsax.mobile,
-                                iconColor: const Color(0xFF3B82F6),
-                                title: "FCM Token",
-                                subtitle:
-                                    "Used to send push notifications via Firebase",
-                                token: _fcmToken,
-                                emptyText: "No FCM token retrieved yet.",
-                                onCopy: _fcmToken != null
-                                    ? () => _copyToken(_fcmToken!)
-                                    : null,
+                : Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(scrollbars: false),
+                        child: SingleChildScrollView(
+                          controller: _vScrollController,
+                          padding: const EdgeInsets.all(24),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 900),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (_error != null) _buildErrorBanner(_error!),
+                                  if (_error != null) const SizedBox(height: 20),
+                                  _buildTokenCard(
+                                    icon: Iconsax.mobile,
+                                    iconColor: const Color(0xFF3B82F6),
+                                    title: "FCM Token",
+                                    subtitle:
+                                        "Used to send push notifications via Firebase",
+                                    token: _fcmToken,
+                                    emptyText: "No FCM token retrieved yet.",
+                                    onCopy: _fcmToken != null
+                                        ? () => _copyToken(_fcmToken!)
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildTokenCard(
+                                    icon: Iconsax.mobile,
+                                    iconColor: const Color(0xFFF59E0B),
+                                    title: "APNs Token",
+                                    subtitle: "iOS only, managed by Firebase",
+                                    token: _apnsToken,
+                                    emptyText: "No APNs token retrieved.",
+                                    onCopy: _apnsToken != null
+                                        ? () => _copyToken(_apnsToken!)
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildStatusAndRefreshRow(),
+                                  const SizedBox(height: 20),
+                                  _buildTipsCard(),
+                                ],
                               ),
-                              const SizedBox(height: 20),
-                              _buildTokenCard(
-                                icon: Iconsax.mobile,
-                                iconColor: const Color(0xFFF59E0B),
-                                title: "APNs Token",
-                                subtitle: "iOS only, managed by Firebase",
-                                token: _apnsToken,
-                                emptyText: "No APNs token retrieved.",
-                                onCopy: _apnsToken != null
-                                    ? () => _copyToken(_apnsToken!)
-                                    : null,
-                              ),
-                              const SizedBox(height: 20),
-                              _buildStatusAndRefreshRow(),
-                              const SizedBox(height: 20),
-                              _buildTipsCard(),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ),
+                ),
           ),
         ],
       ),
@@ -280,9 +299,7 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(
-              alpha: 0.05,
-            ),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -412,10 +429,7 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
         if (_authStatus != null)
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
@@ -462,11 +476,7 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Iconsax.refresh,
-                      size: 15,
-                      color: Colors.white,
-                    ),
+                    const Icon(Iconsax.refresh, size: 15, color: Colors.white),
                     const SizedBox(width: 8),
                     Text(
                       "Refresh Tokens",

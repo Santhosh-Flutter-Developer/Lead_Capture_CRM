@@ -20,6 +20,8 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   late CustomerTicketModel _ticketModel;
   late TabController _tabController;
   final TextEditingController _commentController = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
+  final ScrollController _vhScrollController = ScrollController();
 
   String? currentUid;
   String _cid = '';
@@ -54,6 +56,8 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
     });
   }
 
+ 
+
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) {
       setState(() {});
@@ -65,6 +69,8 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _commentController.dispose();
+    _vScrollController.dispose();
+    _vhScrollController.dispose();
     super.dispose();
   }
 
@@ -107,11 +113,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
               color: AppColors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(
-              Iconsax.ticket,
-              color: AppColors.white,
-              size: 22,
-            ),
+            child: const Icon(Iconsax.ticket, color: AppColors.white, size: 22),
           ),
           const SizedBox(width: 14),
           Text(
@@ -161,11 +163,23 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
                           children: [
                             Expanded(
                               flex: isWide ? 7 : 1,
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(24),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [_buildMainContent()],
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Scrollbar(
+                                                    controller: _vScrollController,
+                                                    thumbVisibility: true,
+                                                    interactive: true,
+                                                    trackVisibility: true,
+                                                    radius: const Radius.circular(8),
+                                                    thickness: 8,
+                                                    child: SingleChildScrollView(
+                                    controller: _vScrollController,
+                                    padding: const EdgeInsets.all(24),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [_buildMainContent()],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -784,33 +798,45 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   }
 
   Widget _buildSidePanel() {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        _buildSectionLabel("ASSIGNED TO"),
-        const SizedBox(height: 16),
-        ..._ticketModel.assignTo.map(
-          (u) => _buildProfileTile(u, "Assigned To"),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Scrollbar(
+                      controller: _vhScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: ListView(
+          controller: _vhScrollController,
+          padding: const EdgeInsets.all(24),
+          children: [
+            _buildSectionLabel("ASSIGNED TO"),
+            const SizedBox(height: 16),
+            ..._ticketModel.assignTo.map(
+              (u) => _buildProfileTile(u, "Assigned To"),
+            ),
+            const SizedBox(height: 32),
+            _buildSectionLabel("PARTICIPANTS"),
+            const SizedBox(height: 16),
+            if (_ticketModel.participants.isEmpty)
+              _buildEmptyStateSmall("No participants")
+            else
+              ..._ticketModel.participants.map(
+                (u) => _buildProfileTile(u, "Participant"),
+              ),
+            const SizedBox(height: 32),
+            _buildSectionLabel("OBSERVERS"),
+            const SizedBox(height: 16),
+            if (_ticketModel.observers.isEmpty)
+              _buildEmptyStateSmall("No observers")
+            else
+              ..._ticketModel.observers.map(
+                (u) => _buildProfileTile(u, "Observer"),
+              ),
+          ],
         ),
-        const SizedBox(height: 32),
-        _buildSectionLabel("PARTICIPANTS"),
-        const SizedBox(height: 16),
-        if (_ticketModel.participants.isEmpty)
-          _buildEmptyStateSmall("No participants")
-        else
-          ..._ticketModel.participants.map(
-            (u) => _buildProfileTile(u, "Participant"),
-          ),
-        const SizedBox(height: 32),
-        _buildSectionLabel("OBSERVERS"),
-        const SizedBox(height: 16),
-        if (_ticketModel.observers.isEmpty)
-          _buildEmptyStateSmall("No observers")
-        else
-          ..._ticketModel.observers.map(
-            (u) => _buildProfileTile(u, "Observer"),
-          ),
-      ],
+      ),
     );
   }
 

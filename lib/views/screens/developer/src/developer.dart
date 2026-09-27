@@ -13,11 +13,18 @@ class Developer extends StatefulWidget {
 }
 
 class _DeveloperState extends State<Developer> {
+  final ScrollController _vScrollController = ScrollController();
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
     Color(0xFF4364F7),
     Color(0xFF6FB1FC),
   ];
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
+  }
 
   Widget _buildHeaderBanner(BuildContext context) {
     return Container(
@@ -111,67 +118,73 @@ class _DeveloperState extends State<Developer> {
             )
           : null,
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+        child: Scrollbar(
+          controller: _vScrollController,
+          thumbVisibility: true,
+          interactive: true,
+          trackVisibility: true,
+          radius: const Radius.circular(8),
+          thickness: 8,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(
               context,
             ).copyWith(scrollbars: false),
             child: ListView(
+              controller: _vScrollController,
               padding: const EdgeInsets.all(24),
               children: [
                 if (!widget.showAppbar) _buildHeaderBanner(context),
                 _buildSectionHeader("Tools & Debugging", Iconsax.setting_4),
-              const SizedBox(height: 16),
-              _buildToolGrid([
-                _toolCard(
-                  context,
-                  "Notification Test",
-                  "Trigger and verify push notification flows",
-                  Iconsax.notification,
-                  () async {
-                    if (kIsDesktop) {
-                      try {
-                        await FirestoreNotificationListener.sendTestNotification();
-                      } catch (e) {
-                        FlushBar.show(context, e.toString(), isSuccess: true);
+                const SizedBox(height: 16),
+                _buildToolGrid([
+                  _toolCard(
+                    context,
+                    "Notification Test",
+                    "Trigger and verify push notification flows",
+                    Iconsax.notification,
+                    () async {
+                      if (kIsDesktop) {
+                        try {
+                          await FirestoreNotificationListener.sendTestNotification();
+                        } catch (e) {
+                          FlushBar.show(context, e.toString(), isSuccess: true);
+                        }
+                      } else {
+                        Navigate.route(context, const NotificationTestPage());
                       }
-                    } else {
-                      Navigate.route(context, const NotificationTestPage());
-                    }
-                  },
-                ),
-                _toolCard(
-                  context,
-                  "Shared Prefs",
-                  "Inspect and edit local key-value storage",
-                  Iconsax.data,
-                  () => Navigate.route(context, const SharedprefsData()),
-                ),
-              ]),
-              const SizedBox(height: 32),
-              _buildSectionHeader("System & Stability", Iconsax.status),
-              const SizedBox(height: 16),
-              _buildToolGrid([
-                _toolCard(
-                  context,
-                  "App Errors",
-                  "Review recorded crashes and system logs",
-                  Iconsax.close_circle,
-                  () => Navigate.route(context, const AppErrors()),
-                  isWarning: true,
-                ),
-                _toolCard(
-                  context,
-                  "Backup Listing",
-                  "Manage cloud backups and data snapshots",
-                  Iconsax.cloud,
-                  () => Navigate.route(context, const BackupListing()),
-                ),
-              ]),
-              const SizedBox(height: 40),
-              _buildFooter(),
-            ],
+                    },
+                  ),
+                  _toolCard(
+                    context,
+                    "Shared Prefs",
+                    "Inspect and edit local key-value storage",
+                    Iconsax.data,
+                    () => Navigate.route(context, const SharedprefsData()),
+                  ),
+                ]),
+                const SizedBox(height: 32),
+                _buildSectionHeader("System & Stability", Iconsax.status),
+                const SizedBox(height: 16),
+                _buildToolGrid([
+                  _toolCard(
+                    context,
+                    "App Errors",
+                    "Review recorded crashes and system logs",
+                    Iconsax.close_circle,
+                    () => Navigate.route(context, const AppErrors()),
+                    isWarning: true,
+                  ),
+                  _toolCard(
+                    context,
+                    "Backup Listing",
+                    "Manage cloud backups and data snapshots",
+                    Iconsax.cloud,
+                    () => Navigate.route(context, const BackupListing()),
+                  ),
+                ]),
+                const SizedBox(height: 40),
+                _buildFooter(),
+              ],
             ),
           ),
         ),

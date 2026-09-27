@@ -30,6 +30,8 @@ class BackupListing extends StatefulWidget {
 
 class _BackupListingState extends State<BackupListing> {
   final BackupTrigger _trigger = BackupTrigger();
+  final ScrollController _vScrollController = ScrollController();
+  final ScrollController _vhScrollController = ScrollController();
   String _search = '';
   bool _busy = false;
   BackupModel? _selectedBackup;
@@ -69,6 +71,13 @@ class _BackupListingState extends State<BackupListing> {
     'chats': ['messages'],
     'tasks': ['taskHistory', 'taskComments'],
   };
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    _vhScrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _refresh() async {
     blocContext.read<BackupBloc>().add(StreamBackup());
@@ -386,18 +395,30 @@ class _BackupListingState extends State<BackupListing> {
               Expanded(
                 child: backups.isEmpty
                     ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: grouped.length,
-                        itemBuilder: (context, index) {
-                          final entry = grouped.entries.elementAt(index);
-                          return _buildGroupSection(
-                            entry.key,
-                            entry.value,
-                            isDesktop: true,
-                          );
-                        },
+                    : Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: ListView.builder(
+                          controller: _vScrollController,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: grouped.length,
+                            itemBuilder: (context, index) {
+                              final entry = grouped.entries.elementAt(index);
+                              return _buildGroupSection(
+                                entry.key,
+                                entry.value,
+                                isDesktop: true,
+                              );
+                            },
+                          ),
                       ),
+                    ),
               ),
               _buildExportBar(),
             ],
@@ -407,15 +428,27 @@ class _BackupListingState extends State<BackupListing> {
         Expanded(
           child: _selectedBackup == null
               ? _buildEmptyDetailView()
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(60),
-                  child: Center(
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 800),
-                      child: _buildDetailContent(_selectedBackup!),
+              : Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Scrollbar(
+                      controller: _vhScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                    controller: _vhScrollController,
+                      padding: const EdgeInsets.all(60),
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: _buildDetailContent(_selectedBackup!),
+                        ),
+                      ),
                     ),
-                  ),
                 ),
+              ),
         ),
       ],
     );
@@ -433,20 +466,29 @@ class _BackupListingState extends State<BackupListing> {
               ? _buildEmptyState()
               : RefreshIndicator(
                   onRefresh: () => _refresh(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                  child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView.builder(
+                      controller: _vScrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: grouped.length,
+                      itemBuilder: (context, index) {
+                        final entry = grouped.entries.elementAt(index);
+                        return _buildGroupSection(
+                          entry.key,
+                          entry.value,
+                          isDesktop: false,
+                        );
+                      },
                     ),
-                    itemCount: grouped.length,
-                    itemBuilder: (context, index) {
-                      final entry = grouped.entries.elementAt(index);
-                      return _buildGroupSection(
-                        entry.key,
-                        entry.value,
-                        isDesktop: false,
-                      );
-                    },
                   ),
                 ),
         ),
@@ -623,9 +665,9 @@ class _BackupListingState extends State<BackupListing> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withValues(
-                  alpha: 0.04,
-                ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -804,9 +846,7 @@ class _BackupListingState extends State<BackupListing> {
           children: [
             const Spacer(),
             Material(
-              color: Theme.of(
-                context,
-              ).colorScheme.error.withValues(alpha: 0.1),
+              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
@@ -843,7 +883,11 @@ class _BackupListingState extends State<BackupListing> {
     );
   }
 
-  Widget _buildDetailSection(String title, IconData icon, List<Widget> children) {
+  Widget _buildDetailSection(
+    String title,
+    IconData icon,
+    List<Widget> children,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

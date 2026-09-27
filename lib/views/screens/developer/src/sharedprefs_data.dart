@@ -27,6 +27,7 @@ class _SharedprefsDataState extends State<SharedprefsData> {
   bool _loading = false;
   String _query = '';
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _SharedprefsDataState extends State<SharedprefsData> {
   @override
   void dispose() {
     _searchController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -276,7 +278,18 @@ class _SharedprefsDataState extends State<SharedprefsData> {
                         child: _loading
                             ? const Center(child: WaitingLoading())
                             : items.isEmpty
-                            ? ListView(children: [_buildEmptyState()])
+                            ? Scrollbar(
+                                controller: _vScrollController,
+                                thumbVisibility: true,
+                                interactive: true,
+                                trackVisibility: true,
+                                radius: const Radius.circular(8),
+                                thickness: 8,
+                                child: ListView(
+                                  controller: _vScrollController,
+                                  children: [_buildEmptyState()],
+                                ),
+                              )
                             : isDesktop
                             ? _buildDesktopGrid(items)
                             : _buildMobileList(items),
@@ -352,22 +365,19 @@ class _SharedprefsDataState extends State<SharedprefsData> {
 
   Widget _buildDesktopGrid(List<MapEntry<String, Object?>> items) {
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1300),
-        child: GridView.builder(
-          padding: const EdgeInsets.all(40),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 450,
-            mainAxisExtent: 200,
-            crossAxisSpacing: 24,
-            mainAxisSpacing: 24,
-          ),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final e = items[index];
-            return _buildPrefCard(e.key, e.value, isDesktop: true);
-          },
+      child: GridView.builder(
+        padding: const EdgeInsets.all(40),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 450,
+          mainAxisExtent: 200,
+          crossAxisSpacing: 24,
+          mainAxisSpacing: 24,
         ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final e = items[index];
+          return _buildPrefCard(e.key, e.value, isDesktop: true);
+        },
       ),
     );
   }
@@ -596,55 +606,55 @@ class _SharedprefsDataState extends State<SharedprefsData> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              const Text(
-                "DATA TYPE",
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: SharedPrefsColors.textSecondary,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value.runtimeType.toString(),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "VALUE",
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: SharedPrefsColors.textSecondary,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
+                const Text(
+                  "DATA TYPE",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: SharedPrefsColors.textSecondary,
+                    letterSpacing: 1,
                   ),
                 ),
-                child: SelectableText(
-                  value?.toString() ?? 'null',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    height: 1.5,
+                const SizedBox(height: 4),
+                Text(
+                  value.runtimeType.toString(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 20),
+                const Text(
+                  "VALUE",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: SharedPrefsColors.textSecondary,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: SelectableText(
+                    value?.toString() ?? 'null',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [

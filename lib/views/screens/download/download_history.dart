@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:leadcapture/models/src/download_model.dart';
 import 'package:leadcapture/theme/theme.dart';
 import 'package:leadcapture/utils/src/open_file.dart';
-import 'package:leadcapture/utils/src/platform.dart';
 import 'package:leadcapture/views/screens/download/bloc/download_bloc.dart';
 import 'package:leadcapture/views/screens/download/bloc/download_event.dart';
 import 'package:leadcapture/views/screens/download/bloc/download_state.dart';
@@ -23,6 +22,8 @@ class DownloadHistory extends StatefulWidget {
 
 class _DownloadHistoryState extends State<DownloadHistory> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
+
   String _search = '';
 
   static const List<Color> _brandGradient = [
@@ -44,6 +45,7 @@ class _DownloadHistoryState extends State<DownloadHistory> {
   @override
   void dispose() {
     _searchController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -133,40 +135,49 @@ class _DownloadHistoryState extends State<DownloadHistory> {
 
               return RefreshIndicator(
                 onRefresh: () => _refresh(context),
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      if (!widget.showAppbar) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                          child: _buildHeaderBanner(context),
-                        ),
-                      ],
-                      if (filteredList.isEmpty)
-                        _buildEmptyState(context)
-                      else
-                        Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1400),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: grouped.entries.map((entry) {
-                                  return _buildSection(entry.key, entry.value);
-                                }).toList(),
+                child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: ListView(
+                      controller: _vScrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        if (!widget.showAppbar) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                            child: _buildHeaderBanner(context),
+                          ),
+                        ],
+                        if (filteredList.isEmpty)
+                          _buildEmptyState(context)
+                        else
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1400),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: grouped.entries.map((entry) {
+                                    return _buildSection(entry.key, entry.value);
+                                  }).toList(),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -188,9 +199,9 @@ class _DownloadHistoryState extends State<DownloadHistory> {
             Icon(
               Icons.download_for_offline,
               size: 80,
-              color: Theme.of(context).colorScheme.primary.withValues(
-                alpha: 0.3,
-              ),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 24),
             Text(
@@ -263,12 +274,11 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                   children: [
                     Text(
                       "Download History",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineSmall?.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -295,9 +305,9 @@ class _DownloadHistoryState extends State<DownloadHistory> {
               decoration: InputDecoration(
                 isDense: true,
                 hintText: 'Filter by filename or URL...',
-                hintStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.grey500,
-                ),
+                hintStyle: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
                 prefixIcon: const Icon(
                   Iconsax.search_normal_1,
                   size: 16,
@@ -315,9 +325,18 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                       )
                     : null,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder:OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
@@ -351,7 +370,18 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                   fontSize: 14,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                border: InputBorder.none,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder:OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
@@ -415,9 +445,7 @@ class _DownloadHistoryState extends State<DownloadHistory> {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(
-              alpha: 0.05,
-            ),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -483,9 +511,7 @@ class _DownloadHistoryState extends State<DownloadHistory> {
                         Icon(
                           Icons.access_time,
                           size: 12,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
