@@ -105,6 +105,7 @@ final ScrollController _scrollController = ScrollController();
     permissions = await PermissionService.getPermissions(_pageTitle);
     tasksPermissions = await PermissionService.getPermissions('Tasks');
     _isAdmin = await Spdb.isAdminLoggedIn();
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }

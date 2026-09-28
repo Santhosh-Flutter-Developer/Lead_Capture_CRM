@@ -130,8 +130,8 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(pageTitle);
-    _permissionsLoaded = true;
-    setState(() {});
+    if (!mounted) return;
+    setState(() => _permissionsLoaded = true);
   }
 
   Future<void> _refreshClients(BuildContext context) async {
@@ -179,6 +179,12 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
             }
 
             if (state is ClientCompanyLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
+              if (!(permissions?.canView ?? false)) {
+                return buildNoPermissionView(context);
+              }
               final totalCount = state.clients.where(_filterBySection).length;
               return RefreshIndicator(
                 onRefresh: () => _refreshClients(context),
@@ -335,8 +341,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     final isWide = _isWide(context);
 
     final buttons = <Widget>[
-      (permissions?.canCreate ?? false)
-          ? _gradientButton(
+      if (permissions?.canCreate ?? false) _gradientButton(
               context: context,
               icon: Icons.add_rounded,
               label: "Add $pageTitle",
@@ -352,11 +357,6 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                   GeneralDialog.showRTLSheet(context, form);
                 }
               },
-            )
-          : _disabledButton(
-              context,
-              icon: Icons.add_rounded,
-              label: "Add $pageTitle",
             ),
       if ((permissions?.canExport ?? false) &&
           controllerWatch.paginatedItems.isNotEmpty)
@@ -505,32 +505,6 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     );
   }
 
-  Widget _disabledButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.grey200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.grey500),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _iconCircleButton(
     BuildContext context, {
@@ -953,8 +927,7 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        (permissions?.canEdit ?? false)
-            ? _iconCircleButton(
+        if (permissions?.canEdit ?? false) _iconCircleButton(
                 context,
                 icon: Iconsax.edit,
                 tooltip: "Edit",
@@ -972,32 +945,16 @@ class _ClientCompanyListingViewState extends State<ClientCompanyListingView> {
                     GeneralDialog.showRTLSheet(context, form);
                   }
                 },
-              )
-            : _iconCircleButton(
-                context,
-                icon: Iconsax.edit,
-                tooltip: "No permission",
-                background: AppColors.grey200,
-                iconColor: AppColors.grey400,
-                onPressed: () {},
               ),
-        const SizedBox(width: 8),
-        (permissions?.canDelete ?? false)
-            ? _iconCircleButton(
+        if ((permissions?.canEdit ?? false) && (permissions?.canDelete ?? false))
+          const SizedBox(width: 8),
+        if (permissions?.canDelete ?? false) _iconCircleButton(
                 context,
                 icon: Iconsax.trash,
                 tooltip: "Delete",
                 background: AppColors.danger.withValues(alpha: 0.12),
                 iconColor: AppColors.danger,
                 onPressed: () => _onDeleteTap(context, client),
-              )
-            : _iconCircleButton(
-                context,
-                icon: Iconsax.trash,
-                tooltip: "No permission",
-                background: AppColors.grey200,
-                iconColor: AppColors.grey400,
-                onPressed: () {},
               ),
       ],
     );

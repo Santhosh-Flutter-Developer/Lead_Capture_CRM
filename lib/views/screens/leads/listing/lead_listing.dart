@@ -161,6 +161,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }

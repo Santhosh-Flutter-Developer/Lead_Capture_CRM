@@ -82,6 +82,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }
@@ -287,8 +288,7 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
     final isWide = _isWide(context);
 
     final buttons = <Widget>[
-      (permissions?.canCreate ?? false)
-          ? _gradientButton(
+      if (permissions?.canCreate ?? false) _gradientButton(
               context: context,
               icon: Icons.add_rounded,
               label: "Add $_pageTitle",
@@ -307,11 +307,6 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
                   );
                 }
               },
-            )
-          : _disabledButton(
-              context,
-              icon: Icons.add_rounded,
-              label: "Add $_pageTitle",
             ),
       if (_selectedLeadCategories.isNotEmpty &&
           (permissions?.canDelete ?? false))
@@ -452,32 +447,6 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
     );
   }
 
-  Widget _disabledButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.grey200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.grey500),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _iconCircleButton(
     BuildContext context, {
@@ -706,40 +675,23 @@ class _LeadCategoryListingViewState extends State<LeadCategoryListingView> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              (permissions?.canEdit ?? false)
-                  ? _iconCircleButton(
+              if (permissions?.canEdit ?? false) _iconCircleButton(
                       context,
                       icon: Iconsax.edit,
                       tooltip: "Edit",
                       background: AppColors.info.withValues(alpha: 0.12),
                       iconColor: AppColors.info,
                       onPressed: () => _onEditTap(leadCategory),
-                    )
-                  : _iconCircleButton(
-                      context,
-                      icon: Iconsax.edit,
-                      tooltip: "No permission",
-                      background: AppColors.grey200,
-                      iconColor: AppColors.grey400,
-                      onPressed: () {},
                     ),
-              const SizedBox(width: 8),
-              (permissions?.canDelete ?? false)
-                  ? _iconCircleButton(
+              if ((permissions?.canEdit ?? false) && (permissions?.canDelete ?? false))
+                const SizedBox(width: 8),
+              if (permissions?.canDelete ?? false) _iconCircleButton(
                       context,
                       icon: Iconsax.trash,
                       tooltip: "Delete",
                       background: AppColors.danger.withValues(alpha: 0.12),
                       iconColor: AppColors.danger,
                       onPressed: () => _onDeleteTap(leadCategory),
-                    )
-                  : _iconCircleButton(
-                      context,
-                      icon: Iconsax.trash,
-                      tooltip: "No permission",
-                      background: AppColors.grey200,
-                      iconColor: AppColors.grey400,
-                      onPressed: () {},
                     ),
             ],
           ),

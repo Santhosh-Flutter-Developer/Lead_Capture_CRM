@@ -138,6 +138,7 @@ class _DashboardState extends State<Dashboard>
     for (var page in pages) {
       _permissions[page] = await PermissionService.getPermissions(page);
     }
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }

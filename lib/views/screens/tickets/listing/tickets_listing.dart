@@ -103,6 +103,7 @@ class _TicketListingViewState extends State<TicketListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }
@@ -303,8 +304,7 @@ class _TicketListingViewState extends State<TicketListingView> {
     final isWide = _isWide(context);
 
     final buttons = <Widget>[
-      (permissions?.canCreate ?? false)
-          ? _gradientButton(
+      if (permissions?.canCreate ?? false) _gradientButton(
               context: context,
               icon: Icons.add_rounded,
               label: "Add $_pageTitle",
@@ -316,11 +316,6 @@ class _TicketListingViewState extends State<TicketListingView> {
                   GeneralDialog.showRTLSheet(context, const TicketCreate());
                 }
               },
-            )
-          : _disabledButton(
-              context,
-              icon: Icons.add_rounded,
-              label: "Add $_pageTitle",
             ),
       if (_selectedTickets.isNotEmpty && (permissions?.canDelete ?? false))
         _gradientButton(
@@ -428,32 +423,6 @@ class _TicketListingViewState extends State<TicketListingView> {
     );
   }
 
-  Widget _disabledButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.grey200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.grey500),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _iconCircleButton(
     BuildContext context, {

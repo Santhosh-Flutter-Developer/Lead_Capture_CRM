@@ -62,6 +62,7 @@ class DepartmentListingView extends StatefulWidget {
 class _DepartmentListingViewState extends State<DepartmentListingView> {
   final List<DepartmentModel> _selectedDepartments = [];
   PermissionModel? permissions;
+  bool _permissionsLoaded = false;
   final ScrollController _hScrollController = ScrollController();
 final ScrollController _scrollController = ScrollController();
   @override
@@ -79,7 +80,8 @@ final ScrollController _scrollController = ScrollController();
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
-    setState(() {});
+    if (!mounted) return;
+    setState(() => _permissionsLoaded = true);
   }
 
   Future<void> _refreshDepartments() async {
@@ -122,6 +124,9 @@ final ScrollController _scrollController = ScrollController();
             }
 
             if (state is DepartmentLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -276,8 +281,7 @@ final ScrollController _scrollController = ScrollController();
     final isWide = _isWide(context);
 
     final buttons = <Widget>[
-      (permissions?.canCreate ?? false)
-          ? _gradientButton(
+      if (permissions?.canCreate ?? false) _gradientButton(
               context: context,
               icon: Icons.add_rounded,
               label: "Add $_pageTitle",
@@ -296,11 +300,6 @@ final ScrollController _scrollController = ScrollController();
                   );
                 }
               },
-            )
-          : _disabledButton(
-              context,
-              icon: Icons.add_rounded,
-              label: "Add $_pageTitle",
             ),
       if (_selectedDepartments.isNotEmpty && (permissions?.canDelete ?? false))
         _gradientButton(
@@ -440,32 +439,6 @@ final ScrollController _scrollController = ScrollController();
     );
   }
 
-  Widget _disabledButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.grey200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.grey500),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.grey500),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _iconCircleButton(
     BuildContext context, {
@@ -692,40 +665,23 @@ final ScrollController _scrollController = ScrollController();
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              (permissions?.canEdit ?? false)
-                  ? _iconCircleButton(
+              if (permissions?.canEdit ?? false) _iconCircleButton(
                       context,
                       icon: Iconsax.edit,
                       tooltip: "Edit",
                       background: AppColors.info.withValues(alpha: 0.12),
                       iconColor: AppColors.info,
                       onPressed: () => _onEditTap(department),
-                    )
-                  : _iconCircleButton(
-                      context,
-                      icon: Iconsax.edit,
-                      tooltip: "No permission",
-                      background: AppColors.grey200,
-                      iconColor: AppColors.grey400,
-                      onPressed: () {},
                     ),
-              const SizedBox(width: 8),
-              (permissions?.canDelete ?? false)
-                  ? _iconCircleButton(
+              if ((permissions?.canEdit ?? false) && (permissions?.canDelete ?? false))
+                const SizedBox(width: 8),
+              if (permissions?.canDelete ?? false) _iconCircleButton(
                       context,
                       icon: Iconsax.trash,
                       tooltip: "Delete",
                       background: AppColors.danger.withValues(alpha: 0.12),
                       iconColor: AppColors.danger,
                       onPressed: () => _onDeleteTap(department),
-                    )
-                  : _iconCircleButton(
-                      context,
-                      icon: Iconsax.trash,
-                      tooltip: "No permission",
-                      background: AppColors.grey200,
-                      iconColor: AppColors.grey400,
-                      onPressed: () {},
                     ),
             ],
           ),

@@ -101,6 +101,7 @@ class _DealsListingViewState extends State<DealsListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }

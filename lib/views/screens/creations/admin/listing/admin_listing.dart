@@ -94,6 +94,7 @@ class _AdminListingViewState extends State<AdminListingView> {
 
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
+    if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
   }
