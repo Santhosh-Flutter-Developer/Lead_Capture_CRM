@@ -11,6 +11,7 @@ class MenuItem {
   final String? route;
   final List<MenuItem>? children;
   final bool isAdminOnly;
+  final bool hideForAdmin;
   final bool requiresPayroll;
   final List<String> requiredPermissions;
   final bool isDivider;
@@ -23,6 +24,7 @@ class MenuItem {
     this.route,
     this.children,
     this.isAdminOnly = false,
+    this.hideForAdmin = false,
     this.requiresPayroll = false,
     this.requiredPermissions = const [],
     this.isDivider = false,
@@ -38,6 +40,8 @@ class MenuItem {
     if (isStatic) return true;
     if (isDivider) return true;
     if (isAdminOnly && !isAdmin) return false;
+    // Hidden for the super admin; other users are controlled by role permissions
+    if (hideForAdmin && isAdmin) return false;
     // if (requiresPayroll && !payrollEnabled) return false;
 
     if (requiredPermissions.isNotEmpty) {
@@ -303,6 +307,7 @@ class MenuService {
         icon: Iconsax.code,
         route: '/developer-area',
         requiredPermissions: ['Developer Area'],
+        hideForAdmin: true,
       ),
 
       // Static items (always visible)
