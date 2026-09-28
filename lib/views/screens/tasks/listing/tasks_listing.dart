@@ -77,6 +77,7 @@ class _TaskListingViewState extends State<TaskListingView> {
   String? _currentUid;
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
+  final ScrollController _vScrollController = ScrollController();
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -88,6 +89,12 @@ class _TaskListingViewState extends State<TaskListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -142,28 +149,41 @@ class _TaskListingViewState extends State<TaskListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshTasks(context),
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(scrollbars: false),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
-                    children: [
-                      if (isWide) ...[
-                        _buildHeaderBanner(context, state.tasks.length),
-                        const SizedBox(height: 20),
+                child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: ListView(
+                      controller: _vScrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                      children: [
+                        if (isWide) ...[
+                          _buildHeaderBanner(context, state.tasks.length),
+                          const SizedBox(height: 20),
+                        ],
+                        _buildToolbar(context, controllerRead),
+                        const SizedBox(height: 18),
+                        if (controllerWatch.paginatedItems.isEmpty)
+                          const NoData(text: "No matching records found")
+                        else if (_selectedView == 'Calendar') ...[
+                          TaskCalendarListing(tasks: state.tasks),
+                        ] else ...[
+                          _buildMainBody(
+                            context,
+                            controllerWatch,
+                            controllerRead,
+                          ),
+                        ],
                       ],
-                      _buildToolbar(context, controllerRead),
-                      const SizedBox(height: 18),
-                      if (controllerWatch.paginatedItems.isEmpty)
-                        const NoData(text: "No matching records found")
-                      else if (_selectedView == 'Calendar') ...[
-                        TaskCalendarListing(tasks: state.tasks),
-                      ] else ...[
-                        _buildMainBody(context, controllerWatch, controllerRead),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -549,7 +569,9 @@ class _TaskListingViewState extends State<TaskListingView> {
                     controller: _hScrollController,
                     scrollDirection: Axis.horizontal,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      constraints: BoxConstraints(
+                        minWidth: constraints.maxWidth,
+                      ),
                       child: DataTable(
                         showCheckboxColumn: true,
                         columnSpacing: 20,
@@ -557,9 +579,9 @@ class _TaskListingViewState extends State<TaskListingView> {
                         sortColumnIndex: controllerWatch.sortColumnIndex,
                         sortAscending: controllerWatch.sortAscending,
                         headingRowColor: WidgetStateProperty.all(
-                          Theme.of(context).colorScheme.primary.withValues(
-                            alpha: 0.06,
-                          ),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.06),
                         ),
                         headingTextStyle: Theme.of(context).textTheme.bodySmall
                             ?.copyWith(
@@ -687,9 +709,9 @@ class _TaskListingViewState extends State<TaskListingView> {
         }
         return index.isEven
             ? Colors.transparent
-            : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.35,
-              );
+            : Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35);
       }),
       onSelectChanged: (selected) {
         controllerRead.onSelected(task.uid ?? '', selected);

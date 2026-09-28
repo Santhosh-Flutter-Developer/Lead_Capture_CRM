@@ -42,6 +42,8 @@ class _TaskEditState extends State<TaskEdit> {
   String? _selectedLead;
   String? _selectedSubTaskOf;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
+  final ScrollController _vhScrollController = ScrollController();
 
   final List<PlatformFile> _selectedAttachments = [];
   List<FileModel> _existingAttachments = [];
@@ -55,6 +57,13 @@ class _TaskEditState extends State<TaskEdit> {
   void initState() {
     super.initState();
     _future = _init();
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    _vhScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -208,31 +217,33 @@ class _TaskEditState extends State<TaskEdit> {
           body: Column(
             children: [
               _buildHeader(context),
-              Expanded(child: FutureBuilder(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const WaitingLoading();
-              } else if (snapshot.hasError) {
-                return ErrorDisplay(error: snapshot.error.toString());
-              }
+              Expanded(
+                child: FutureBuilder(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const WaitingLoading();
+                    } else if (snapshot.hasError) {
+                      return ErrorDisplay(error: snapshot.error.toString());
+                    }
 
-              return Form(
-                key: _formKey,
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop ? 1200 : double.infinity,
-                    ),
-                    padding: const EdgeInsets.all(24.0),
-                    child: isDesktop
-                        ? _buildDesktopLayout()
-                        : _buildMobileLayout(),
-                  ),
+                    return Form(
+                      key: _formKey,
+                      child: Center(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: isDesktop ? 1200 : double.infinity,
+                          ),
+                          padding: const EdgeInsets.all(24.0),
+                          child: isDesktop
+                              ? _buildDesktopLayout()
+                              : _buildMobileLayout(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          )),
+              ),
             ],
           ),
           bottomNavigationBar: _buildActionBottomBar(),
@@ -249,30 +260,39 @@ class _TaskEditState extends State<TaskEdit> {
         // LEFT COLUMN: Primary Info
         Expanded(
           flex: 2,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionCard(
-                  title: "Task Details",
-                  icon: Iconsax.document_text,
-                  child: Column(
-                    children: [
-                      _buildTaskNameField(),
-                      const SizedBox(height: 20),
-                      _buildDescriptionField(),
-                    ],
+          child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vScrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionCard(
+                    title: "Task Details",
+                    icon: Iconsax.document_text,
+                    child: Column(
+                      children: [
+                        _buildTaskNameField(),
+                        const SizedBox(height: 20),
+                        _buildDescriptionField(),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionCard(
-                  title: "Assignments",
-                  icon: Iconsax.user_add,
-                  child: _buildAssignmentGrid(),
-                ),
-                const SizedBox(height: 20),
-                _buildAttachmentSection(),
-              ],
+                  const SizedBox(height: 20),
+                  _buildSectionCard(
+                    title: "Assignments",
+                    icon: Iconsax.user_add,
+                    child: _buildAssignmentGrid(),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildAttachmentSection(),
+                ],
+              ),
             ),
           ),
         ),
@@ -280,81 +300,90 @@ class _TaskEditState extends State<TaskEdit> {
         // RIGHT COLUMN: Settings & Metadata
         Expanded(
           flex: 1,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildSectionCard(
-                  title: "Planning",
-                  icon: Iconsax.calendar_1,
-                  child: Column(
-                    children: [
-                      _buildPriorityToggle(),
-                      const Divider(height: 32),
-                      _buildDeadlinePicker(),
-                      const SizedBox(height: 16),
-                      _buildReminderPicker(),
-                    ],
+          child: Scrollbar(
+                    controller: _vhScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vhScrollController,
+              child: Column(
+                children: [
+                  _buildSectionCard(
+                    title: "Planning",
+                    icon: Iconsax.calendar_1,
+                    child: Column(
+                      children: [
+                        _buildPriorityToggle(),
+                        const Divider(height: 32),
+                        _buildDeadlinePicker(),
+                        const SizedBox(height: 16),
+                        _buildReminderPicker(),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionCard(
-                  title: "Context",
-                  icon: Iconsax.hierarchy,
-                  child: Column(
-                    children: [
-                      _buildDropdownField(
-                        "Project",
-                        _projectList.map((e) => e.projectName).toList(),
-                        initialItem: _selectedProject != null
-                            ? _projectList
-                                  .where((e) => e.uid == _selectedProject)
-                                  .map((e) => e.projectName)
-                                  .firstOrNull
-                            : null,
-                        (val) {
-                          _selectedProject = _projectList
-                              .firstWhere((e) => e.projectName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildDropdownField(
-                        "Subtask of",
-                        _taskList.map((e) => e.taskName).toList(),
-                        initialItem: _selectedSubTaskOf != null
-                            ? _taskList
-                                  .where((e) => e.uid == _selectedSubTaskOf)
-                                  .map((e) => e.taskName)
-                                  .firstOrNull
-                            : null,
-                        (val) {
-                          _selectedSubTaskOf = _taskList
-                              .firstWhere((e) => e.taskName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildDropdownField(
-                        "Lead",
-                        _leadList.map((e) => e.leadName).toList(),
-                        initialItem: _selectedLead != null
-                            ? _leadList
-                                  .where((e) => e.uid == _selectedLead)
-                                  .map((e) => e.leadName)
-                                  .firstOrNull
-                            : null,
-                        (val) {
-                          _selectedLead = _leadList
-                              .firstWhere((e) => e.leadName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTagsField(),
-                    ],
+                  const SizedBox(height: 20),
+                  _buildSectionCard(
+                    title: "Context",
+                    icon: Iconsax.hierarchy,
+                    child: Column(
+                      children: [
+                        _buildDropdownField(
+                          "Project",
+                          _projectList.map((e) => e.projectName).toList(),
+                          initialItem: _selectedProject != null
+                              ? _projectList
+                                    .where((e) => e.uid == _selectedProject)
+                                    .map((e) => e.projectName)
+                                    .firstOrNull
+                              : null,
+                          (val) {
+                            _selectedProject = _projectList
+                                .firstWhere((e) => e.projectName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField(
+                          "Subtask of",
+                          _taskList.map((e) => e.taskName).toList(),
+                          initialItem: _selectedSubTaskOf != null
+                              ? _taskList
+                                    .where((e) => e.uid == _selectedSubTaskOf)
+                                    .map((e) => e.taskName)
+                                    .firstOrNull
+                              : null,
+                          (val) {
+                            _selectedSubTaskOf = _taskList
+                                .firstWhere((e) => e.taskName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField(
+                          "Lead",
+                          _leadList.map((e) => e.leadName).toList(),
+                          initialItem: _selectedLead != null
+                              ? _leadList
+                                    .where((e) => e.uid == _selectedLead)
+                                    .map((e) => e.leadName)
+                                    .firstOrNull
+                              : null,
+                          (val) {
+                            _selectedLead = _leadList
+                                .firstWhere((e) => e.leadName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTagsField(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -364,41 +393,50 @@ class _TaskEditState extends State<TaskEdit> {
 
   /// MOBILE LAYOUT: Single Column
   Widget _buildMobileLayout() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildSectionCard(
-            title: "Task Details",
-            icon: Iconsax.document_text,
-            child: Column(
-              children: [
-                _buildTaskNameField(),
-                const SizedBox(height: 16),
-                _buildDescriptionField(),
-              ],
+    return Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+        controller: _vScrollController,
+        child: Column(
+          children: [
+            _buildSectionCard(
+              title: "Task Details",
+              icon: Iconsax.document_text,
+              child: Column(
+                children: [
+                  _buildTaskNameField(),
+                  const SizedBox(height: 16),
+                  _buildDescriptionField(),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Planning",
-            icon: Iconsax.calendar_1,
-            child: Column(
-              children: [
-                _buildPriorityToggle(),
-                _buildDeadlinePicker(),
-                _buildReminderPicker(),
-              ],
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Planning",
+              icon: Iconsax.calendar_1,
+              child: Column(
+                children: [
+                  _buildPriorityToggle(),
+                  _buildDeadlinePicker(),
+                  _buildReminderPicker(),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Assignments",
-            icon: Iconsax.user_add,
-            child: _buildAssignmentGrid(),
-          ),
-          const SizedBox(height: 16),
-          _buildAttachmentSection(),
-        ],
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Assignments",
+              icon: Iconsax.user_add,
+              child: _buildAssignmentGrid(),
+            ),
+            const SizedBox(height: 16),
+            _buildAttachmentSection(),
+          ],
+        ),
       ),
     );
   }
@@ -446,9 +484,9 @@ class _TaskEditState extends State<TaskEdit> {
               const SizedBox(width: 12),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -467,15 +505,24 @@ class _TaskEditState extends State<TaskEdit> {
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         hintText: 'Enter Task Title...',
-        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        hintStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         border: UnderlineInputBorder(
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
         enabledBorder: UnderlineInputBorder(
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
         focusedBorder: UnderlineInputBorder(
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
       ),
       validator: (v) => Validation.commonValidation(
@@ -492,7 +539,9 @@ class _TaskEditState extends State<TaskEdit> {
       maxLines: 5,
       decoration: InputDecoration(
         hintText: 'Describe the requirements and objectives...',
-        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        fillColor: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -520,7 +569,9 @@ class _TaskEditState extends State<TaskEdit> {
               Icon(
                 Icons.priority_high,
                 size: 16,
-                color: _highPriority ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: _highPriority
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 6),
               Text(
@@ -528,7 +579,9 @@ class _TaskEditState extends State<TaskEdit> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: _highPriority ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: _highPriority
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -706,12 +759,18 @@ class _TaskEditState extends State<TaskEdit> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 children: [
-                  Icon(Iconsax.cloud_plus, color: Theme.of(context).colorScheme.primary, size: 32),
+                  Icon(
+                    Iconsax.cloud_plus,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 32,
+                  ),
                   const SizedBox(height: 8),
                   const Text("Click to upload or drag and drop"),
                   Text(
@@ -850,15 +909,18 @@ class _TaskEditState extends State<TaskEdit> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Iconsax.tick_circle, size: 18, color: Colors.white),
+                      const Icon(
+                        Iconsax.tick_circle,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         "Edit Task",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -876,7 +938,9 @@ class _TaskEditState extends State<TaskEdit> {
       try {
         futureLoading(context);
 
-        List<FileModel> attachments = List<FileModel>.from(_existingAttachments);
+        List<FileModel> attachments = List<FileModel>.from(
+          _existingAttachments,
+        );
 
         if (_selectedAttachments.isNotEmpty) {
           final fileDataList = await Future.wait(

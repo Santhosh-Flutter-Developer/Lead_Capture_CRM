@@ -40,6 +40,8 @@ class _TaskCreateState extends State<TaskCreate> {
   String? _selectedLead;
   String? _selectedSubTaskOf;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
+  final ScrollController _vhScrollController = ScrollController();
 
   final List<PlatformFile> _selectedAttachments = [];
   DateTime? _selectedDeadLine;
@@ -59,6 +61,13 @@ class _TaskCreateState extends State<TaskCreate> {
             .toList(),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _vScrollController.dispose();
+    _vhScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -97,7 +106,11 @@ class _TaskCreateState extends State<TaskCreate> {
               color: AppColors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(Iconsax.task_square, color: AppColors.white, size: 22),
+            child: const Icon(
+              Iconsax.task_square,
+              color: AppColors.white,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -137,31 +150,33 @@ class _TaskCreateState extends State<TaskCreate> {
           body: Column(
             children: [
               _buildHeader(context),
-              Expanded(child: FutureBuilder(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const WaitingLoading();
-              } else if (snapshot.hasError) {
-                return ErrorDisplay(error: snapshot.error.toString());
-              }
+              Expanded(
+                child: FutureBuilder(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const WaitingLoading();
+                    } else if (snapshot.hasError) {
+                      return ErrorDisplay(error: snapshot.error.toString());
+                    }
 
-              return Form(
-                key: _formKey,
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop ? 1200 : double.infinity,
-                    ),
-                    padding: const EdgeInsets.all(24.0),
-                    child: isDesktop
-                        ? _buildDesktopLayout()
-                        : _buildMobileLayout(),
-                  ),
+                    return Form(
+                      key: _formKey,
+                      child: Center(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: isDesktop ? 1200 : double.infinity,
+                          ),
+                          padding: const EdgeInsets.all(24.0),
+                          child: isDesktop
+                              ? _buildDesktopLayout()
+                              : _buildMobileLayout(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          )),
+              ),
             ],
           ),
           bottomNavigationBar: _buildActionBottomBar(),
@@ -178,30 +193,39 @@ class _TaskCreateState extends State<TaskCreate> {
         // LEFT COLUMN: Primary Info
         Expanded(
           flex: 2,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionCard(
-                  title: "Task Details",
-                  icon: Iconsax.document_text,
-                  child: Column(
-                    children: [
-                      _buildTaskNameField(),
-                      const SizedBox(height: 20),
-                      _buildDescriptionField(),
-                    ],
+          child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vScrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionCard(
+                    title: "Task Details",
+                    icon: Iconsax.document_text,
+                    child: Column(
+                      children: [
+                        _buildTaskNameField(),
+                        const SizedBox(height: 20),
+                        _buildDescriptionField(),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionCard(
-                  title: "Assignments",
-                  icon: Iconsax.user_add,
-                  child: _buildAssignmentGrid(),
-                ),
-                const SizedBox(height: 20),
-                _buildAttachmentSection(),
-              ],
+                  const SizedBox(height: 20),
+                  _buildSectionCard(
+                    title: "Assignments",
+                    icon: Iconsax.user_add,
+                    child: _buildAssignmentGrid(),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildAttachmentSection(),
+                ],
+              ),
             ),
           ),
         ),
@@ -209,63 +233,72 @@ class _TaskCreateState extends State<TaskCreate> {
         // RIGHT COLUMN: Settings & Metadata
         Expanded(
           flex: 1,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildSectionCard(
-                  title: "Planning",
-                  icon: Iconsax.calendar_1,
-                  child: Column(
-                    children: [
-                      _buildPriorityToggle(),
-                      const Divider(height: 32),
-                      _buildDeadlinePicker(),
-                      const SizedBox(height: 16),
-                      _buildReminderPicker(),
-                    ],
+          child: Scrollbar(
+                    controller: _vhScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vhScrollController,
+              child: Column(
+                children: [
+                  _buildSectionCard(
+                    title: "Planning",
+                    icon: Iconsax.calendar_1,
+                    child: Column(
+                      children: [
+                        _buildPriorityToggle(),
+                        const Divider(height: 32),
+                        _buildDeadlinePicker(),
+                        const SizedBox(height: 16),
+                        _buildReminderPicker(),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildSectionCard(
-                  title: "Context",
-                  icon: Iconsax.hierarchy,
-                  child: Column(
-                    children: [
-                      _buildDropdownField(
-                        "Project",
-                        _projectList.map((e) => e.projectName).toList(),
-                        (val) {
-                          _selectedProject = _projectList
-                              .firstWhere((e) => e.projectName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildDropdownField(
-                        "Subtask of",
-                        _taskList.map((e) => e.taskName).toList(),
-                        (val) {
-                          _selectedSubTaskOf = _taskList
-                              .firstWhere((e) => e.taskName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildDropdownField(
-                        "Lead",
-                        _leadList.map((e) => e.leadName).toList(),
-                        (val) {
-                          _selectedLead = _leadList
-                              .firstWhere((e) => e.leadName == val)
-                              .uid;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTagsField(),
-                    ],
+                  const SizedBox(height: 20),
+                  _buildSectionCard(
+                    title: "Context",
+                    icon: Iconsax.hierarchy,
+                    child: Column(
+                      children: [
+                        _buildDropdownField(
+                          "Project",
+                          _projectList.map((e) => e.projectName).toList(),
+                          (val) {
+                            _selectedProject = _projectList
+                                .firstWhere((e) => e.projectName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField(
+                          "Subtask of",
+                          _taskList.map((e) => e.taskName).toList(),
+                          (val) {
+                            _selectedSubTaskOf = _taskList
+                                .firstWhere((e) => e.taskName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDropdownField(
+                          "Lead",
+                          _leadList.map((e) => e.leadName).toList(),
+                          (val) {
+                            _selectedLead = _leadList
+                                .firstWhere((e) => e.leadName == val)
+                                .uid;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTagsField(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -275,41 +308,50 @@ class _TaskCreateState extends State<TaskCreate> {
 
   /// MOBILE LAYOUT: Single Column
   Widget _buildMobileLayout() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildSectionCard(
-            title: "Task Details",
-            icon: Iconsax.document_text,
-            child: Column(
-              children: [
-                _buildTaskNameField(),
-                const SizedBox(height: 16),
-                _buildDescriptionField(),
-              ],
+    return Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+        controller: _vScrollController,
+        child: Column(
+          children: [
+            _buildSectionCard(
+              title: "Task Details",
+              icon: Iconsax.document_text,
+              child: Column(
+                children: [
+                  _buildTaskNameField(),
+                  const SizedBox(height: 16),
+                  _buildDescriptionField(),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Planning",
-            icon: Iconsax.calendar_1,
-            child: Column(
-              children: [
-                _buildPriorityToggle(),
-                _buildDeadlinePicker(),
-                _buildReminderPicker(),
-              ],
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Planning",
+              icon: Iconsax.calendar_1,
+              child: Column(
+                children: [
+                  _buildPriorityToggle(),
+                  _buildDeadlinePicker(),
+                  _buildReminderPicker(),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionCard(
-            title: "Assignments",
-            icon: Iconsax.user_add,
-            child: _buildAssignmentGrid(),
-          ),
-          const SizedBox(height: 16),
-          _buildAttachmentSection(),
-        ],
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Assignments",
+              icon: Iconsax.user_add,
+              child: _buildAssignmentGrid(),
+            ),
+            const SizedBox(height: 16),
+            _buildAttachmentSection(),
+          ],
+        ),
       ),
     );
   }
@@ -357,9 +399,9 @@ class _TaskCreateState extends State<TaskCreate> {
               const SizedBox(width: 12),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -746,15 +788,18 @@ class _TaskCreateState extends State<TaskCreate> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Iconsax.add_circle, size: 18, color: Colors.white),
+                      const Icon(
+                        Iconsax.add_circle,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         "Create Task",
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
