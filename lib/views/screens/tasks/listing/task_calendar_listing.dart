@@ -181,17 +181,25 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
         .toList();
 
     if (dayTasks.isEmpty) {
-      return Center(
-        child: Text(
-          "No tasks for today",
-          style: Theme.of(context).textTheme.bodySmall,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Text(
+            "No tasks for this day",
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ),
       );
     }
 
     var totalIndexes = [...dayTasks];
 
+    // The calendar already lives inside a scrollable parent, so this list must
+    // size itself to its content (shrinkWrap) and let the parent do the scrolling.
     return ListView.builder(
+      primary: false,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       itemCount: totalIndexes.length,
       itemBuilder: (context, index) {
@@ -235,6 +243,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
     return ListView.builder(
       primary: false,
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       itemCount: 7,
       itemBuilder: (context, index) {
