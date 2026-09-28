@@ -4,6 +4,7 @@ import '/constants/constants.dart';
 import '/views/views.dart';
 import '/models/models.dart';
 import '/services/services.dart';
+import '/theme/theme.dart';
 import '/utils/utils.dart';
 
 class EventCreate extends StatefulWidget {
@@ -31,9 +32,15 @@ class _EventCreateState extends State<EventCreate> {
   DateTime? _selectedEventDateTime;
   DateTime? _selectedEndEventDateTime;
 
-
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _vScrollController = ScrollController();
   late Future _future;
+
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
 
   @override
   void initState() {
@@ -55,6 +62,7 @@ class _EventCreateState extends State<EventCreate> {
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
+      if (!mounted) return;
       FlushBar.show(
         context,
         e.toString(),
@@ -62,6 +70,7 @@ class _EventCreateState extends State<EventCreate> {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -71,7 +80,128 @@ class _EventCreateState extends State<EventCreate> {
     _eventDescriptionController.dispose();
     _eventDateTimeController.dispose();
     _eventEndDateTimeController.dispose();
+    _vScrollController.dispose();
     super.dispose();
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Iconsax.calendar_add,
+              color: AppColors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Create Event",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Schedule a new event on your calendar",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    final Color badgeColor = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color:
+            Theme.of(context).cardTheme.color ??
+            Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: badgeColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: AppColors.grey200, thickness: 1),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -79,87 +209,182 @@ class _EventCreateState extends State<EventCreate> {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(16),
-        bottomLeft: Radius.circular(16),
+        topRight: Radius.circular(16),
       ),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: FutureBuilder(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const WaitingLoading();
-            } else if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  'Error: ${snapshot.error}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              );
-            }
-
-            return SingleChildScrollView(
-              child: Center(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    // crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FormWidgets.buildHeader(
-                        context: context,
-                        title: "Create Event",
-                      ),
-                      const SizedBox(height: 20),
-                      _buildSectionCard(
-                        title: "Event Details",
-                        child: LayoutBuilder(
-                          builder: (context, constraints) =>
-                              _buildFormFields(constraints, 4),
+        body: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: FutureBuilder(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const WaitingLoading();
+                  } else if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                        controller: _vScrollController,
+                        padding: const EdgeInsets.all(20),
+                        child: Form(
+                          key: _formKey,
+                          child: _buildSectionCard(
+                            icon: Iconsax.calendar_1,
+                            title: "Event Details",
+                            subtitle: "Name this event and set its schedule",
+                            child: LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  _buildFormFields(constraints, 4),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
-        bottomNavigationBar: FormWidgets.buildBottomBar(
-          context: context,
+        bottomNavigationBar: _buildBottomBar(
+          label: "Create",
+          icon: Iconsax.add,
           onSubmit: _submitForm,
-          isEdit: false,
         ),
       ),
     );
   }
 
-  Widget _buildSectionCard({required String title, required Widget child}) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+  Widget _buildBottomBar({
+    required String label,
+    required IconData icon,
+    required VoidCallback onSubmit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.primary,
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Cancel",
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Divider(color: Theme.of(context).colorScheme.outlineVariant),
-            const SizedBox(height: 16),
-            child,
-          ],
-        ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: _brandGradient,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onSubmit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(icon, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -190,6 +415,7 @@ class _EventCreateState extends State<EventCreate> {
             controller: _eventNameController,
             hintText: 'Enter Event Name',
             isRequired: true,
+            prefixIcon: const Icon(Iconsax.calendar_1, size: 18),
             valid: (input) => input == null || input.isEmpty
                 ? 'Event Name is required'
                 : null,
@@ -202,6 +428,7 @@ class _EventCreateState extends State<EventCreate> {
             controller: _eventDescriptionController,
             hintText: 'Enter Event Description',
             maxLines: 2,
+            prefixIcon: const Icon(Iconsax.document_text, size: 18),
           ),
         ),
         SizedBox(
@@ -212,6 +439,7 @@ class _EventCreateState extends State<EventCreate> {
             onTap: () async {
               var date = await datePicker(context);
               if (date != null) {
+                if (!mounted) return;
                 var time = await pickTime(context, null);
                 if (time != null) {
                   _eventDateTimeController.text =
@@ -237,6 +465,7 @@ class _EventCreateState extends State<EventCreate> {
             onTap: () async {
               var date = await datePicker(context);
               if (date != null) {
+                if (!mounted) return;
                 var time = await pickTime(context, null);
                 if (time != null) {
                   _eventEndDateTimeController.text =
@@ -266,7 +495,7 @@ class _EventCreateState extends State<EventCreate> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               CustomSearchableDropdown(
                 items: _repeatTypes.map((e) => e).toList(),
                 onChanged: (value) {
@@ -280,7 +509,6 @@ class _EventCreateState extends State<EventCreate> {
             ],
           ),
         ),
-
       ],
     );
   }
