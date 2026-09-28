@@ -103,7 +103,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? const Color(0xFF5C59D4) : Colors.grey[600],
+              color: isSelected ? const Color(0xFF4364F7) : Colors.grey[600],
             ),
           ),
         ),
@@ -128,12 +128,12 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
               width: 60,
               margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF5C59D4) : Colors.white,
+                color: isSelected ? const Color(0xFF4364F7) : Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   if (isSelected)
                     BoxShadow(
-                      color: const Color(0xFF5C59D4).withValues(alpha: 0.3),
+                      color: const Color(0xFF4364F7).withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -200,8 +200,8 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
         return TaskEventCard(
           title: '#${e.taskNumber} ${e.taskName}',
           category: e.highPriority ? 'High Priority' : 'Low Priority',
-          categoryColor: const Color(0xFFE8E7FF),
-          textColor: const Color(0xFF5C59D4),
+          categoryColor: const Color(0xFFEAF0FE),
+          textColor: const Color(0xFF4364F7),
           time: (e.deadline ?? DateTime.now()).formatDateTime,
           avatars: [
             ...(e.assignees),
@@ -316,7 +316,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
     int daysInMonth = _getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
       child: Column(
         children: [
           Row(
@@ -349,8 +349,8 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
             ),
             itemCount: daysInMonth,
             itemBuilder: (context, index) {
@@ -403,7 +403,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: isToday ? const Color(0xFF5C59D4) : Colors.white,
+                    color: isToday ? const Color(0xFF4364F7) : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey[200]!),
                   ),
@@ -414,15 +414,20 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '$dayNum',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: isToday ? Colors.white : Colors.black,
-                                  fontWeight: isToday
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
+                          Flexible(
+                            child: Text(
+                              '$dayNum',
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: isToday
+                                        ? Colors.white
+                                        : Colors.black,
+                                    fontWeight: isToday
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                            ),
                           ),
                           if (hasTasks)
                             Container(
@@ -434,7 +439,7 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
                                 color: isToday
                                     ? Colors.white.withValues(alpha: 0.2)
                                     : const Color(
-                                        0xFF5C59D4,
+                                        0xFF4364F7,
                                       ).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -443,9 +448,10 @@ class _TaskCalendarListingState extends State<TaskCalendarListing> {
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 10,
                                       color: isToday
                                           ? Colors.white
-                                          : const Color(0xFF5C59D4),
+                                          : const Color(0xFF4364F7),
                                     ),
                               ),
                             ),

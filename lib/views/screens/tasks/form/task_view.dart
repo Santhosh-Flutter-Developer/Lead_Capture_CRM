@@ -186,6 +186,51 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
     }
   }
 
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+      ),
+      child: Row(
+        children: [
+          Back(color: Colors.white),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Iconsax.task_square,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            "Task Details",
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_cid.isEmpty) return const WaitingLoading();
@@ -206,49 +251,52 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: FormWidgets.buildHeader(
-            context: context,
-            title: "Task Details",
-          ),
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1400),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 1000;
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: isWide ? 7 : 1,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [_buildMainContent()],
-                          ),
-                        ),
-                      ),
-                      if (isWide)
-                        Container(
-                          width: 380,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outlineVariant,
+          body: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1400),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth > 1000;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: isWide ? 7 : 1,
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [_buildMainContent()],
+                                ),
                               ),
                             ),
-                            color: Theme.of(context).colorScheme.surface,
-                          ),
-                          child: _buildSidePanel(),
-                        ),
-                    ],
-                  );
-                },
+                            if (isWide)
+                              Container(
+                                width: 380,
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                  color: Theme.of(context).colorScheme.surface,
+                                ),
+                                child: _buildSidePanel(),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -468,28 +516,34 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               child: Icon(icon, size: 20, color: accent),
             ),
             const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    letterSpacing: 0.5,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  val,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.onSurface,
+                  const SizedBox(height: 2),
+                  Text(
+                    val,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
