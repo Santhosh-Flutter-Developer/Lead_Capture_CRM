@@ -10,7 +10,7 @@ import '/views/views.dart';
 
 /// Shared brand gradient used by the login button and the wide-screen
 /// branding panel so both stay visually consistent across the app.
-const List<Color> _kBrandGradient = [
+const List<Color> kAuthBrandGradient = [
   Color(0xFF0052D4),
   Color(0xFF4364F7),
   Color(0xFF6FB1FC),
@@ -18,7 +18,7 @@ const List<Color> _kBrandGradient = [
 
 /// Width at which the login screen switches from a single centered card
 /// (phones/tablets) to a two-pane branding + form layout (web/desktop/windows).
-const double _kWideLayoutBreakpoint = 900;
+const double kAuthWideBreakpoint = 900;
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -187,7 +187,7 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final bool isWide = constraints.maxWidth >= _kWideLayoutBreakpoint;
+            final bool isWide = constraints.maxWidth >= kAuthWideBreakpoint;
 
             final Widget animatedFormCard = FadeTransition(
               opacity: _fadeAnimation,
@@ -212,7 +212,7 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
                 children: [
                   Expanded(
                     flex: 5,
-                    child: _BrandingPanel(fadeAnimation: _fadeAnimation),
+                    child: AuthBrandingPanel(fadeAnimation: _fadeAnimation),
                   ),
                   Expanded(
                     flex: 4,
@@ -235,7 +235,7 @@ class _LoginState extends State<Login> with SingleTickerProviderStateMixin {
               );
             }
 
-            return _MobileBackdrop(
+            return AuthMobileBackdrop(
               child: Center(
                 child: Scrollbar(
                   child: SingleChildScrollView(
@@ -455,7 +455,7 @@ class _LoginFormCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          _GradientButton(
+          AuthGradientButton(
             label: "Login",
             isLoading: isSubmitting,
             onPressed: onSubmit,
@@ -492,10 +492,10 @@ class _LoginFormCard extends StatelessWidget {
 /// phones/tablets so the screen doesn't feel flat and empty. Purely
 /// decorative — a gradient wash plus two soft circles, no animation and no
 /// ongoing rendering cost.
-class _MobileBackdrop extends StatelessWidget {
+class AuthMobileBackdrop extends StatelessWidget {
   final Widget child;
 
-  const _MobileBackdrop({required this.child});
+  const AuthMobileBackdrop({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -539,10 +539,10 @@ class _MobileBackdrop extends StatelessWidget {
 /// Left-hand branding panel shown on wide (web/desktop/windows) screens.
 /// Purely decorative and static aside from a single shared fade-in, so it
 /// adds no meaningful rendering cost.
-class _BrandingPanel extends StatelessWidget {
+class AuthBrandingPanel extends StatelessWidget {
   final Animation<double> fadeAnimation;
 
-  const _BrandingPanel({required this.fadeAnimation});
+  const AuthBrandingPanel({super.key, required this.fadeAnimation});
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +552,7 @@ class _BrandingPanel extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: _kBrandGradient,
+          colors: kAuthBrandGradient,
         ),
       ),
       child: Stack(
@@ -610,17 +610,17 @@ class _BrandingPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 40),
-                  const _BrandBullet(
+                  const AuthBrandBullet(
                     icon: Iconsax.graph,
                     text: "Track leads & deals in real time",
                   ),
                   const SizedBox(height: 14),
-                  const _BrandBullet(
+                  const AuthBrandBullet(
                     icon: Iconsax.task,
                     text: "Assign & monitor team tasks",
                   ),
                   const SizedBox(height: 14),
-                  const _BrandBullet(
+                  const AuthBrandBullet(
                     icon: Iconsax.shield_tick,
                     text: "Secure, role-based access",
                   ),
@@ -655,11 +655,11 @@ class _BrandingPanel extends StatelessWidget {
   }
 }
 
-class _BrandBullet extends StatelessWidget {
+class AuthBrandBullet extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _BrandBullet({required this.icon, required this.text});
+  const AuthBrandBullet({super.key, required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -692,22 +692,23 @@ class _BrandBullet extends StatelessWidget {
 /// micro-interaction, and an inline loading/disabled state. The animation is
 /// driven purely by local widget state (no timers, no repeating animation),
 /// so it costs nothing once idle.
-class _GradientButton extends StatefulWidget {
+class AuthGradientButton extends StatefulWidget {
   final String label;
   final bool isLoading;
   final VoidCallback onPressed;
 
-  const _GradientButton({
+  const AuthGradientButton({
+    super.key,
     required this.label,
     required this.isLoading,
     required this.onPressed,
   });
 
   @override
-  State<_GradientButton> createState() => _GradientButtonState();
+  State<AuthGradientButton> createState() => _GradientButtonState();
 }
 
-class _GradientButtonState extends State<_GradientButton> {
+class _GradientButtonState extends State<AuthGradientButton> {
   double _scale = 1;
 
   void _setPressed(bool pressed) {
@@ -737,7 +738,7 @@ class _GradientButtonState extends State<_GradientButton> {
               gradient: LinearGradient(
                 colors: disabled
                     ? [AppColors.grey400, AppColors.grey300]
-                    : _kBrandGradient,
+                    : kAuthBrandGradient,
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
