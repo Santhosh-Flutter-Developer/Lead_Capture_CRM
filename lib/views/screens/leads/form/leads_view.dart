@@ -64,6 +64,7 @@ class LeadsView extends StatefulWidget {
 
 class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   final TextEditingController _commentController = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
   late LeadModel _lead;
   late LeadCategoryModel widgetLeadCategory;
   late TabController _tabController;
@@ -177,7 +178,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
         Navigator.pop(context);
       }
       FlushBar.show(context, 'Notes downloaded successfully', isSuccess: true);
-      if(!kIsWeb)openfile(savedPath, context);
+      if (!kIsWeb) openfile(savedPath, context);
     } catch (e, st) {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -289,6 +290,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   void dispose() {
     _tabController.dispose();
     _commentController.dispose();
+    _vScrollController.dispose();
     super.dispose();
   }
 
@@ -357,17 +359,29 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                 children: [
                   Expanded(
                     flex: isWide ? 7 : 1,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildProfessionalHeader(),
-                          const SizedBox(height: 24),
-                          _buildModernTabs(),
-                          const SizedBox(height: 24),
-                          _buildTabContent(),
-                        ],
+                    child: Padding(
+                      padding: const EdgeInsets.only(right:8.0),
+                      child: Scrollbar(
+                      controller: _vScrollController,
+                      thumbVisibility: true,
+                      interactive: true,
+                      trackVisibility: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                          controller: _vScrollController,
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildProfessionalHeader(),
+                              const SizedBox(height: 24),
+                              _buildModernTabs(),
+                              const SizedBox(height: 24),
+                              _buildTabContent(),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -455,7 +469,13 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     width: isMobile ? 60 : 80,
                     height: isMobile ? 60 : 80,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF0052D4),
+                          Color(0xFF4364F7),
+                          Color(0xFF6FB1FC),
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -597,7 +617,9 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -725,7 +747,9 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
         indicatorSize: TabBarIndicatorSize.tab,
 
         indicator: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+          ),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -1227,9 +1251,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: BlocBuilder<LeadBloc, LeadState>(
         builder: (context, state) {
@@ -1237,7 +1259,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
             if (state.history.isEmpty) {
               return _emptyState(Iconsax.activity, "No activity logs yet");
             }
-    
+
             return SizedBox(
               height: MediaQuery.of(context).size.height * 0.55,
               child: ListView.builder(
@@ -1249,7 +1271,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               ),
             );
           }
-    
+
           return const WaitingLoading();
         },
       ),

@@ -43,6 +43,7 @@ class _LeadCreateState extends State<LeadCreate> {
   final TextEditingController _salutation = TextEditingController();
   final TextEditingController _gender = TextEditingController();
 
+
   // String? _salutation;
 
   // bool _allowFollowUp = true;
@@ -201,55 +202,58 @@ class _LeadCreateState extends State<LeadCreate> {
                     icon: Iconsax.personalcard,
                   ),
                   Expanded(
-                    child: Scrollbar(
-                      controller: _vScroll,
-                      thumbVisibility: true,
-                      interactive: true,
-                      radius: const Radius.circular(8),
-                      thickness: 8,
-                      child: SingleChildScrollView(
-                      controller: _vScroll,
-                      padding: const EdgeInsets.all(18),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            _buildSectionCard(
-                              "Lead Details",
-                              LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildLeadDetails(constraints, 3),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Scrollbar(
+                        controller: _vScroll,
+                        thumbVisibility: true,
+                        interactive: true,
+                        radius: const Radius.circular(8),
+                        thickness: 8,
+                        child: SingleChildScrollView(
+                        controller: _vScroll,
+                        padding: const EdgeInsets.all(18),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              _buildSectionCard(
+                                "Lead Details",
+                                LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      _buildLeadDetails(constraints, 3),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildSectionCard(
-                              "Company Details",
-                              LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildCompanyDetails(constraints, 3),
+                              const SizedBox(height: 16),
+                              _buildSectionCard(
+                                "Company Details",
+                                LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      _buildCompanyDetails(constraints, 3),
+                                ),
+                                expandable: true,
                               ),
-                              expandable: true,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildSectionCard(
-                              "Contact Details",
-                              LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildContactDetails(constraints, 3),
+                              const SizedBox(height: 16),
+                              _buildSectionCard(
+                                "Contact Details",
+                                LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      _buildContactDetails(constraints, 3),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 15),
-                            _buildSectionCard(
-                              "Attachments",
-                              LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    _buildAttachmentDetails(constraints, 3),
+                              const SizedBox(height: 15),
+                              _buildSectionCard(
+                                "Attachments",
+                                LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      _buildAttachmentDetails(constraints, 3),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                      ),
                     ),
                   ),
                 ],

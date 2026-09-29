@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:intl/intl.dart';
 import 'package:leadcapture/models/src/lead_model.dart';
 import 'package:leadcapture/models/src/region_model.dart';
 import 'package:leadcapture/models/src/client_model.dart';
@@ -30,6 +29,7 @@ class LeadUpload extends StatefulWidget {
 }
 
 class _LeadUploadState extends State<LeadUpload> {
+  final ScrollController _vScrollController = ScrollController();
   String? _fileName;
   int _fileSize = 0;
   List<List<String>> _rows = [];
@@ -368,7 +368,17 @@ class _LeadUploadState extends State<LeadUpload> {
           automaticallyImplyLeading: false,
           elevation: 0,
           foregroundColor: Colors.white,
-          flexibleSpace: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]))),
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF0052D4),
+                  Color(0xFF4364F7),
+                  Color(0xFF6FB1FC),
+                ],
+              ),
+            ),
+          ),
           title: Row(
             children: [
               Container(
@@ -377,7 +387,11 @@ class _LeadUploadState extends State<LeadUpload> {
                   color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Iconsax.document_upload, size: 18, color: Colors.white),
+                child: const Icon(
+                  Iconsax.document_upload,
+                  size: 18,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 10),
               Text(
@@ -396,42 +410,54 @@ class _LeadUploadState extends State<LeadUpload> {
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Upload Lead Spreadsheet',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+        body: Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+              controller: _vScrollController,
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Upload Lead Spreadsheet',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Ensure your file contains Lead Name, Mobile, and Source as minimum requirements.',
+                      ),
+                      const SizedBox(height: 32),
+            
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: _fileName == null
+                            ? _buildUploadZone()
+                            : _buildFileInfoCard(),
+                      ),
+            
+                      if (_rows.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        _buildPreviewHeader(),
+                        const SizedBox(height: 16),
+                        _buildPreviewTable(),
+                        const SizedBox(height: 32),
+                        _buildActionButtons(),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Ensure your file contains Lead Name, Mobile, and Source as minimum requirements.',
-                  ),
-                  const SizedBox(height: 32),
-
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _fileName == null
-                        ? _buildUploadZone()
-                        : _buildFileInfoCard(),
-                  ),
-
-                  if (_rows.isNotEmpty) ...[
-                    const SizedBox(height: 32),
-                    _buildPreviewHeader(),
-                    const SizedBox(height: 16),
-                    _buildPreviewTable(),
-                    const SizedBox(height: 32),
-                    _buildActionButtons(),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
@@ -461,8 +487,21 @@ class _LeadUploadState extends State<LeadUpload> {
             else
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]), shape: BoxShape.circle),
-                child: const Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.white),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF0052D4),
+                      Color(0xFF4364F7),
+                      Color(0xFF6FB1FC),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.cloud_upload_outlined,
+                  size: 32,
+                  color: Colors.white,
+                ),
               ),
             const SizedBox(height: 16),
             const Text(
@@ -502,10 +541,16 @@ class _LeadUploadState extends State<LeadUpload> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.description, color: Theme.of(context).colorScheme.primary, size: 24),
+            child: Icon(
+              Icons.description,
+              color: Theme.of(context).colorScheme.primary,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -533,22 +578,22 @@ class _LeadUploadState extends State<LeadUpload> {
       children: [
         Expanded(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Data Preview",
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              "Showing first 10 rows of ${_rows.length - 1} leads found",
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Data Preview",
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                "Showing first 10 rows of ${_rows.length - 1} leads found",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
         TextButton.icon(
           onPressed: _resetFile,
@@ -557,7 +602,10 @@ class _LeadUploadState extends State<LeadUpload> {
             size: 18,
             color: Theme.of(context).colorScheme.error,
           ),
-          label: Text("Clear", style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          label: Text(
+            "Clear",
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         ),
       ],
     );
@@ -574,22 +622,22 @@ class _LeadUploadState extends State<LeadUpload> {
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(
-          Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
+          ),
+          headingTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
+          rows: body
+              .map(
+                (r) => DataRow(cells: r.map((c) => DataCell(Text(c))).toList()),
+              )
+              .toList(),
         ),
-        headingTextStyle: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
-        rows: body
-            .map(
-              (r) => DataRow(cells: r.map((c) => DataCell(Text(c))).toList()),
-            )
-            .toList(),
-      ),
       ),
     );
   }
@@ -599,7 +647,9 @@ class _LeadUploadState extends State<LeadUpload> {
       alignment: Alignment.centerRight,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)],
+          ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -619,7 +669,9 @@ class _LeadUploadState extends State<LeadUpload> {
             foregroundColor: Colors.white,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ),
@@ -643,7 +695,9 @@ class _LeadCustomMenuCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.shadow.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -700,7 +754,11 @@ class _LeadCustomMenuCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: iconColor ?? Theme.of(context).colorScheme.onSurface),
+            Icon(
+              icon,
+              size: 20,
+              color: iconColor ?? Theme.of(context).colorScheme.onSurface,
+            ),
             const SizedBox(width: 12),
             Text(
               label,

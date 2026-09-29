@@ -31,10 +31,17 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
   Calendar _currentView = Calendar.month;
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
+  final ScrollController _vhScrollController = ScrollController();
 
   /// Decided from the available width (not the platform) so web / narrow
   /// windows use the same compact layout as a phone.
   bool _compact = false;
+
+  @override
+  void dispose(){
+    _vhScrollController.dispose();
+    super.dispose();
+  }
 
   // --- HELPERS ---
 
@@ -877,6 +884,7 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
     required String description,
     required List<LeadModel> items,
   }) {
+
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -942,7 +950,14 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
                   const SizedBox(height: 16),
                   Expanded(
                     child: Scrollbar(
-                      child: ListView.builder(
+                    controller: _vhScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView.builder(
+                        controller: _vhScrollController,
                         itemCount: items.length,
                         itemBuilder: (context, index) =>
                             _dialogTile(items[index]),

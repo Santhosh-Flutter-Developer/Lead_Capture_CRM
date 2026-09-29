@@ -90,6 +90,7 @@ class LeadsListingView extends StatefulWidget {
 class _LeadsListingViewState extends State<LeadsListingView> {
   final ScrollController _hScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _vScrollController = ScrollController();
   String _selectedView = 'Grid';
   final List<LeadModel> _selectedLeads = [];
   final List<LeadModel> _leadsList = [];
@@ -113,6 +114,12 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+  }
+
+  @override
+  void disposea(){
+    _vScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -208,36 +215,45 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshLeads(context),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(_compact ? 14.0 : 24.0),
-                  children: [
-                    if (!_compact) ...[
-                      _buildHeaderBanner(state.leads.length),
+                child: Scrollbar(
+                    controller: _vScrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    trackVisibility: true,
+                    radius: const Radius.circular(8),
+                    thickness: 8,
+                    child: ListView(
+                    controller: _vScrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(_compact ? 14.0 : 24.0),
+                    children: [
+                      if (!_compact) ...[
+                        _buildHeaderBanner(state.leads.length),
+                        const SizedBox(height: 18),
+                      ],
+                      _buildFilterRow(onSearchChanged: controllerRead.setSearch),
+                      const SizedBox(height: 12),
+                      _buildActionRow(context),
                       const SizedBox(height: 18),
+                      if (controllerWatch.paginatedItems.isEmpty)
+                        const NoData(text: "No matching records found")
+                      else if (_selectedView == 'Grid') ...[
+                        LeadKanbanListing(
+                          leadList: _filteredLeads,
+                          onLeadDeleted: () =>
+                              context.read<LeadBloc>().add(StreamLead()),
+                        ),
+                      ] else if (_selectedView == 'Calendar') ...[
+                        LeadCalendarListing(
+                          leadList: _filteredLeads,
+                          onLeadCreated: () =>
+                              context.read<LeadBloc>().add(StreamLead()),
+                        ),
+                      ] else ...[
+                        _buildListView(context, controllerWatch, controllerRead),
+                      ],
                     ],
-                    _buildFilterRow(onSearchChanged: controllerRead.setSearch),
-                    const SizedBox(height: 12),
-                    _buildActionRow(context),
-                    const SizedBox(height: 18),
-                    if (controllerWatch.paginatedItems.isEmpty)
-                      const NoData(text: "No matching records found")
-                    else if (_selectedView == 'Grid') ...[
-                      LeadKanbanListing(
-                        leadList: _filteredLeads,
-                        onLeadDeleted: () =>
-                            context.read<LeadBloc>().add(StreamLead()),
-                      ),
-                    ] else if (_selectedView == 'Calendar') ...[
-                      LeadCalendarListing(
-                        leadList: _filteredLeads,
-                        onLeadCreated: () =>
-                            context.read<LeadBloc>().add(StreamLead()),
-                      ),
-                    ] else ...[
-                      _buildListView(context, controllerWatch, controllerRead),
-                    ],
-                  ],
+                  ),
                 ),
               );
             }
