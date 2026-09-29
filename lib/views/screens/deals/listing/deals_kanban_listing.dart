@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '/theme/theme.dart';
@@ -5,11 +7,18 @@ import '/models/models.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 import '/utils/utils.dart';
-import 'dart:async';
 
 class DealKanbanListing extends StatefulWidget {
   final List<DealModel> dealList;
-  const DealKanbanListing({super.key, required this.dealList});
+
+  /// Called after a deal was deleted / restored from the detail sheet so the
+  /// parent can refresh its stream.
+  final VoidCallback? onDealDeleted;
+  const DealKanbanListing({
+    super.key,
+    required this.dealList,
+    this.onDealDeleted,
+  });
 
   @override
   State<DealKanbanListing> createState() => _DealKanbanListingState();
@@ -37,6 +46,13 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
     super.initState();
     _future = _initializeBoard();
     _loadPermissions();
+  }
+
+  @override
+  void dispose() {
+    _scrollTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPermissions() async {
@@ -90,6 +106,10 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
     _scrollTimer?.cancel();
 
     _scrollTimer = Timer.periodic(const Duration(milliseconds: 20), (timer) {
+      if (!_scrollController.hasClients) {
+        timer.cancel();
+        return;
+      }
       if (details.globalPosition.dx < scrollThreshold) {
         // Scroll Left
         if (_scrollController.offset > 0) {
@@ -113,6 +133,15 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
         timer.cancel();
       }
     });
+  }
+
+  Future<void> _openDeal(DealModel deal) async {
+    final result = kIsDesktop
+        ? await GeneralDialog.showRTLSheet(context, DealsViewPage(deal: deal))
+        : await Sheet.showSheet(context, widget: DealsViewPage(deal: deal));
+    if ((result == 'deleted' || result == 'restored') && mounted) {
+      widget.onDealDeleted?.call();
+    }
   }
 
   @override
@@ -193,16 +222,20 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 260,
-          height: MediaQuery.of(context).size.height * 0.78,
+          width: MediaQuery.of(context).size.width < 700
+              ? MediaQuery.of(context).size.width * 0.8
+              : 260,
+          height: MediaQuery.of(context).size.height * 0.72,
           margin: const EdgeInsets.only(right: 12.0),
           decoration: BoxDecoration(
             color: isHovering
                 ? Color(list.color).withValues(alpha: 0.1)
                 : Color(list.color).withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16.0),
+            borderRadius: BorderRadius.circular(18.0),
             border: Border.all(
-              color: isHovering ? AppColors.blue : Colors.transparent,
+              color: isHovering
+                  ? Theme.of(context).colorScheme.primary
+                  : Color(list.color).withValues(alpha: 0.18),
               width: 1.5,
             ),
           ),
@@ -261,27 +294,20 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
                   ),
                 ),
               ),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -304,137 +330,156 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
   }
 
   Widget _buildKanbanCard(DealModel task, DealStatusModel list) {
-    // Draggable card for unconverted deals
     final isLocked = task.isLocked;
-    
+
+    if (isLocked || !(_permissions?.canEdit ?? false)) {
+      return _buildStaticCard(task, list, locked: isLocked);
+    }
+
+    // Draggable card for unlocked deals
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: (isLocked || !(_permissions?.canEdit ?? false))
-          ? _buildLockedCard(task, list)
-          : Draggable<DealModel>(
-              data: task,
-              onDragStarted: () => _handleDragStarted(task, list),
-              onDragUpdate: (details) {
-                _startEdgeScrolling(details);
-              },
-              onDragEnd: (details) {
-                _scrollTimer?.cancel();
-                _handleDragEnd(details);
-              },
-              feedback: Material(
-                elevation: 8.0,
+      child: Draggable<DealModel>(
+        data: task,
+        onDragStarted: () => _handleDragStarted(task, list),
+        onDragUpdate: (details) {
+          _startEdgeScrolling(details);
+        },
+        onDragEnd: (details) {
+          _scrollTimer?.cancel();
+          _handleDragEnd(details);
+        },
+        feedback: Material(
+          elevation: 8.0,
+          borderRadius: BorderRadius.circular(12.0),
+          color: Colors.transparent,
+          child: Transform.rotate(
+            angle: 0.05,
+            child: Container(
+              width: 244,
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12.0),
-                color: Colors.transparent,
-                child: Transform.rotate(
-                  angle: 0.05,
-                  child: Container(
-                    width: 244,
-                    padding: const EdgeInsets.all(12.0),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: _buildCardContent(task),
-                  ),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.5),
                 ),
               ),
-              childWhenDragging: Opacity(
-                opacity: 0.2,
-                child: Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              child: InkWell(
-                onTap: () {
-                  if (kIsDesktop) {
-                    GeneralDialog.showRTLSheet(context, DealsViewPage(deal: task));
-                  } else {
-                    Sheet.showSheet(context, widget: DealsViewPage(deal: task));
-                  }
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.shadow.withValues(alpha: 0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(12.0),
-                  child: _buildCardContent(task),
-                ),
-              ),
+              child: _buildCardContent(task),
             ),
+          ),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.2,
+          child: Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        child: InkWell(
+          onTap: () => _openDeal(task),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.7),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.shadow.withValues(alpha: 0.07),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12.0),
+            child: _buildCardContent(task),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildLockedCard(DealModel task, DealStatusModel list) {
-    return InkWell(
-      onTap: () {
-        if (kIsDesktop) {
-          GeneralDialog.showRTLSheet(context, DealsViewPage(deal: task));
-        } else {
-          Sheet.showSheet(context, widget: DealsViewPage(deal: task));
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(
-                context,
-              ).colorScheme.shadow.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+  /// Locked deals (and users without edit permission) get a static card that
+  /// still opens the detail view but can not be dragged.
+  Widget _buildStaticCard(
+    DealModel task,
+    DealStatusModel list, {
+    required bool locked,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: InkWell(
+        onTap: () => _openDeal(task),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: locked
+                ? scheme.surfaceContainerHighest.withValues(alpha: 0.6)
+                : scheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: locked
+                  ? scheme.primary.withValues(alpha: 0.35)
+                  : scheme.outlineVariant.withValues(alpha: 0.7),
             ),
-          ],
-        ),
-        padding: const EdgeInsets.all(12.0),
-        child: Stack(
-          children: [
-            Opacity(
-              opacity: 0.7,
-              child: _buildCardContent(task),
-            ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: Icon(
-                Icons.lock,
-                size: 16,
-                color: Theme.of(context).colorScheme.outline,
+            boxShadow: [
+              BoxShadow(
+                color: scheme.shadow.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Opacity(opacity: locked ? 0.85 : 1, child: _buildCardContent(task)),
+              if (locked) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.lock, size: 12, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Locked',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCardContent(DealModel deal) {
+    final scheme = Theme.of(context).colorScheme;
+    final status = CacheService.dealStatusByUid(deal.dealStatus ?? '');
+    final statusColor = status != null ? Color(status.color) : AppColors.blue;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -444,19 +489,19 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
           children: [
             CircleAvatar(
               radius: 14,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              backgroundColor: scheme.primaryContainer,
               child: Text(
                 deal.dealName.isNotEmpty ? deal.dealName[0].toUpperCase() : '?',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  color: scheme.onPrimaryContainer,
                 ),
               ),
             ),
             const SizedBox(width: 10),
 
-            /// Name + Email + Company
+            /// Name + Email + Company + Contact
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,7 +513,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.onSurface,
+                      color: scheme.onSurface,
                     ),
                   ),
 
@@ -480,7 +525,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -494,7 +539,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -506,7 +551,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
                         Icon(
                           Icons.person_outline,
                           size: 10,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: scheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 3),
                         Expanded(
@@ -516,9 +561,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 10,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                              color: scheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -553,16 +596,11 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
 
         const SizedBox(height: 12),
 
-        /// STATUS & SOURCE
+        /// STATUS
         Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: [
-            _chip(
-              CacheService.dealStatusByUid(deal.dealStatus ?? '')?.name ?? '',
-              AppColors.blue,
-            ),
-          ],
+          children: [_chip(status?.name ?? '', statusColor)],
         ),
 
         const SizedBox(height: 12),
@@ -573,41 +611,46 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
           children: [
             Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.calendar_today,
                   size: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: AppColors.grey600,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   DateFormat('dd MMM').format(deal.createdAt),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: AppColors.grey600,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            Row(
-              children: [
-                Icon(
-                  Icons.person_outline,
-                  size: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  deal.createdBy.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.person_outline,
+                    size: 12,
+                    color: AppColors.grey600,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      deal.createdBy.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.grey600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -616,6 +659,7 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
   }
 
   Widget _chip(String text, Color color) {
+    if (text.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

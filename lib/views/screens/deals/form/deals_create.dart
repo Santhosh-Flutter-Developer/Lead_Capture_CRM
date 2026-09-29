@@ -6,6 +6,7 @@ import '/utils/utils.dart';
 import '/constants/constants.dart';
 import '/services/services.dart';
 import '/views/views.dart';
+import 'deal_form_ui.dart';
 
 class DealCreate extends StatefulWidget {
   final bool? isFromLead;
@@ -18,6 +19,7 @@ class DealCreate extends StatefulWidget {
 }
 
 class _DealCreateState extends State<DealCreate> {
+  final ScrollController _vScroll = ScrollController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _dealNameController = TextEditingController();
@@ -126,6 +128,7 @@ class _DealCreateState extends State<DealCreate> {
 
   @override
   void dispose() {
+    _vScroll.dispose();
     _dealNameController.dispose();
     _dealValueController.dispose();
     _notesController.dispose();
@@ -164,13 +167,24 @@ class _DealCreateState extends State<DealCreate> {
             } else {
               return Column(
                 children: [
-                  FormWidgets.buildHeader(
-                    context: context,
+                  DealFormUI.header(
+                    context,
                     title: "Create Deals",
+                    subtitle: "Add a new deal and its contact details",
+                    icon: Iconsax.briefcase,
                   ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Scrollbar(
+                        controller: _vScroll,
+                        thumbVisibility: true,
+                        interactive: true,
+                        radius: const Radius.circular(8),
+                        thickness: 8,
+                        child: SingleChildScrollView(
+                      controller: _vScroll,
+                      padding: const EdgeInsets.all(18),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -211,14 +225,16 @@ class _DealCreateState extends State<DealCreate> {
                         ),
                       ),
                     ),
+                      ),
+                    ),
                   ),
                 ],
               );
             }
           },
         ),
-        bottomNavigationBar: FormWidgets.buildBottomBar(
-          context: context,
+        bottomNavigationBar: DealFormUI.bottomBar(
+          context,
           onSubmit: _submitForm,
           isEdit: false,
         ),
@@ -723,50 +739,13 @@ class _DealCreateState extends State<DealCreate> {
     Widget child, {
     bool expandable = false,
   }) {
-    return Card(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: 7,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: expandable
-                  ? () => setState(
-                      () => _showCompanyDetails = !_showCompanyDetails,
-                    )
-                  : null,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  if (expandable)
-                    Icon(
-                      _showCompanyDetails
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                    ),
-                ],
-              ),
-            ),
-            if (!expandable || _showCompanyDetails) ...[
-              const SizedBox(height: 16),
-              child,
-            ],
-          ],
-        ),
-      ),
+    return DealFormUI.sectionCard(
+      context,
+      title: title,
+      child: child,
+      expandable: expandable,
+      expanded: _showCompanyDetails,
+      onToggle: () => setState(() => _showCompanyDetails = !_showCompanyDetails),
     );
   }
 

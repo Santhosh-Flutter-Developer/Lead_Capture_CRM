@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import '/views/views.dart';
@@ -9,6 +10,15 @@ import '/utils/utils.dart';
 import '/theme/theme.dart';
 import '/models/models.dart';
 import '/services/services.dart';
+
+/// Layout is decided by the available CONTENT width (not the platform), so the
+/// web build, narrow desktop windows and phones all get the compact layout.
+const double _wideBreakpoint = 760;
+const List<Color> _brandGradient = [
+  Color(0xFF0052D4),
+  Color(0xFF4364F7),
+  Color(0xFF6FB1FC),
+];
 
 const String _pageTitle = "Deals";
 
@@ -22,7 +32,9 @@ class DealsListing extends StatelessWidget {
       create: (context) => DealBloc()..add(StreamDeals()),
       child: ChangeNotifierProvider(
         create: (context) => PaginatedDataController<DealModel>(
-          initialSortColumnIndex: 1,
+          // Column indexes below match the DataTable columns in this file
+          // (0 Id, 1 Name, 2 Email, 3 Value, 4 Status, 5 Created, ...).
+          initialSortColumnIndex: 0,
           filterLogic: (deal, query) {
             final q = query.toLowerCase();
             return deal.dealName.toLowerCase().contains(q) ||
@@ -31,23 +43,23 @@ class DealsListing extends StatelessWidget {
           sortLogic: (a, b, col, asc) {
             int compare;
             switch (col) {
-              case 1:
+              case 0:
                 compare = (a.dealNumber ?? 0).compareTo((b.dealNumber ?? 0));
                 break;
-              case 2:
+              case 1:
                 compare = a.dealName.toLowerCase().compareTo(
                   b.dealName.toLowerCase(),
                 );
                 break;
-              case 3:
+              case 2:
                 compare = a.dealEmail.toLowerCase().compareTo(
                   b.dealEmail.toLowerCase(),
                 );
                 break;
-              case 5:
+              case 3:
                 compare = a.dealValue.compareTo(b.dealValue);
                 break;
-              case 6:
+              case 5:
                 compare = a.createdAt.compareTo(b.createdAt);
                 break;
               default:
@@ -73,7 +85,9 @@ class DealsListingView extends StatefulWidget {
 
 class _DealsListingViewState extends State<DealsListingView> {
   final ScrollController _hScrollController = ScrollController();
+  final ScrollController _vScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _valueController = TextEditingController();
   String _selectedView = 'Grid';
   final List<DealModel> _selectedDeals = [];
   List<DealModel> _filteredDeals = [];
@@ -88,8 +102,16 @@ class _DealsListingViewState extends State<DealsListingView> {
 
   PermissionModel? permissions;
   bool _permissionsLoaded = false;
-  String? _currentUid;
-  bool _isAdmin = false;
+  bool _compact = false;
+  bool _filtersExpanded = false;
+  double _filterWidth = 180;
+  double _boxWidth = 1000;
+
+  final NumberFormat _currencyFormat = NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: '₹',
+    decimalDigits: 0,
+  );
 
   @override
   void initState() {
@@ -97,10 +119,17 @@ class _DealsListingViewState extends State<DealsListingView> {
     _loadPermissions();
   }
 
+  @override
+  void dispose() {
+    _hScrollController.dispose();
+    _vScrollController.dispose();
+    _searchController.dispose();
+    _valueController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadPermissions() async {
     permissions = await PermissionService.getPermissions(_pageTitle);
-    _currentUid = await Spdb.getUid();
-    _isAdmin = await Spdb.isAdminLoggedIn();
     if (!mounted) return;
     _permissionsLoaded = true;
     setState(() {});
@@ -134,7 +163,9 @@ class _DealsListingViewState extends State<DealsListingView> {
       _toDate = null;
       _selectedStatus = null;
       _selectedCreatedBy = null;
+      _value = null;
       _searchController.clear();
+      _valueController.clear();
     });
     _applyFilters();
   }
@@ -143,11 +174,32 @@ class _DealsListingViewState extends State<DealsListingView> {
   Widget build(BuildContext context) {
     final controllerRead = context.read<PaginatedDataController<DealModel>>();
     final controllerWatch = context.watch<PaginatedDataController<DealModel>>();
-    final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: widget.showAppBar && (kIsMobile || width < 1000)
-          ? AppBar(title: Text(_pageTitle))
+      appBar: widget.showAppBar && kIsMobile
+          ? AppBar(
+              title: const Text(_pageTitle),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+            )
           : null,
+      body: LayoutBuilder(
+        builder: (context, box) {
+          _boxWidth = box.maxWidth;
+          _compact = box.maxWidth < _wideBreakpoint;
+          return _buildBody(context, controllerRead, controllerWatch);
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    PaginatedDataController<DealModel> controllerRead,
+    PaginatedDataController<DealModel> controllerWatch,
+  ) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
       body: BlocListener<DealBloc, DealState>(
         listenWhen: (previous, current) => current is DealLoaded,
         listener: (context, state) {
@@ -173,26 +225,45 @@ class _DealsListingViewState extends State<DealsListingView> {
               }
               return RefreshIndicator(
                 onRefresh: () => _refreshDeals(context),
-                child: ListView(
-                  padding: const EdgeInsets.all(24.0),
-                  children: [
-                    _buildFilterRow(
-                      onSearchChanged: controllerRead.setSearch,
-                      width: width,
-                    ),
-                    const SizedBox(height: 10),
-                    _buildActionRow(context),
-                    const SizedBox(height: 20),
-                    if (controllerWatch.paginatedItems.isEmpty)
-                      const NoData(text: "No matching records found")
-                    else if (_selectedView == 'Grid') ...[
-                      DealKanbanListing(dealList: _filteredDeals),
-                    ] else if (_selectedView == 'Calendar') ...[
-                      DealsCalendarListing(dealList: _filteredDeals),
-                    ] else ...[
-                      _buildListView(context, controllerWatch, controllerRead),
+                child: Scrollbar(
+                  controller: _vScrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  trackVisibility: true,
+                  radius: const Radius.circular(8),
+                  thickness: 8,
+                  child: ListView(
+                    controller: _vScrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(_compact ? 14.0 : 24.0),
+                    children: [
+                      if (!_compact) ...[
+                        _buildHeaderBanner(state.deals),
+                        const SizedBox(height: 18),
+                      ],
+                      _buildFilterRow(onSearchChanged: controllerRead.setSearch),
+                      const SizedBox(height: 12),
+                      _buildActionRow(context),
+                      const SizedBox(height: 18),
+                      if (controllerWatch.paginatedItems.isEmpty)
+                        const NoData(text: "No matching records found")
+                      else if (_selectedView == 'Grid') ...[
+                        DealKanbanListing(
+                          dealList: _filteredDeals,
+                          onDealDeleted: () =>
+                              context.read<DealBloc>().add(StreamDeals()),
+                        ),
+                      ] else if (_selectedView == 'Calendar') ...[
+                        DealsCalendarListing(
+                          dealList: _filteredDeals,
+                          onDealCreated: () =>
+                              context.read<DealBloc>().add(StreamDeals()),
+                        ),
+                      ] else ...[
+                        _buildListView(context, controllerWatch, controllerRead),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               );
             }
@@ -212,24 +283,53 @@ class _DealsListingViewState extends State<DealsListingView> {
     );
   }
 
+  // ------------------------------------------------------------ LIST VIEW
+
+  DataColumn _sortableHeader(
+    String label,
+    int index,
+    int activeIndex, {
+    bool sortable = true,
+  }) {
+    return DataColumn(
+      label: IntrinsicWidth(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            if (sortable && index != activeIndex) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_upward, size: 14, color: AppColors.grey400),
+            ],
+          ],
+        ),
+      ),
+      onSort: sortable
+          ? context.read<PaginatedDataController<DealModel>>().setSort
+          : null,
+    );
+  }
+
   Container _buildListView(
     BuildContext context,
     PaginatedDataController<DealModel> controllerWatch,
     PaginatedDataController<DealModel> controllerRead,
   ) {
+    final active = controllerWatch.sortColumnIndex;
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
-            spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           LayoutBuilder(
@@ -248,69 +348,34 @@ class _DealsListingViewState extends State<DealsListingView> {
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
                       showCheckboxColumn: true,
+                      columnSpacing: 12,
+                      horizontalMargin: 8,
                       sortColumnIndex: controllerWatch.sortColumnIndex,
                       sortAscending: controllerWatch.sortAscending,
                       headingRowColor: WidgetStateProperty.all(
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.06),
                       ),
                       headingTextStyle: Theme.of(context).textTheme.bodySmall
                           ?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                       columns: [
-                        DataColumn(
-                          label: Text(
-                            "Id",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          onSort: controllerRead.setSort,
+                        _sortableHeader("Id", 0, active),
+                        _sortableHeader("Name", 1, active),
+                        _sortableHeader("Email", 2, active),
+                        _sortableHeader("Value", 3, active),
+                        _sortableHeader("Status", 4, active, sortable: false),
+                        _sortableHeader("Created", 5, active),
+                        _sortableHeader(
+                          "Created By",
+                          6,
+                          active,
+                          sortable: false,
                         ),
-                        DataColumn(
-                          label: Text(
-                            "Name",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          onSort: controllerRead.setSort,
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Email",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          onSort: controllerRead.setSort,
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Value",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Status",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Created",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          onSort: controllerRead.setSort,
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Created By",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
-                            "Action",
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
+                        _sortableHeader("Action", 7, active, sortable: false),
                       ],
                       rows: controllerWatch.paginatedItems
                           .map(
@@ -337,10 +402,113 @@ class _DealsListingViewState extends State<DealsListingView> {
     );
   }
 
-  Widget _buildFilterRow({
-    required ValueChanged<String> onSearchChanged,
-    required double width,
-  }) {
+  // --------------------------------------------------------------- BANNER
+
+  Widget _buildHeaderBanner(List<DealModel> deals) {
+    final total = deals.length;
+    final pipeline = deals.fold<double>(0, (sum, d) => sum + d.dealValue);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Iconsax.briefcase,
+              color: AppColors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Deal Management",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Track, manage and close your deals in one place",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          _bannerStat(_currencyFormat.format(pipeline), "Pipeline"),
+          const SizedBox(width: 10),
+          _bannerStat('$total', total == 1 ? "Deal" : "Deals"),
+        ],
+      ),
+    );
+  }
+
+  Widget _bannerStat(String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: AppColors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.white.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------- FILTERS
+
+  Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
+    if (_compact) {
+      // page padding (14*2) + filter card padding (16*2)
+      final available = _boxWidth - 28 - 32;
+      final cols = available >= 2 * 170 + 10 ? 2 : 1;
+      _filterWidth = (available - (cols - 1) * 10) / cols;
+    } else {
+      _filterWidth = 180;
+    }
+
     if (!Hive.isBoxOpen('dealStatus') || !Hive.isBoxOpen('employees')) {
       return _buildSearchField(onSearchChanged);
     }
@@ -358,181 +526,207 @@ class _DealsListingViewState extends State<DealsListingView> {
         final statusBox = Hive.box<Map<dynamic, dynamic>>('dealStatus');
         final cache = CacheService();
 
-    final filters = [
-      /// From Date
-      _dateFilter(
-        label: "From Date",
-        value: _fromDate,
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2100),
-            initialDate: _fromDate ?? DateTime.now(),
-          );
+        final filters = [
+          /// From Date
+          _dateFilter(
+            label: "From Date",
+            value: _fromDate,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+                initialDate: _fromDate ?? DateTime.now(),
+              );
 
-          if (picked != null) {
-            setState(() => _fromDate = picked);
-            _applyFilters();
-          }
-        },
-      ),
+              if (picked != null) {
+                setState(() => _fromDate = picked);
+                _applyFilters();
+              }
+            },
+          ),
 
-      /// To Date
-      _dateFilter(
-        label: "To Date",
-        value: _toDate,
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2100),
-            initialDate: _toDate ?? DateTime.now(),
-          );
+          /// To Date
+          _dateFilter(
+            label: "To Date",
+            value: _toDate,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+                initialDate: _toDate ?? DateTime.now(),
+              );
 
-          if (picked != null) {
-            setState(() => _toDate = picked);
-            _applyFilters();
-          }
-        },
-      ),
+              if (picked != null) {
+                setState(() => _toDate = picked);
+                _applyFilters();
+              }
+            },
+          ),
 
-      /// Status
-      _filterDropdown(
-        label: "Status",
-        value: _selectedStatus != null
-            ? CacheService.dealStatusByUid(_selectedStatus!)?.name
-            : 'All',
-        items: statusItems(statusBox),
-        onChanged: (v) {
-          if (v == null || v == 'All') {
-            setState(() => _selectedStatus = null);
-            _applyFilters();
-            return;
-          }
-          final selectedModel = statusBox.keys.firstWhere(
-            (key) => CacheService.dealStatusByUid(key)?.name == v,
-            orElse: () => '',
-          );
+          /// Status
+          _filterDropdown(
+            label: "Status",
+            value: _selectedStatus != null
+                ? CacheService.dealStatusByUid(_selectedStatus!)?.name
+                : 'All',
+            items: statusItems(statusBox),
+            onChanged: (v) {
+              if (v == null || v == 'All') {
+                setState(() => _selectedStatus = null);
+                _applyFilters();
+                return;
+              }
+              final selectedModel = statusBox.keys.firstWhere(
+                (key) => CacheService.dealStatusByUid(key)?.name == v,
+                orElse: () => '',
+              );
 
-          setState(() => _selectedStatus = selectedModel);
+              setState(() => _selectedStatus = selectedModel);
 
-          _applyFilters();
-        },
-      ),
+              _applyFilters();
+            },
+          ),
 
-      /// Created By
-      _filterDropdown(
-        label: "Created By",
-        value: _selectedCreatedBy != null
-            ? cache
+          /// Created By
+          _filterDropdown(
+            label: "Created By",
+            value: _selectedCreatedBy != null
+                ? cache
+                      .getAllListenableEmployees()
+                      .value
+                      .firstWhereOrNull((e) => e.uid == _selectedCreatedBy)
+                      ?.name
+                : 'All',
+            items: employeeItems(cache),
+            onChanged: (v) {
+              if (v == null || v == 'All') {
+                setState(() => _selectedCreatedBy = null);
+                _applyFilters();
+                return;
+              }
+              final selectedEmployee = cache
                   .getAllListenableEmployees()
                   .value
-                  .firstWhere((e) => e.uid == _selectedCreatedBy)
-                  .name
-            : 'All',
-        items: employeeItems(cache),
-        onChanged: (v) {
-          if (v == null || v == 'All') {
-            setState(() => _selectedCreatedBy = null);
-            _applyFilters();
-            return;
-          }
-          final selectedEmployee = cache
-              .getAllListenableEmployees()
-              .value
-              .firstWhereOrNull((e) => e.name == v);
+                  .firstWhereOrNull((e) => e.name == v);
 
-          setState(() => _selectedCreatedBy = selectedEmployee?.uid);
+              setState(() => _selectedCreatedBy = selectedEmployee?.uid);
 
-          _applyFilters();
-        },
-      ),
-
-      /// Deal Value Filter
-      _valueFilter(onChanged: _onValueChanged),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+              _applyFilters();
+            },
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// Search + Reset
-          kIsMobile || width < 1000
-              ? Column(
+
+          /// Deal Value Filter
+          _valueFilter(onChanged: _onValueChanged),
+        ];
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              /// Search + reset
+              if (_compact) ...[
+                _buildSearchField(onSearchChanged),
+                const SizedBox(height: 12),
+                Row(
                   children: [
-                    _buildSearchField(onSearchChanged),
-
-                    const SizedBox(height: 12),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: _buildResetButton(),
+                    Expanded(
+                      child: SizedBox(
+                        height: 40,
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(
+                            () => _filtersExpanded = !_filtersExpanded,
+                          ),
+                          icon: Icon(
+                            _filtersExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Iconsax.filter,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _filtersExpanded ? 'Hide Filters' : 'Filters',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-
-                    const SizedBox(height: 16),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildResetButton()),
                   ],
-                )
-              : Row(
+                ),
+                if (_filtersExpanded) ...[
+                  const SizedBox(height: 14),
+                  Wrap(spacing: 10, runSpacing: 10, children: filters),
+                ],
+              ] else ...[
+                Row(
                   children: [
                     SizedBox(
                       width: 280,
                       child: _buildSearchField(onSearchChanged),
                     ),
-
                     const Spacer(),
-
                     _buildResetButton(),
                   ],
                 ),
-
-          if (!kIsMobile) const SizedBox(height: 16),
-
-          /// Filters
-          kIsMobile || width < 1000
-              ? Wrap(spacing: 10, runSpacing: 10, children: filters)
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final filter in filters) ...[
-                        filter,
-                        const SizedBox(width: 10),
+                const SizedBox(height: 16),
+                Scrollbar(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final filter in filters) ...[
+                          filter,
+                          const SizedBox(width: 10),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-        ],
-      ),
-    );
+              ],
+            ],
+          ),
+        );
       },
     );
   }
 
   Widget _buildResetButton() {
     return SizedBox(
-      height: 30,
+      height: 40,
       child: ElevatedButton.icon(
         onPressed: _resetFilters,
         icon: const Icon(Icons.refresh, size: 18),
         label: const Text("Reset Filters"),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.errorContainer,
-          foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.errorContainer.withValues(alpha: 0.5),
+          foregroundColor: Theme.of(context).colorScheme.error,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
@@ -552,12 +746,25 @@ class _DealsListingViewState extends State<DealsListingView> {
         },
         decoration: InputDecoration(
           hintText: 'Search deals...',
-          prefixIcon: Icon(
-            Icons.search,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(5),
+                child: Icon(
+                  Iconsax.search_normal_1,
+                  size: 12,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
           ),
-
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.close, size: 18),
@@ -569,26 +776,21 @@ class _DealsListingViewState extends State<DealsListingView> {
                   },
                 )
               : null,
-
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-
+          fillColor: Theme.of(context).colorScheme.surface,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
-
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
-
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
@@ -596,9 +798,10 @@ class _DealsListingViewState extends State<DealsListingView> {
               width: 1.3,
             ),
           ),
-
           hintStyle: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             fontSize: 14,
           ),
         ),
@@ -608,10 +811,10 @@ class _DealsListingViewState extends State<DealsListingView> {
 
   Widget _valueFilter({
     required ValueChanged<String> onChanged,
-    double itemWidth = 180,
+    double? itemWidth,
   }) {
     return SizedBox(
-      width: itemWidth,
+      width: itemWidth ?? _filterWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -622,31 +825,26 @@ class _DealsListingViewState extends State<DealsListingView> {
               fontWeight: FontWeight.w500,
             ),
           ),
-
           const SizedBox(height: 8),
           Container(
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.outline),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
               children: [
-                // Icon(
-                //   Icons.currency_rupee,
-                //   size: 18,
-                //   color: Colors.grey.shade600,
-                // ),
-                // const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
+                    controller: _valueController,
                     keyboardType: TextInputType.number,
                     onChanged: onChanged,
                     style: Theme.of(context).textTheme.bodySmall,
                     decoration: const InputDecoration(
                       isDense: true,
-                      // hintText: "1000 - 5000",
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       fillColor: Colors.transparent,
@@ -685,10 +883,10 @@ class _DealsListingViewState extends State<DealsListingView> {
     required String label,
     required DateTime? value,
     required VoidCallback onTap,
-    double itemWidth = 180,
+    double? itemWidth,
   }) {
     return SizedBox(
-      width: itemWidth,
+      width: itemWidth ?? _filterWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -707,7 +905,7 @@ class _DealsListingViewState extends State<DealsListingView> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline,
+                  color: Theme.of(context).colorScheme.outlineVariant,
                 ),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -732,7 +930,7 @@ class _DealsListingViewState extends State<DealsListingView> {
                   ),
                   Icon(
                     Icons.arrow_drop_down,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurface,
                     size: 18,
                   ),
                 ],
@@ -749,10 +947,10 @@ class _DealsListingViewState extends State<DealsListingView> {
     required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
-    double itemWidth = 180,
+    double? itemWidth,
   }) {
     return SizedBox(
-      width: itemWidth,
+      width: itemWidth ?? _filterWidth,
       child: FormDropdownSearch(
         label: label,
         items: items,
@@ -768,8 +966,7 @@ class _DealsListingViewState extends State<DealsListingView> {
 
   void _applyFilters() {
     final controller = context.read<PaginatedDataController<DealModel>>();
-    final List<DealModel> allDeals =
-        context.read<DealBloc>().state is DealLoaded
+    final List<DealModel> allDeals = context.read<DealBloc>().state is DealLoaded
         ? (context.read<DealBloc>().state as DealLoaded).deals
         : <DealModel>[];
 
@@ -816,125 +1013,153 @@ class _DealsListingViewState extends State<DealsListingView> {
     controller.setData(filtered);
   }
 
+  // ----------------------------------------------------------- ACTION ROW
+
   Widget _buildActionRow(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     return LayoutBuilder(
       builder: (context, constraints) {
-        // final bool isMobile = constraints.maxWidth < 600;
+        final List<Widget> actionButtons = [];
 
-        final addDeleteButtons = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (permissions?.canCreate ?? false) ...[
-              ElevatedButton.icon(
-                onPressed: () {
-                  if (kIsMobile || width < 1000) {
-                    Sheet.showSheet(context, widget: const DealCreate());
-                  } else {
-                    GeneralDialog.showRTLSheet(context, const DealCreate());
-                  }
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(
-                  "Add $_pageTitle",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                  ),
+        // ADD BUTTON
+        if (permissions?.canCreate ?? false) {
+          actionButtons.add(
+            ElevatedButton.icon(
+              onPressed: () async {
+                final result = (kIsMobile || _compact)
+                    ? await Sheet.showSheet(context, widget: const DealCreate())
+                    : await GeneralDialog.showRTLSheet(
+                        context,
+                        const DealCreate(),
+                      );
+                if (result == true && context.mounted) {
+                  context.read<DealBloc>().add(StreamDeals());
+                }
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: Text("Add $_pageTitle"),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
                 ),
+                backgroundColor: const Color(0xFF4364F7),
+                foregroundColor: Colors.white,
               ),
-              const SizedBox(width: 10),
-            ],
-          ],
-        );
-
-        final viewToggle = Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
             ),
+          );
+        }
+
+        // View toggle (Grid / List / Calendar)
+        final viewToggle = Container(
+          height: 42,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: _compact ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              if (kIsDesktop)
+              if (!_compact)
                 IconButton(
                   tooltip: "Refresh",
                   icon: const Icon(Iconsax.refresh),
                   iconSize: 18,
                   onPressed: () => _refreshDeals(context),
                 ),
-
-              const SizedBox(width: 10),
-              IconButton(
-                onPressed: () {
-                  _selectedView = 'Grid';
-                  setState(() {});
-                },
-                icon: const Icon(Iconsax.grid_3, size: 18),
-                color: _selectedView == 'Grid'
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              Container(
-                width: 1,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              IconButton(
-                onPressed: () {
-                  _selectedView = 'List';
-                  setState(() {});
-                },
-                icon: const Icon(Icons.list),
-                color: _selectedView == 'List'
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              Container(
-                width: 1,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              IconButton(
-                onPressed: () {
-                  _selectedView = 'Calendar';
-                  setState(() {});
-                },
-                icon: const Icon(Iconsax.calendar_1, size: 18),
-                color: _selectedView == 'Calendar'
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              _buildToggleIcon(Iconsax.grid_3, 'Grid', 'Board'),
+              _buildToggleIcon(Icons.list, 'List', 'List'),
+              _buildToggleIcon(Iconsax.calendar_1, 'Calendar', 'Calendar'),
             ],
           ),
         );
 
-        if (kIsMobile || width < 1000) {
+        if (_compact) {
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: addDeleteButtons,
-              ),
-              const SizedBox(height: 8),
+              if (actionButtons.isNotEmpty) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: actionButtons),
+                ),
+                const SizedBox(height: 12),
+              ],
               viewToggle,
             ],
           );
         } else {
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [addDeleteButtons, viewToggle],
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: actionButtons),
+                ),
+              ),
+              const SizedBox(width: 12),
+              viewToggle,
+            ],
           );
         }
       },
     );
   }
+
+  // Helper for the View Toggle segments
+  Widget _buildToggleIcon(IconData icon, String viewName, String label) {
+    final selected = _selectedView == viewName;
+    final scheme = Theme.of(context).colorScheme;
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: EdgeInsets.symmetric(horizontal: _compact ? 10 : 14),
+      decoration: BoxDecoration(
+        gradient: selected ? const LinearGradient(colors: _brandGradient) : null,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF4364F7).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: selected ? Colors.white : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+    final tap = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _selectedView = viewName),
+      child: child,
+    );
+    return _compact ? Expanded(child: tap) : tap;
+  }
+
+  // ------------------------------------------------------------- DATA ROW
 
   DataRow _buildDataRow(
     BuildContext context,
@@ -942,20 +1167,20 @@ class _DealsListingViewState extends State<DealsListingView> {
     PaginatedDataController<DealModel> controllerWatch,
     PaginatedDataController<DealModel> controllerRead,
   ) {
-    final width = MediaQuery.of(context).size.width;
     bool isSelected = controllerWatch.selectedIds.contains(deal.uid);
+    final status = CacheService.dealStatusByUid(deal.dealStatus ?? '');
 
-    /// Open Deal View
-    void openDeal(BuildContext context, DealModel deal) {
-      final view = BlocProvider(
-        create: (_) => DealBloc()..add(StreamDealComments(deal.uid!)),
-        child: DealsView(deal: deal),
-      );
+    /// Open Deal View (loads comments, history and activities)
+    Future<void> openDeal(BuildContext context, DealModel deal) async {
+      final result = (kIsMobile || _compact)
+          ? await Sheet.showSheet(context, widget: DealsViewPage(deal: deal))
+          : await GeneralDialog.showRTLSheet(
+              context,
+              DealsViewPage(deal: deal),
+            );
 
-      if (kIsMobile || width < 1000) {
-        Sheet.showSheet(context, widget: view);
-      } else {
-        GeneralDialog.showRTLSheet(context, view);
+      if ((result == 'deleted' || result == 'restored') && context.mounted) {
+        context.read<DealBloc>().add(StreamDeals());
       }
     }
 
@@ -1016,19 +1241,15 @@ class _DealsListingViewState extends State<DealsListingView> {
         dataCell(
           context,
           Text(
-            deal.dealValue.toString(),
-            style: Theme.of(context).textTheme.bodySmall,
+            _currencyFormat.format(deal.dealValue),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
 
         /// Status
-        dataCell(
-          context,
-          Text(
-            CacheService.dealStatusByUid(deal.dealStatus ?? '')?.name ?? '',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+        dataCell(context, _statusChip(status)),
 
         /// Created At
         dataCell(
@@ -1042,34 +1263,70 @@ class _DealsListingViewState extends State<DealsListingView> {
         /// Created By
         dataCell(context, CreatedByWidget(userData: deal.createdBy)),
 
-        /// Actions (❌ no row tap here)
+        /// Actions (no row tap here)
         DataCell(
           Row(
             children: [
-              if (permissions?.canEdit ?? false) ...[
+              if (deal.isLocked)
                 IconButton(
-                  icon: const Icon(Iconsax.edit),
-                  color: AppColors.info,
+                  icon: const Icon(Iconsax.lock),
+                  tooltip: 'This deal is locked',
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   splashRadius: 20,
                   onPressed: () {
-                    if (kIsMobile || width < 1000) {
-                      Sheet.showSheet(
-                        context,
-                        widget: DealEdit(uid: deal.uid ?? ''),
-                      );
-                    } else {
-                      GeneralDialog.showRTLSheet(
-                        context,
-                        DealEdit(uid: deal.uid ?? ''),
-                      );
+                    FlushBar.show(
+                      context,
+                      'This deal is locked and cannot be edited',
+                      isSuccess: false,
+                    );
+                  },
+                )
+              else if (permissions?.canEdit ?? false)
+                IconButton(
+                  icon: const Icon(Iconsax.edit),
+                  color: Theme.of(context).colorScheme.primary,
+                  splashRadius: 20,
+                  onPressed: () async {
+                    final result = (kIsMobile || _compact)
+                        ? await Sheet.showSheet(
+                            context,
+                            widget: DealEdit(uid: deal.uid ?? ''),
+                          )
+                        : await GeneralDialog.showRTLSheet(
+                            context,
+                            DealEdit(uid: deal.uid ?? ''),
+                          );
+                    if (result != null && context.mounted) {
+                      context.read<DealBloc>().add(StreamDeals());
                     }
                   },
                 ),
-              ],
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _statusChip(DealStatusModel? status) {
+    if (status == null) {
+      return Text('', style: Theme.of(context).textTheme.bodySmall);
+    }
+    final color = Color(status.color);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        status.name,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
     );
   }
 }
