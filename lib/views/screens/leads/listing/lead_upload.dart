@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +7,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
 import 'package:leadcapture/models/src/lead_model.dart';
 import 'package:leadcapture/models/src/region_model.dart';
+import 'package:leadcapture/models/src/client_model.dart';
 import 'package:leadcapture/services/database/src/spdb.dart';
 import 'package:leadcapture/services/firebase/src/lead_category_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_priority_service.dart';
@@ -15,6 +15,7 @@ import 'package:leadcapture/services/firebase/src/lead_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_source_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_status_service.dart';
 import 'package:leadcapture/services/firebase/src/region_service.dart';
+import 'package:leadcapture/services/firebase/src/client_service.dart';
 
 import 'package:leadcapture/utils/src/download.dart';
 import 'package:leadcapture/views/components/src/xlsx_csv_reader.dart';
@@ -92,57 +93,66 @@ class _LeadUploadState extends State<LeadUpload> {
     return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
-  // Returns null if the row is valid, or a short reason string if it's not.
-  String? _rowInvalidReason(List<String> row) {
+  bool _validateRowData(List<String> row, int rowIndex) {
     // Check required fields
     if (row[0].trim().isEmpty ||
         row[2].trim().isEmpty ||
         row[4].trim().isEmpty ||
         row[6].trim().isEmpty) {
-      return 'Missing required fields';
+      return false;
     }
 
     // Validate email format if provided
     if (row[1].trim().isNotEmpty) {
       final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
       if (!emailRegex.hasMatch(row[1].trim())) {
-        return 'Invalid email format';
+        return false;
       }
     }
 
     // Validate lead value is numeric if provided
     if (row[5].trim().isNotEmpty) {
       if (double.tryParse(row[5].trim()) == null) {
-        return 'Invalid lead value (must be a number)';
+        return false;
       }
     }
 
-    return null;
+    return true;
   }
 
-  /// Builds a normalized set of keys used to detect duplicate leads.
-  /// Delegates to LeadService.duplicateKeysFor so the exact same
-  /// matching rules apply here, in the manual "Add Lead" form, and in
-  /// the Kanban quick-add flow.
-  List<String> _duplicateKeysForRow(List<String> row) {
-    return LeadService.duplicateKeysFor(
-      email: row[1],
-      mobile: row[8],
-      leadName: row[0],
-      companyName: row[7],
-    );
+  bool _validateExcelData() {
+    if (_rows.isEmpty) return false;
+
+    if (_rows.first.length < 14) {
+      FlushBar.show(
+        context,
+        "Error: The uploaded file does not have required columns.",
+        isSuccess: false,
+      );
+      return false;
+    }
+
+    // Validate all data rows
+    for (var i = 1; i < _rows.length; i++) {
+      if (!_validateRowData(_rows[i], i)) {
+        FlushBar.show(
+          context,
+          "Data format mismatch. Please verify the imported Excel file and try again.",
+          isSuccess: false,
+        );
+        return false;
+      }
+    }
+
+    return true;
   }
 
   void _uploadLeadData() async {
     try {
       if (_rows.isEmpty) return;
 
-      if (_rows.first.length < 15) {
-        FlushBar.show(
-          context,
-          "Error: The uploaded file does not have required columns.",
-          isSuccess: false,
-        );
+      // Validate data before upload
+      if (!_validateExcelData()) {
         return;
       }
 
@@ -152,38 +162,22 @@ class _LeadUploadState extends State<LeadUpload> {
       int skippedCount = 0;
       final totalRows = _rows.length - 1;
 
-      // Tracks why a row was skipped, e.g. "Duplicate lead" -> 3 rows
-      final Map<String, int> skipReasons = {};
-      void recordSkip(String reason) {
-        skippedCount++;
-        skipReasons[reason] = (skipReasons[reason] ?? 0) + 1;
-      }
-
       // ✅ Load once
       final currentUser = await Spdb.getUser();
       final allCountries = await RegionService.getCountries();
-
-      // Load existing leads once so we can detect duplicates instead of
-      // re-adding leads that are already in the system.
-      final existingLeads = await LeadService.getAllLeads();
-      final existingKeys = <String>{
-        for (final lead in existingLeads) ...LeadService.duplicateKeysForLead(lead),
-      };
 
       for (var i = 1; i < _rows.length; i++) {
         final row = _rows[i];
 
         try {
-          final invalidReason = _rowInvalidReason(row);
-          if (invalidReason != null) {
-            recordSkip(invalidReason);
-            continue;
-          }
+          final hasRequiredFields =
+              row[0].trim().isNotEmpty &&
+              row[2].trim().isNotEmpty &&
+              row[4].trim().isNotEmpty &&
+              row[6].trim().isNotEmpty;
 
-          final rowKeys = _duplicateKeysForRow(row);
-          final isDuplicate = rowKeys.any(existingKeys.contains);
-          if (isDuplicate) {
-            recordSkip('Duplicate lead (already exists)');
+          if (!hasRequiredFields) {
+            skippedCount++;
             continue;
           }
 
@@ -192,7 +186,7 @@ class _LeadUploadState extends State<LeadUpload> {
           CityModel? city;
 
           if (row[9].trim().isNotEmpty) {
-            country = allCountries.firstWhereOrNull(
+            country = allCountries.firstWhere(
               (c) => c.name.toLowerCase() == row[9].trim().toLowerCase(),
             );
           }
@@ -202,7 +196,7 @@ class _LeadUploadState extends State<LeadUpload> {
               regionId: country.uid!,
             );
 
-            state = states.firstWhereOrNull(
+            state = states.firstWhere(
               (s) => s.name.toLowerCase() == row[10].trim().toLowerCase(),
             );
           }
@@ -213,7 +207,7 @@ class _LeadUploadState extends State<LeadUpload> {
               stateId: state.uid!,
             );
 
-            city = cities.firstWhereOrNull(
+            city = cities.firstWhere(
               (c) => c.name.toLowerCase() == row[11].trim().toLowerCase(),
             );
           }
@@ -236,19 +230,14 @@ class _LeadUploadState extends State<LeadUpload> {
 
           double leadValue = double.tryParse(row[5].trim()) ?? 0;
 
-          DateTime createdAt = DateTime.now();
-          if (row[14].trim().isNotEmpty) {
-            createdAt = DateFormat("dd-MM-yyyy").parse(row[14].trim());
-          }
-
           final leadModel = LeadModel(
             leadName: row[0].trim(),
             leadEmail: row[1].trim(),
             leadSource: source,
-            leadCategory: category.uid ?? '',
-            leadPriority: priority.uid ?? '',
+            leadCategory: category.uid ?? category.name,
+            leadPriority: priority.uid ?? priority.name,
             leadValue: leadValue,
-            leadStatus: status.uid ?? '',
+            leadStatus: status.uid ?? status.name,
             companyName: row[7].trim(),
             companyMobile: row[8].trim(),
             companyCountry: country,
@@ -256,7 +245,7 @@ class _LeadUploadState extends State<LeadUpload> {
             companyCity: city,
             companyAddress: row[12].trim(),
             notes: row[13].trim(),
-            createdAt: createdAt,
+            createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
             createdBy: currentUser,
             attachments: [],
@@ -264,17 +253,55 @@ class _LeadUploadState extends State<LeadUpload> {
             leadsConverted: false,
           );
 
-          await LeadService.createLead(lead: leadModel, skipDuplicateCheck: true);
+          final createdLead = await LeadService.createLead(lead: leadModel);
+
+          // Create Company client if company details are provided
+          String? companyId;
+          if (row[7].trim().isNotEmpty) {
+            final companyClient = ClientModel(
+              companyName: row[7].trim(),
+              officePhoneNo: row[8].trim().isNotEmpty ? row[8].trim() : null,
+              country: country,
+              state: state,
+              city: city,
+              companyAddress: row[12].trim().isNotEmpty ? row[12].trim() : null,
+              createdBy: currentUser,
+              isCompany: true,
+              isActive: true,
+            );
+            companyId = await ClientService.createClient(client: companyClient);
+          }
+
+          // Create Contact client if lead name is provided
+          String? contactId;
+          if (row[0].trim().isNotEmpty) {
+            final contactClient = ClientModel(
+              clientName: row[0].trim(),
+              email: row[1].trim().isNotEmpty ? row[1].trim() : null,
+              country: country,
+              state: state,
+              city: city,
+              createdBy: currentUser,
+              isCompany: false,
+              isActive: true,
+            );
+            contactId = await ClientService.createClient(client: contactClient);
+          }
+
+          // Update lead with clientId reference (prefer company if both exist)
+          if (companyId != null || contactId != null) {
+            final clientId = companyId ?? contactId;
+            if (clientId != null) {
+              await LeadService.updateLead(
+                uid: createdLead,
+                lead: leadModel.copyWith(clientId: clientId),
+              );
+            }
+          }
 
           uploadedCount++;
-          // Register this new lead's keys so a duplicate later in the same
-          // file is also caught, not just duplicates against existing data.
-          existingKeys.addAll(rowKeys);
         } catch (e, st) {
-          // Show the real error so future failures are self-diagnosing
-          // from the toast itself, instead of a generic "Upload error".
-          final reason = 'Upload error: ${e.toString().replaceFirst('Exception: ', '')}';
-          recordSkip(reason);
+          skippedCount++;
           debugPrint("Error uploading row ${i + 1}: $e\n$st");
         }
       }
@@ -282,24 +309,13 @@ class _LeadUploadState extends State<LeadUpload> {
       if (Navigator.canPop(context)) Navigator.pop(context);
       Navigator.pop(context, true);
 
-      final buffer = StringBuffer()
-        ..writeln("Upload Completed")
-        ..writeln("Total: $totalRows  •  Added: $uploadedCount  •  Skipped: $skippedCount");
-
-      if (skipReasons.isNotEmpty) {
-        final reasonLines = skipReasons.entries
-            .map((e) => "${e.key}: ${e.value}")
-            .join('\n');
-        buffer.write(reasonLines);
-      }
-
       FlushBar.show(
         context,
-        buffer.toString().trimRight(),
-        isSuccess: uploadedCount > 0,
-        duration: skipReasons.isEmpty
-            ? const Duration(seconds: 5)
-            : Duration(seconds: 5 + skipReasons.length),
+        "Upload Completed\n"
+        "Total: $totalRows\n"
+        "Uploaded: $uploadedCount\n"
+        "Skipped: $skippedCount",
+        isSuccess: true,
       );
     } catch (e) {
       if (Navigator.canPop(context)) Navigator.pop(context);
@@ -349,16 +365,33 @@ class _LeadUploadState extends State<LeadUpload> {
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          title: Text(
-            'Import Leads',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+          automaticallyImplyLeading: false,
+          elevation: 0,
+          foregroundColor: Colors.white,
+          flexibleSpace: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]))),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Iconsax.document_upload, size: 18, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Import Leads',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
           actions: [
             IconButton(
-              icon: Icon(Iconsax.more, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              icon: const Icon(Iconsax.more, color: Colors.white),
               onPressed: () => _showTemplateMenu(context),
             ),
           ],
@@ -413,9 +446,12 @@ class _LeadUploadState extends State<LeadUpload> {
       child: Container(
         height: 200,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -423,15 +459,22 @@ class _LeadUploadState extends State<LeadUpload> {
             if (_loading)
               const CircularProgressIndicator()
             else
-               Icon(
-                Icons.cloud_upload_outlined,
-                size: 40,
-                color: Theme.of(context).colorScheme.primary,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]), shape: BoxShape.circle),
+                child: const Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.white),
               ),
             const SizedBox(height: 16),
             const Text(
               "Click to select Lead Excel or CSV",
               style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Supported: .xlsx, .xls, .csv",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -445,11 +488,25 @@ class _LeadUploadState extends State<LeadUpload> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(Icons.description, color: Theme.of(context).colorScheme.primary, size: 30),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.description, color: Theme.of(context).colorScheme.primary, size: 24),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -457,6 +514,7 @@ class _LeadUploadState extends State<LeadUpload> {
               children: [
                 Text(
                   _fileName!,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(_formatFileSize(_fileSize)),
@@ -473,7 +531,8 @@ class _LeadUploadState extends State<LeadUpload> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        Expanded(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -489,6 +548,7 @@ class _LeadUploadState extends State<LeadUpload> {
               ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ],
+        ),
         ),
         TextButton.icon(
           onPressed: _resetFile,
@@ -506,9 +566,23 @@ class _LeadUploadState extends State<LeadUpload> {
   Widget _buildPreviewTable() {
     final headers = _rows.first;
     final body = _rows.skip(1).take(10).toList(); // Preview only first 10
-    return SingleChildScrollView(
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
+        headingRowColor: WidgetStateProperty.all(
+          Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
+        ),
+        headingTextStyle: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary,
+        ),
         columns: headers.map((h) => DataColumn(label: Text(h))).toList(),
         rows: body
             .map(
@@ -516,19 +590,37 @@ class _LeadUploadState extends State<LeadUpload> {
             )
             .toList(),
       ),
+      ),
     );
   }
 
   Widget _buildActionButtons() {
     return Align(
       alignment: Alignment.centerRight,
-      child: ElevatedButton.icon(
-        onPressed: _uploadLeadData,
-        icon: const Icon(Icons.check),
-        label: const Text("Complete Import"),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: ElevatedButton.icon(
+          onPressed: _uploadLeadData,
+          icon: const Icon(Icons.check),
+          label: const Text("Complete Import"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
       ),
     );

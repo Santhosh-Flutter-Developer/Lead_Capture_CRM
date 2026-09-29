@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
-import '/utils/src/download_io.dart'
-    if (dart.library.html) '/utils/src/download_web.dart'
+import 'package:leadcapture/utils/src/download_io.dart'
+    if (dart.library.html) 'package:leadcapture/utils/src/download_web.dart'
     show saveFileToDownloads;
 import 'package:leadcapture/views/screens/leads/listing/lead_upload.dart';
 import 'package:provider/provider.dart';
@@ -15,60 +15,16 @@ import '/views/views.dart';
 import '/utils/utils.dart';
 import '/theme/theme.dart';
 
+/// Layout is decided by the available CONTENT width (not the platform), so the
+/// web build, narrow desktop windows and phones all get the compact layout.
+const double _wideBreakpoint = 760;
+const List<Color> _brandGradient = [
+  Color(0xFF0052D4),
+  Color(0xFF4364F7),
+  Color(0xFF6FB1FC),
+];
+
 const String _pageTitle = "Leads";
-
-/// Resolves a lead's status name, falling back to a direct service lookup
-/// and then a name match when the cached uid lookup misses (covers legacy
-/// or imported records where `leadStatus` may hold the status uid, a name
-/// that hasn't synced to the local cache yet).
-class _LeadStatusText extends StatelessWidget {
-  final String leadStatus;
-  const _LeadStatusText({required this.leadStatus});
-
-  Future<String> _resolve() async {
-    if (leadStatus.isEmpty) return '—';
-
-    final cached = CacheService.leadStatusByUid(leadStatus)?.name;
-    if (cached != null && cached.isNotEmpty) return cached;
-
-    try {
-      final status = await LeadStatusService.getLeadStatus(uid: leadStatus);
-      if (status.name.isNotEmpty) return status.name;
-    } catch (_) {
-      // Not found by uid — fall through to a name match below.
-    }
-
-    try {
-      final allStatuses = await LeadStatusService.getAllLeadStatus();
-      final match = allStatuses.firstWhereOrNull(
-        (s) => s.name.toLowerCase() == leadStatus.toLowerCase(),
-      );
-      if (match != null) return match.name;
-    } catch (_) {
-      // Ignore — fall through to raw value below.
-    }
-
-    return leadStatus;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cached = CacheService.leadStatusByUid(leadStatus)?.name;
-    if (cached != null && cached.isNotEmpty) {
-      return Text(cached, style: Theme.of(context).textTheme.bodySmall);
-    }
-
-    return FutureBuilder<String>(
-      future: _resolve(),
-      builder: (context, snapshot) {
-        return Text(
-          snapshot.data ?? (leadStatus.isEmpty ? '—' : leadStatus),
-          style: Theme.of(context).textTheme.bodySmall,
-        );
-      },
-    );
-  }
-}
 
 class LeadsListing extends StatelessWidget {
   final bool showAppBar;
@@ -139,9 +95,11 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   final List<LeadModel> _leadsList = [];
   List<LeadModel> _filteredLeads = [];
   PermissionModel? permissions;
-  bool _permissionsLoaded = false;
   String? _currentUid;
   bool _isAdmin = false;
+  bool _compact = false;
+  bool _filtersExpanded = false;
+  double _filterWidth = 180;
 
   DateTime? _fromDate;
   DateTime? _toDate;
@@ -161,38 +119,27 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     permissions = await PermissionService.getPermissions(_pageTitle);
     _currentUid = await Spdb.getUid();
     _isAdmin = await Spdb.isAdminLoggedIn();
-    if (!mounted) return;
-    _permissionsLoaded = true;
     setState(() {});
   }
 
   List<String> statusItems(Box<Map<dynamic, dynamic>> box) {
-    return [
-      'All',
-      ...box.keys.map((key) {
-        final data = CacheService.normalizeFromCache(box.get(key) ?? {});
-        final model = LeadStatusModel.fromMap(key, data);
-        return model.name;
-      }),
-    ];
+    return box.keys.map((key) {
+      final data = CacheService.normalizeFromCache(box.get(key) ?? {});
+      final model = LeadStatusModel.fromMap(key, data);
+      return model.name;
+    }).toList();
   }
 
   List<String> categoryItems(Box<Map<dynamic, dynamic>> box) {
-    return [
-      'All',
-      ...box.keys.map((key) {
-        final data = CacheService.normalizeFromCache(box.get(key) ?? {});
-        final model = LeadCategoryModel.fromMap(key, data);
-        return model.name;
-      }),
-    ];
+    return box.keys.map((key) {
+      final data = CacheService.normalizeFromCache(box.get(key) ?? {});
+      final model = LeadCategoryModel.fromMap(key, data);
+      return model.name;
+    }).toList();
   }
 
   List<String> employeeItems(CacheService cache) {
-    return [
-      'All',
-      ...cache.getAllListenableEmployees().value.map((e) => e.name),
-    ];
+    return cache.getAllListenableEmployees().value.map((e) => e.name).toList();
   }
 
   Future<void> _refreshLeads(BuildContext context) async {
@@ -217,8 +164,29 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     final controllerWatch = context.watch<PaginatedDataController<LeadModel>>();
     return Scaffold(
       appBar: widget.showAppBar && kIsMobile
-          ? AppBar(title: Text(_pageTitle))
+          ? AppBar(
+              title: const Text(_pageTitle),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+            )
           : null,
+      body: LayoutBuilder(
+        builder: (context, box) {
+          _compact = box.maxWidth < _wideBreakpoint;
+          return _buildBody(context, controllerRead, controllerWatch);
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    PaginatedDataController<LeadModel> controllerRead,
+    PaginatedDataController<LeadModel> controllerWatch,
+  ) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
       body: BlocListener<LeadBloc, LeadState>(
         listenWhen: (previous, current) => current is LeadLoaded,
         listener: (context, state) {
@@ -235,9 +203,6 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               return const WaitingLoading();
             }
             if (state is LeadLoaded) {
-              if (!_permissionsLoaded) {
-                return const WaitingLoading();
-              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -245,12 +210,16 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 onRefresh: () => _refreshLeads(context),
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24.0),
+                  padding: EdgeInsets.all(_compact ? 14.0 : 24.0),
                   children: [
+                    if (!_compact) ...[
+                      _buildHeaderBanner(state.leads.length),
+                      const SizedBox(height: 18),
+                    ],
                     _buildFilterRow(onSearchChanged: controllerRead.setSearch),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     _buildActionRow(context),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     if (controllerWatch.paginatedItems.isEmpty)
                       const NoData(text: "No matching records found")
                     else if (_selectedView == 'Grid') ...[
@@ -296,16 +265,17 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.1),
-            spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
+            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           LayoutBuilder(
@@ -332,12 +302,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                       sortColumnIndex: controllerWatch.sortColumnIndex,
                       sortAscending: controllerWatch.sortAscending,
                       headingRowColor: WidgetStateProperty.all(
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                        Theme.of(context).colorScheme.primary.withValues(
+                          alpha: 0.06,
+                        ),
                       ),
                       headingTextStyle: Theme.of(context).textTheme.bodySmall
                           ?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                       columns: [
                         DataColumn(
@@ -508,28 +480,108 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     );
   }
 
+  Widget _buildHeaderBanner(int total) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0052D4).withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Iconsax.personalcard,
+              color: AppColors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Lead Management",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Capture, track and convert your leads in one place",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '$total',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  total == 1 ? "Lead" : "Leads",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
+    if (_compact) {
+      final available = MediaQuery.of(context).size.width - 28 - 32;
+      final cols = available >= 2 * 170 + 10 ? 2 : 1;
+      _filterWidth = (available - (cols - 1) * 10) / cols;
+    } else {
+      _filterWidth = 180;
+    }
     if (!Hive.isBoxOpen('leadStatus') ||
         !Hive.isBoxOpen('leadCategory') ||
         !Hive.isBoxOpen('employees')) {
       return _buildSearchField(onSearchChanged);
     }
 
-    // Wrapped in AnimatedBuilder so this row rebuilds automatically once the
-    // leadStatus/leadCategory/employees Hive boxes finish syncing (they can
-    // still be empty at first paint - CacheService populates them
-    // asynchronously), instead of freezing on whatever snapshot existed at
-    // the first build.
-    return AnimatedBuilder(
-      animation: Listenable.merge([
-        Hive.box<Map<dynamic, dynamic>>('leadStatus').listenable(),
-        Hive.box<Map<dynamic, dynamic>>('leadCategory').listenable(),
-        Hive.box<Map<dynamic, dynamic>>('employees').listenable(),
-      ]),
-      builder: (context, _) {
-        final statusBox = Hive.box<Map<dynamic, dynamic>>('leadStatus');
-        final categoryBox = Hive.box<Map<dynamic, dynamic>>('leadCategory');
-        final cache = CacheService();
+    final statusBox = Hive.box<Map<dynamic, dynamic>>('leadStatus');
+    final categoryBox = Hive.box<Map<dynamic, dynamic>>('leadCategory');
+    final cache = CacheService();
 
     final filters = [
       _dateFilter(
@@ -577,14 +629,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   statusBox.get(_selectedStatus!) ?? {},
                 ),
               ).name
-            : 'All',
+            : null,
         items: statusItems(statusBox),
         onChanged: (v) {
-          if (v == null || v == 'All') {
-            setState(() => _selectedStatus = null);
-            _applyFilters();
-            return;
-          }
           final selectedModel = statusBox.keys.firstWhere(
             (key) =>
                 LeadStatusModel.fromMap(
@@ -609,14 +656,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   categoryBox.get(_selectedCategory!) ?? {},
                 ),
               ).name
-            : 'All',
+            : null,
         items: categoryItems(categoryBox),
         onChanged: (v) {
-          if (v == null || v == 'All') {
-            setState(() => _selectedCategory = null);
-            _applyFilters();
-            return;
-          }
           final selectedModel = categoryBox.keys.firstWhere(
             (key) =>
                 LeadCategoryModel.fromMap(
@@ -640,14 +682,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   .value
                   .firstWhere((e) => e.uid == _selectedCreatedBy)
                   .name
-            : 'All',
+            : null,
         items: employeeItems(cache),
         onChanged: (v) {
-          if (v == null || v == 'All') {
-            setState(() => _selectedCreatedBy = null);
-            _applyFilters();
-            return;
-          }
           final selectedEmployee = cache
               .getAllListenableEmployees()
               .value
@@ -679,66 +716,79 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// Search
-          kIsMobile
-              ? Column(
-                  children: [
-                    _buildSearchField(onSearchChanged),
-
-                    const SizedBox(height: 12),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: _buildResetButton(),
+          /// Search + reset
+          if (_compact) ...[
+            _buildSearchField(onSearchChanged),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          setState(() => _filtersExpanded = !_filtersExpanded),
+                      icon: Icon(
+                        _filtersExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Iconsax.filter,
+                        size: 18,
+                      ),
+                      label: Text(_filtersExpanded ? 'Hide Filters' : 'Filters'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
-
-                    const SizedBox(height: 16),
-                  ],
-                )
-              : Row(
-                  children: [
-                    SizedBox(
-                      width: 280,
-                      child: _buildSearchField(onSearchChanged),
-                    ),
-
-                    const Spacer(),
-
-                    _buildResetButton(),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-
-          /// Filters
-          kIsMobile
-              ? Wrap(spacing: 10, runSpacing: 10, children: filters)
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final filter in filters) ...[
-                        filter,
-                        const SizedBox(width: 10),
-                      ],
-                    ],
                   ),
                 ),
+                const SizedBox(width: 10),
+                Expanded(child: _buildResetButton()),
+              ],
+            ),
+            if (_filtersExpanded) ...[
+              const SizedBox(height: 14),
+              Wrap(spacing: 10, runSpacing: 10, children: filters),
+            ],
+          ] else ...[
+            Row(
+              children: [
+                SizedBox(width: 280, child: _buildSearchField(onSearchChanged)),
+                const Spacer(),
+                _buildResetButton(),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Scrollbar(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final filter in filters) ...[
+                      filter,
+                      const SizedBox(width: 10),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
-    );
-      },
     );
   }
 
   Widget _buildResetButton() {
     return SizedBox(
-      height: 30,
+      height: 40,
       child: ElevatedButton.icon(
         onPressed: _resetFilters,
         icon: const Icon(Icons.refresh, size: 18),
         label: const Text("Reset Filters"),
         style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           backgroundColor: Theme.of(
             context,
           ).colorScheme.errorContainer.withValues(alpha: 0.5),
@@ -762,10 +812,24 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         },
         decoration: InputDecoration(
           hintText: 'Search leads...',
-          prefixIcon: Icon(
-            Icons.search,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          prefixIcon: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(5),
+                child: Icon(
+                  Iconsax.search_normal_1,
+                  size: 12,
+                  color: AppColors.white,
+                ),
+              ),
+            ),
           ),
 
           suffixIcon: _searchController.text.isNotEmpty
@@ -781,7 +845,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               : null,
 
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          fillColor: Theme.of(context).colorScheme.surface,
 
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
 
@@ -820,10 +884,10 @@ class _LeadsListingViewState extends State<LeadsListingView> {
 
   Widget _valueFilter({
     required ValueChanged<String> onChanged,
-    double itemWidth = 180,
+    double? itemWidth,
   }) {
     return SizedBox(
-      width: itemWidth,
+      width: itemWidth ?? _filterWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -899,10 +963,10 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     required String label,
     required DateTime? value,
     required VoidCallback onTap,
-    double itemWidth = 180,
+    double? itemWidth,
   }) {
     return SizedBox(
-      width: itemWidth,
+      width: itemWidth ?? _filterWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -963,15 +1027,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
-    double itemWidth = 180,
+    double? itemWidth,
   }) {
     return SizedBox(
-      width: itemWidth,
+      width: itemWidth ?? _filterWidth,
       child: FormDropdownSearch(
         label: label,
         items: items,
         initialItem: value,
-        allowClear: true,
         onChanged: (dynamic val) {
           onChanged(val as String?);
         },
@@ -1045,7 +1108,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           actionButtons.add(
             ElevatedButton.icon(
               onPressed: () async {
-                final result = kIsMobile
+                final result = (kIsMobile || _compact)
                     ? await Sheet.showSheet(context, widget: const LeadCreate())
                     : await GeneralDialog.showRTLSheet(
                         context,
@@ -1058,8 +1121,11 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               icon: const Icon(Icons.add, size: 18),
               label: Text("Add $_pageTitle"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                backgroundColor: const Color(0xFF4364F7),
+                foregroundColor: Colors.white,
               ),
             ),
           );
@@ -1070,7 +1136,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           actionButtons.add(
             ElevatedButton.icon(
               onPressed: () {
-                if (kIsMobile) {
+                if (kIsMobile || _compact) {
                   Sheet.showSheet(context, widget: const LeadUpload());
                 } else {
                   GeneralDialog.showRTLSheet(context, const LeadUpload());
@@ -1079,6 +1145,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               icon: const Icon(Iconsax.cloud_plus, size: 18),
               label: const Text("Upload"),
               style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 backgroundColor: Theme.of(context).colorScheme.secondary,
                 foregroundColor: Theme.of(context).colorScheme.onSecondary,
               ),
@@ -1086,55 +1155,27 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           );
         }
 
-        if (permissions?.canImport ?? false) {
-          actionButtons.add(const SizedBox(width: 10));
+        actionButtons.add(const SizedBox(width: 10));
 
-          actionButtons.add(
-            OutlinedButton.icon(
-              onPressed: () async {
-                await Download.downloadFromAsset(
-                  context,
-                  "assets/templates/lead_upload_template.xlsx",
-                  "Lead_Template.xlsx",
-                );
-              },
-              icon: const Icon(Icons.file_download_outlined, size: 18),
-              label: const Text("Template"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                side: BorderSide(color: Theme.of(context).colorScheme.primary),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
+        actionButtons.add(
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Download.downloadFromAsset(
+                context,
+                "assets/templates/lead_upload_template.xlsx",
+                "Lead_Template.xlsx",
+              );
+            },
+            icon: const Icon(Icons.file_download_outlined, size: 18),
+            label: const Text("Template"),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(color: Theme.of(context).colorScheme.primary),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-          );
-
-          actionButtons.add(
-            OutlinedButton.icon(
-              onPressed: () async {
-                await Download.downloadFromAsset(
-                  context,
-                  "assets/templates/lead_upload_template_with_data.xlsx",
-                  "Lead_Sample_Data.xlsx",
-                );
-              },
-              icon: const Icon(Icons.contact_page_outlined, size: 18),
-              label: const Text("Sample Data"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.secondary,
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
-            ),
-          );
-        }
+          ),
+        );
 
         // EXPORT BUTTON
         if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
@@ -1144,6 +1185,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               label: const Text("Export"),
               icon: const Icon(Iconsax.export_3, size: 18),
               style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 backgroundColor: Theme.of(
                   context,
                 ).colorScheme.surfaceContainerHighest,
@@ -1232,123 +1276,51 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                         'Leads_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx',
                   );
                   if (!kIsWeb) openfile(filePath, context);
-                } catch (e) {
-                  FlushBar.show(context, e.toString(), isSuccess: false);
-                }
-              },
-            ),
-          );
-        }
-
-        if ((permissions?.canDelete ?? false) &&
-            _selectedLeads.isNotEmpty) {
-          actionButtons.add(const SizedBox(width: 10));
-          actionButtons.add(
-            ElevatedButton.icon(
-              label: const Text("Delete"),
-              icon: const Icon(Iconsax.trash, size: 18),
-              onPressed: () async {
-                var result = await showDialog(
-                  context: context,
-                  builder: (context) => const ConfirmDialog(
-                    title: 'Delete',
-                    content:
-                        'Are you sure you want to delete the selected leads?',
-                  ),
-                );
-
-                if (result != true) return;
-
-                try {
-                  // ✅ STEP 1: backup
-                  final deletedLeads = List<LeadModel>.from(_selectedLeads);
-
-                  futureLoading(context);
-
-                  // ✅ STEP 2: delete
-                  for (var lead in deletedLeads) {
-                    await LeadService.deleteLead(uid: lead.uid ?? '');
+                  if (context.mounted) {
+                    FlushBar.show(
+                      context,
+                      'Leads exported successfully',
+                      isSuccess: true,
+                    );
                   }
-
-                  if (Navigator.canPop(context)) Navigator.pop(context);
-
-                  // ✅ STEP 3: clear selection
-                  _selectedLeads.clear();
-                  setState(() {});
-
-                  // ✅ STEP 4: UNDO
-                  FlushBar.show(
-                    context,
-                    'Leads deleted successfully',
-                    actionLabel: 'UNDO',
-                    onActionPressed: () async {
-                      for (var lead in deletedLeads) {
-                        await LeadService.restoreLead(
-                          lead,
-                        ); // 👈 implement this
-                      }
-
-                      // 🔥 refresh list
-                      context.read<LeadBloc>().add(StreamLead());
-                    },
-                    // onDismissed: () {
-                    //   // 🔥 refresh if user does nothing
-                    //   context.read<LeadBloc>().add(StreamLeads());
-                    // },
-                  );
                 } catch (e) {
-                  if (Navigator.canPop(context)) Navigator.pop(context);
                   FlushBar.show(context, e.toString(), isSuccess: false);
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              ),
             ),
           );
         }
 
-        // 2. Define the View Toggle (Grid/List/Calendar)
+
+        // 2. View toggle (Grid / List / Calendar)
         final viewToggle = Container(
-          height: 40,
+          height: 42,
+          padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: _compact ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              if (kIsDesktop)
+              if (!_compact)
                 IconButton(
                   tooltip: "Refresh",
                   icon: const Icon(Iconsax.refresh),
                   iconSize: 18,
                   onPressed: () => _refreshLeads(context),
                 ),
-              const SizedBox(width: 10),
-              _buildToggleIcon(Iconsax.grid_3, 'Grid'),
-              Container(
-                width: 1,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              _buildToggleIcon(Icons.list, 'List'),
-              Container(
-                width: 1,
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              _buildToggleIcon(Iconsax.calendar_1, 'Calendar'),
+              _buildToggleIcon(Iconsax.grid_3, 'Grid', 'Board'),
+              _buildToggleIcon(Icons.list, 'List', 'List'),
+              _buildToggleIcon(Iconsax.calendar_1, 'Calendar', 'Calendar'),
             ],
           ),
         );
 
-        // 3. Layout the components
-        if (kIsMobile) {
+        // 3. Layout
+        if (_compact) {
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -1362,7 +1334,13 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: actionButtons),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: actionButtons),
+                ),
+              ),
+              const SizedBox(width: 12),
               viewToggle,
             ],
           );
@@ -1371,15 +1349,52 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     );
   }
 
-  // Helper for the View Toggle icons
-  Widget _buildToggleIcon(IconData icon, String viewName) {
-    return IconButton(
-      onPressed: () => setState(() => _selectedView = viewName),
-      icon: Icon(icon, size: 18),
-      color: _selectedView == viewName
-          ? Theme.of(context).colorScheme.primary
-          : Theme.of(context).colorScheme.onSurfaceVariant,
+  // Helper for the View Toggle segments
+  Widget _buildToggleIcon(IconData icon, String viewName, String label) {
+    final selected = _selectedView == viewName;
+    final scheme = Theme.of(context).colorScheme;
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: EdgeInsets.symmetric(horizontal: _compact ? 10 : 14),
+      decoration: BoxDecoration(
+        gradient: selected ? const LinearGradient(colors: _brandGradient) : null,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF4364F7).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: selected ? Colors.white : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
+    final tap = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _selectedView = viewName),
+      child: child,
+    );
+    return _compact ? Expanded(child: tap) : tap;
   }
 
   DataRow _buildDataRow(
@@ -1389,10 +1404,11 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     PaginatedDataController<LeadModel> controllerRead,
   ) {
     bool isSelected = controllerWatch.selectedIds.contains(lead.uid);
+    var leadCategory = CacheService.leadCategoryByUid(lead.leadCategory);
 
     /// Open Lead View
     void openLead(BuildContext context, LeadModel lead) async {
-      final result = kIsMobile
+      final result = (kIsMobile || _compact)
           ? await Sheet.showSheet(context, widget: LeadsViewPage(lead: lead))
           : await GeneralDialog.showRTLSheet(
               context,
@@ -1457,18 +1473,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           Text(lead.leadEmail, style: Theme.of(context).textTheme.bodySmall),
         ),
 
-        /// Mobile No
-        dataCell(
-          context,
-          Text(
-            (lead.companyMobile?.isNotEmpty ?? false)
-                ? lead.companyMobile!
-                : (lead.clientMobile?.isNotEmpty ?? false)
-                ? lead.clientMobile!
-                : '—',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
+        /// Empty column
+        dataCell(context, const Text('')),
 
         /// Lead Value
         dataCell(
@@ -1479,17 +1485,23 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           ),
         ),
 
-        /// Source
+        /// Category
         dataCell(
           context,
           Text(
-            lead.leadSource.name,
+            leadCategory?.name ?? '',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
 
         /// Status
-        dataCell(context, _LeadStatusText(leadStatus: lead.leadStatus)),
+        dataCell(
+          context,
+          Text(
+            CacheService.leadStatusByUid(lead.leadStatus)?.name ?? '',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
 
         /// Created At
         dataCell(
@@ -1507,13 +1519,14 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         DataCell(
           Row(
             children: [
-              if (permissions?.canEdit ?? false) ...[
+              if ((permissions?.canEdit ?? false) &&
+                  (_isAdmin || lead.createdBy.uid == _currentUid)) ...[
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   color: Theme.of(context).colorScheme.primary,
                   splashRadius: 20,
                   onPressed: () {
-                    if (kIsMobile) {
+                    if (kIsMobile || _compact) {
                       Sheet.showSheet(
                         context,
                         widget: LeadEdit(uid: lead.uid ?? ''),
@@ -1528,74 +1541,27 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
               ],
 
-              if (permissions?.canEdit ?? false)
+              if (lead.leadsConverted != true)
                 IconButton(
-                icon: const Icon(Icons.autorenew_rounded),
-                tooltip: 'Convert $_pageTitle to Deal',
-                color: Theme.of(context).colorScheme.secondary,
-                splashRadius: 20,
-                onPressed: () async {
-                  final result = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => const ConfirmDialog(
-                      title: 'Convert $_pageTitle',
-                      content:
-                          'Are you sure you want to convert this lead to a deal?',
-                    ),
-                  );
-
-                  if (result == true) {
-                    await _convertLeadToDeal(context, lead);
-                  }
-                },
-              ),
-
-              if (permissions?.canDelete ?? false) ...[
-                IconButton(
-                  icon: const Icon(Iconsax.trash),
-                  color: Theme.of(context).colorScheme.error,
+                  icon: const Icon(Icons.autorenew_rounded),
+                  tooltip: 'Convert $_pageTitle to Deal',
+                  color: Theme.of(context).colorScheme.secondary,
                   splashRadius: 20,
-                  tooltip: 'Delete $_pageTitle',
                   onPressed: () async {
                     final result = await showDialog<bool>(
                       context: context,
-                      builder: (_) => ConfirmDialog(
-                        title: 'Delete $_pageTitle',
-                        content: 'Are you sure you want to delete this lead?',
+                      builder: (_) => const ConfirmDialog(
+                        title: 'Convert $_pageTitle',
+                        content:
+                            'Are you sure you want to convert this lead to a deal?',
                       ),
                     );
 
-                    if (result != true) return;
-
-                    try {
-                      final deletedLead = lead;
-
-                      await LeadService.deleteLead(uid: lead.uid ?? '');
-
-                      if (!mounted) return;
-
-                      FlushBar.show(
-                        context,
-                        '$_pageTitle deleted successfully',
-                        actionLabel: 'UNDO',
-                        onActionPressed: () async {
-                          await LeadService.restoreLead(deletedLead);
-
-                          // ✅ refresh after undo
-                          context.read<LeadBloc>().add(StreamLead());
-                        },
-                        // onDismissed: () {
-                        //   // ✅ refresh if no undo
-                        //   context.read<LeadBloc>().add(StreamLead());
-                        // },
-                      );
-                    } catch (e, st) {
-                      await ErrorService.recordError(e, st);
-                      FlushBar.show(context, e.toString(), isSuccess: false);
+                    if (result == true) {
+                      await _convertLeadToDeal(context, lead);
                     }
                   },
                 ),
-              ],
             ],
           ),
         ),

@@ -13,7 +13,9 @@ import 'package:path_provider/path_provider.dart' as path;
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/views/views.dart';
-import '/utils/src/download_io.dart' show saveFileToDownloads;
+import '/utils/src/download_io.dart'
+    if (dart.library.html) '/utils/src/download_web.dart'
+    show saveFileToDownloads;
 import '/utils/utils.dart';
 import '/services/services.dart';
 

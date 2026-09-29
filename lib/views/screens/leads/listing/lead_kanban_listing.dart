@@ -37,18 +37,11 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
-  PermissionModel? _permissions;
 
   @override
   void initState() {
     super.initState();
     _future = _initializeBoard();
-    _loadPermissions();
-  }
-
-  Future<void> _loadPermissions() async {
-    _permissions = await PermissionService.getPermissions('Leads');
-    if (mounted) setState(() {});
   }
 
   @override
@@ -155,9 +148,7 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
   Widget _buildKanbanColumn(LeadStatusModel list, List<LeadModel> leads) {
     return DragTarget<LeadModel>(
       onWillAcceptWithDetails: (details) {
-        return (_permissions?.canEdit ?? false) &&
-            details.data.uid != null &&
-            details.data.leadsConverted != true;
+        return details.data.uid != null && details.data.leadsConverted != true;
       },
       onAcceptWithDetails: (details) async {
         final lead = details.data;
@@ -233,18 +224,20 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 260,
-          height: MediaQuery.of(context).size.height * 0.78,
+          width: MediaQuery.of(context).size.width < 700
+              ? MediaQuery.of(context).size.width * 0.8
+              : 260,
+          height: MediaQuery.of(context).size.height * 0.72,
           margin: const EdgeInsets.only(right: 12.0),
           decoration: BoxDecoration(
             color: isHovering
                 ? Color(list.color).withValues(alpha: 0.1)
                 : Color(list.color).withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16.0),
+            borderRadius: BorderRadius.circular(18.0),
             border: Border.all(
               color: isHovering
                   ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
+                  : Color(list.color).withValues(alpha: 0.18),
               width: 1.5,
             ),
           ),
@@ -371,18 +364,17 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (_permissions?.canCreate ?? false)
-                    InkWell(
-                      onTap: () => Sheet.showSheet(
-                        context,
-                        widget: quickLead(context, list),
-                      ),
-                      child: const Icon(
-                        Iconsax.add_circle,
-                        size: 18,
-                        color: Colors.white,
-                      ),
+                  InkWell(
+                    onTap: () => Sheet.showSheet(
+                      context,
+                      widget: quickLead(context, list),
                     ),
+                    child: const Icon(
+                      Iconsax.add_circle,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -450,14 +442,21 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(
-                              radius: 18,
-                              backgroundColor: Color(
-                                status.color,
-                              ).withValues(alpha: 0.15),
-                              child: Icon(
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF0052D4),
+                                    Color(0xFF4364F7),
+                                    Color(0xFF6FB1FC),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
                                 Iconsax.flash_1,
-                                color: Color(status.color),
+                                color: Colors.white,
                                 size: 18,
                               ),
                             ),
@@ -657,19 +656,15 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                                 style: TextStyle(fontWeight: FontWeight.w700),
                               ),
                               style: ElevatedButton.styleFrom(
-                                elevation: 2,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimary,
+                                elevation: 0,
+                                backgroundColor: const Color(0xFF4364F7),
+                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
+                                  horizontal: 28,
+                                  vertical: 14,
                                 ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                             ),
@@ -755,48 +750,6 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
     }
 
     // Draggable card for unconverted leads
-    final cardInkWell = InkWell(
-      onTap: () async {
-        final result = kIsDesktop
-            ? await GeneralDialog.showRTLSheet(
-                context,
-                LeadsViewPage(lead: task),
-              )
-            : await Sheet.showSheet(context, widget: LeadsViewPage(lead: task));
-        if (result == 'deleted' && context.mounted) {
-          widget.onLeadDeleted?.call();
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(
-                context,
-              ).colorScheme.shadow.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(12.0),
-        child: _buildCardContent(task, list),
-      ),
-    );
-
-    // Only allow dragging (status change via drag & drop) when the role
-    // has Edit access on Leads — otherwise render a plain, non-draggable
-    // card so an unauthorized user can't reorder/convert leads by dragging.
-    if (!(_permissions?.canEdit ?? false)) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8.0),
-        child: cardInkWell,
-      );
-    }
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Draggable<LeadModel>(
@@ -843,7 +796,45 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
             ),
           ),
         ),
-        child: cardInkWell,
+        child: InkWell(
+          onTap: () async {
+            final result = kIsDesktop
+                ? await GeneralDialog.showRTLSheet(
+                    context,
+                    LeadsViewPage(lead: task),
+                  )
+                : await Sheet.showSheet(
+                    context,
+                    widget: LeadsViewPage(lead: task),
+                  );
+            if (result == 'deleted' && context.mounted) {
+              widget.onLeadDeleted?.call();
+            }
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.7),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.shadow.withValues(alpha: 0.07),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12.0),
+            child: _buildCardContent(task, list),
+          ),
+        ),
       ),
     );
   }
@@ -973,12 +964,11 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            // _chip(
-            //   CacheService.leadStatusByUid(lead.leadStatus)?.name ?? '',
-            //   AppColors.blue,
-            // ),
-            if (lead.leadSource.name.isNotEmpty && lead.leadSource.name != '')
-              _chip(lead.leadSource.name, AppColors.orange),
+            _chip(
+              CacheService.leadStatusByUid(lead.leadStatus)?.name ?? '',
+              AppColors.blue,
+            ),
+            _chip(lead.leadSource.name, AppColors.orange),
             // ElevatedButton(
             //   onPressed: () async {
             //   final originalLead = lead.copyWith();

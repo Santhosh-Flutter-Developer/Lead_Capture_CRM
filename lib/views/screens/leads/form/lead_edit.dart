@@ -1,11 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mime/mime.dart';
+import 'package:path/path.dart' as path;
 import '/models/models.dart';
 import '/utils/utils.dart';
 import '/constants/constants.dart';
 import '/services/services.dart';
 import '/views/views.dart';
+import 'lead_form_ui.dart';
 
 class LeadEdit extends StatefulWidget {
   final String uid;
@@ -16,6 +19,7 @@ class LeadEdit extends StatefulWidget {
 }
 
 class _LeadEditState extends State<LeadEdit> {
+  final ScrollController _vScroll = ScrollController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _leadNameController = TextEditingController();
@@ -40,8 +44,6 @@ class _LeadEditState extends State<LeadEdit> {
   // final bool _allowFollowUp = true;
 
   bool _showCompanyDetails = false;
-  bool _companyrefresh = false;
-  bool _contactrefresh = false;
   late Future _future;
 
   List<LeadCategoryModel> _leadCategories = [];
@@ -60,7 +62,7 @@ class _LeadEditState extends State<LeadEdit> {
   CityModel? _cityModel;
 
   late LeadModel _leadModel;
-  final List<PlatformFile> _selectedAttachments = [];
+  final List<File> _selectedAttachments = [];
   List<FileModel> _uploadedAttachments = [];
 
   final List<LeadSourceModel> _leadSource = [];
@@ -76,6 +78,8 @@ class _LeadEditState extends State<LeadEdit> {
     bool refreshSource = false,
     bool refreshCategory = false,
     bool refreshStatus = false,
+    bool refreshContact = false,
+    bool refreshCompany = false,
     bool refreshPriority = false,
   }) async {
     try {
@@ -92,6 +96,21 @@ class _LeadEditState extends State<LeadEdit> {
       if (refreshStatus) {
         _leadStatus.clear();
         _leadStatus = await LeadStatusService.getAllLeadStatus();
+        return;
+      }
+      if (refreshContact) {
+        _contacts = (await ClientService.getAllClients())
+            .where(
+              (c) =>
+                  c.isCompany == false && (c.clientName?.isNotEmpty ?? false),
+            )
+            .toList();
+        return;
+      }
+      if (refreshCompany) {
+        _clients = (await ClientService.getAllClients())
+            .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
+            .toList();
         return;
       }
       if (refreshPriority) {
@@ -121,10 +140,60 @@ class _LeadEditState extends State<LeadEdit> {
       _stateModel = _leadModel.companyState;
       _cityModel = _leadModel.companyCity;
 
+      if (_leadModel.leadCategory.isNotEmpty) {
+        try {
+          _leadCategory = await LeadCategoryService.getLeadCategory(
+            uid: _leadModel.leadCategory,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _leadCategory = await LeadCategoryService.getByNameOrCreate(
+              name: _leadModel.leadCategory,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve lead category: $_leadModel.leadCategory");
+          }
+        }
+      }
+
+      if (_leadModel.leadStatus.isNotEmpty) {
+        try {
+          _leadStatusModel = await LeadStatusService.getLeadStatus(
+            uid: _leadModel.leadStatus,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _leadStatusModel = await LeadStatusService.getByNameOrCreate(
+              name: _leadModel.leadStatus,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve lead status: $_leadModel.leadStatus");
+          }
+        }
+      }
+
+      if (_leadModel.leadPriority.isNotEmpty) {
+        try {
+          _leadPriority = await LeadPriorityService.getLeadPriority(
+            uid: _leadModel.leadPriority,
+          );
+        } catch (e) {
+          // If UID fetch fails, try by name
+          try {
+            _leadPriority = await LeadPriorityService.getByNameOrCreate(
+              name: _leadModel.leadPriority,
+            );
+          } catch (e2) {
+            debugPrint("Failed to resolve lead priority: $_leadModel.leadPriority");
+          }
+        }
+      }
+
       // _allowFollowUp = _leadModel.allowFollowUp;
       _uploadedAttachments = _leadModel.attachments;
 
-      // ── Load all lists first so name-based fallback can use them ──
       _leadCategories.clear();
       _leadPriorities.clear();
       _leadStatus.clear();
@@ -135,52 +204,6 @@ class _LeadEditState extends State<LeadEdit> {
       _leadPriorities = await LeadPriorityService.getAllLeadPriority();
       _leadStatus = await LeadStatusService.getAllLeadStatus();
       _leadSource.addAll(await LeadSourceService.getAllLeadSource());
-
-      // ── Resolve category: try by UID first, fall back to name match ──
-      // (legacy imported leads may have stored plain-text names instead of UIDs)
-      if (_leadModel.leadCategory.isNotEmpty) {
-        try {
-          _leadCategory = await LeadCategoryService.getLeadCategory(
-            uid: _leadModel.leadCategory,
-          );
-        } catch (_) {
-          _leadCategory = _leadCategories.cast<LeadCategoryModel?>().firstWhere(
-            (c) =>
-                c?.name.toLowerCase() == _leadModel.leadCategory.toLowerCase(),
-            orElse: () => null,
-          );
-        }
-      }
-
-      // ── Resolve status: try by UID first, fall back to name match ──
-      if (_leadModel.leadStatus.isNotEmpty) {
-        try {
-          _leadStatusModel = await LeadStatusService.getLeadStatus(
-            uid: _leadModel.leadStatus,
-          );
-        } catch (_) {
-          _leadStatusModel = _leadStatus.cast<LeadStatusModel?>().firstWhere(
-            (s) => s?.name.toLowerCase() == _leadModel.leadStatus.toLowerCase(),
-            orElse: () => null,
-          );
-        }
-      }
-
-      // ── Resolve priority: try by UID first, fall back to name match ──
-      if (_leadModel.leadPriority.isNotEmpty) {
-        try {
-          _leadPriority = await LeadPriorityService.getLeadPriority(
-            uid: _leadModel.leadPriority,
-          );
-        } catch (_) {
-          _leadPriority = _leadPriorities.cast<LeadPriorityModel?>().firstWhere(
-            (p) =>
-                p?.name.toLowerCase() == _leadModel.leadPriority.toLowerCase(),
-            orElse: () => null,
-          );
-        }
-      }
-
       _clients = (await ClientService.getAllClients())
           .where((c) => c.isCompany && (c.companyName?.isNotEmpty ?? false))
           .toList();
@@ -213,31 +236,9 @@ class _LeadEditState extends State<LeadEdit> {
     }
   }
 
-  List<String> _getCompanyItems() {
-    final items = _clients
-        .map((e) => e.companyName)
-        .whereType<String>()
-        .toList();
-    if (_companyNameController.text.isNotEmpty &&
-        !items.contains(_companyNameController.text)) {
-      items.insert(0, _companyNameController.text);
-    }
-    return items;
-  }
-
-  List<String> _getContactItems() {
-    final items = _contacts
-        .map((e) => e.clientName)
-        .whereType<String>()
-        .toList();
-    if (_clientName.text.isNotEmpty && !items.contains(_clientName.text)) {
-      items.insert(0, _clientName.text);
-    }
-    return items;
-  }
-
   @override
   void dispose() {
+    _vScroll.dispose();
     _leadNameController.dispose();
     _leadEmailController.dispose();
     _leadValueController.dispose();
@@ -274,13 +275,22 @@ class _LeadEditState extends State<LeadEdit> {
             } else {
               return Column(
                 children: [
-                  FormWidgets.buildHeader(
-                    context: context,
+                  LeadFormUI.header(
+                    context,
                     title: "Update Lead",
+                    subtitle: "Update this lead's details and contacts",
+                    icon: Iconsax.edit,
                   ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                    child: Scrollbar(
+                      controller: _vScroll,
+                      thumbVisibility: true,
+                      interactive: true,
+                      radius: const Radius.circular(8),
+                      thickness: 8,
+                      child: SingleChildScrollView(
+                      controller: _vScroll,
+                      padding: const EdgeInsets.all(18),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -321,14 +331,15 @@ class _LeadEditState extends State<LeadEdit> {
                         ),
                       ),
                     ),
+                    ),
                   ),
                 ],
               );
             }
           },
         ),
-        bottomNavigationBar: FormWidgets.buildBottomBar(
-          context: context,
+        bottomNavigationBar: LeadFormUI.bottomBar(
+          context,
           onSubmit: _submitForm,
           isEdit: true,
         ),
@@ -364,7 +375,7 @@ class _LeadEditState extends State<LeadEdit> {
               var files = await FilePick.pickFiles(context);
               if (files != null) {
                 if (files.isNotEmpty) {
-                  _selectedAttachments.addAll(files);
+                  _selectedAttachments.addAll(files as Iterable<File>);
                   setState(() {});
                 }
               }
@@ -379,16 +390,19 @@ class _LeadEditState extends State<LeadEdit> {
           children: [..._selectedAttachments, ..._uploadedAttachments].map((
             file,
           ) {
-            return AttachmentPill(
-              name: file is PlatformFile
-                  ? file.name
+            return Chip(
+              label: file is File
+                  ? Text(
+                      path.basename(file.path),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
                   : file is FileModel
-                  ? file.name
-                  : '',
-              onOpen: file is FileModel
-                  ? () => previewAttachment(context, file)
-                  : null,
-              onRemove: () async {
+                  ? Text(
+                      file.name,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  : const SizedBox(),
+              onDeleted: () async {
                 if (file is FileModel) {
                   try {
                     futureLoading(context);
@@ -422,50 +436,13 @@ class _LeadEditState extends State<LeadEdit> {
     Widget child, {
     bool expandable = false,
   }) {
-    return Card(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: expandable
-                  ? () => setState(
-                      () => _showCompanyDetails = !_showCompanyDetails,
-                    )
-                  : null,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  if (expandable)
-                    Icon(
-                      _showCompanyDetails
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                    ),
-                ],
-              ),
-            ),
-            if (!expandable || _showCompanyDetails) ...[
-              const SizedBox(height: 16),
-              child,
-            ],
-          ],
-        ),
-      ),
+    return LeadFormUI.sectionCard(
+      context,
+      title: title,
+      child: child,
+      expandable: expandable,
+      expanded: _showCompanyDetails,
+      onToggle: () => setState(() => _showCompanyDetails = !_showCompanyDetails),
     );
   }
 
@@ -505,7 +482,7 @@ class _LeadEditState extends State<LeadEdit> {
             hintText: 'e.g. John Doe',
             isRequired: true,
             valid: (input) =>
-                input == null || input.isEmpty ? 'Lead Name is required' : null,
+                input == null || input.isEmpty ? '* Lead Name is required' : null,
           ),
         ),
         SizedBox(
@@ -515,116 +492,129 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _leadEmailController,
             hintText: 'e.g. johndoe@example.com',
             keyboardType: TextInputType.emailAddress,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
-          width: itemWidth,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: FormDropdownSearch(
-                  key: ValueKey('lead_source_${_leadSource.length}'),
-                  initialItem: _selectedLeadSource?.name,
-                  label: 'Lead Source',
-                  items: _leadSource.map((e) => e.name).toList(),
-                  onChanged: (value) {
-                    _selectedLeadSource = _leadSource.firstWhere(
-                      (cat) => cat.name == value,
-                      orElse: () => _leadSource.first,
-                    );
-                  },
-                  validator: (value) => value == null ? "* Required" : null,
+                width: itemWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FormDropdownSearch(
+                        key: ValueKey('lead_source_${_leadSource.length}'),
+                        initialItem: _selectedLeadSource?.name,
+                        label: 'Lead Source',
+                        isRequired: true,
+                        items: _leadSource.map((e) => e.name).toList(),
+                        onChanged: (value) {
+                          _selectedLeadSource = _leadSource.firstWhere(
+                            (cat) => cat.name == value,
+                            orElse: () => _leadSource.first,
+                          );
+                        },
+                        validator: (value) =>
+                            value == null ? "* Required" : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    InkWell(
+                      onTap: () async {
+                        dynamic val;
+                        if (kIsMobile) {
+                          val = await Sheet.showSheet(
+                            context,
+                            widget: const LeadSourceCreate(),
+                          );
+                        } else {
+                          val = await GeneralDialog.showRTLSheet(
+                            context,
+                            const LeadSourceCreate(),
+                          );
+                        }
+                        if (val is Map && val["status"] == true) {
+                          await _init(refreshSource: true);
+                          setState(() {});
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Icon(Icons.add),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8.0),
-              InkWell(
-                onTap: () async {
-                  dynamic val;
-                  if (kIsMobile) {
-                    val = await Sheet.showSheet(
-                      context,
-                      widget: const LeadSourceCreate(),
-                    );
-                  } else {
-                    val = await GeneralDialog.showRTLSheet(
-                      context,
-                      const LeadSourceCreate(),
-                    );
-                  }
-                  if (val is Map && val["status"] == true) {
-                    await _init(refreshSource: true);
-                    setState(() {});
-                  }
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(5.0),
-                    child: Icon(Icons.add),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         SizedBox(
-          width: itemWidth,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: FormDropdownSearch(
-                  key: ValueKey('lead_category_${_leadCategories.length}'),
-                  label: 'Lead Category',
-                  initialItem: _leadCategory?.name,
-                  items: _leadCategories.map((e) => e.name).toList(),
-                  onChanged: (value) {
-                    _leadCategory = _leadCategories.firstWhere(
-                      (element) => element.name == value,
-                      orElse: () => _leadCategories.first,
-                    );
-                  },
-                  validator: (value) => value == null ? "* Required" : null,
+                width: itemWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FormDropdownSearch(
+                        key: ValueKey('lead_category_${_leadCategories.length}'),
+                        label: 'Lead Category',
+                        isRequired: true,
+                        initialItem: _leadCategory?.name,
+                        items: _leadCategories.map((e) => e.name).toList(),
+                        onChanged: (value) {
+                          _leadCategory = _leadCategories.firstWhere(
+                            (element) => element.name == value,
+                            orElse: () => _leadCategories.first,
+                          );
+                        },
+                        validator: (value) =>
+                            value == null ? "* Required" : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    InkWell(
+                      onTap: () async {
+                        dynamic val;
+                        if (kIsMobile) {
+                          val = await Sheet.showSheet(
+                            context,
+                            widget: const LeadCategoryCreate(),
+                          );
+                        } else {
+                          val = await GeneralDialog.showRTLSheet(
+                            context,
+                            const LeadCategoryCreate(),
+                          );
+                        }
+                        if (val is Map && val["status"] == true) {
+                          await _init(refreshCategory: true);
+                          setState(() {});
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Icon(Icons.add),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8.0),
-              InkWell(
-                onTap: () async {
-                  dynamic val;
-                  if (kIsMobile) {
-                    val = await Sheet.showSheet(
-                      context,
-                      widget: const LeadCategoryCreate(),
-                    );
-                  } else {
-                    val = await GeneralDialog.showRTLSheet(
-                      context,
-                      const LeadCategoryCreate(),
-                    );
-                  }
-                  if (val is Map && val["status"] == true) {
-                    await _init(refreshCategory: true);
-                    setState(() {});
-                  }
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(5.0),
-                    child: Icon(Icons.add),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         SizedBox(
           width: itemWidth,
           child: Row(
@@ -634,6 +624,7 @@ class _LeadEditState extends State<LeadEdit> {
                 child: FormDropdownSearch(
                   key: ValueKey('lead_priority_${_leadPriorities.length}'),
                   label: 'Lead Priority',
+                  isRequired: true,
                   initialItem: _leadPriority?.name,
                   items: _leadPriorities.map((e) => e.name).toList(),
                   onChanged: (value) {
@@ -702,58 +693,60 @@ class _LeadEditState extends State<LeadEdit> {
         //   ),
         // ),
         SizedBox(
-          width: itemWidth,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: FormDropdownSearch(
-                  key: ValueKey('lead_status_${_leadStatus.length}'),
-                  label: 'Status',
-                  initialItem: _leadStatusModel?.name,
-                  items: _leadStatus.map((e) => e.name).toList(),
-                  onChanged: (value) {
-                    _leadStatusModel = _leadStatus.firstWhere(
-                      (element) => element.name == value,
-                    );
-                  },
-                  validator: (value) => value == null ? "* Required" : null,
+                width: itemWidth,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FormDropdownSearch(
+                        key: ValueKey('lead_status_${_leadStatus.length}'),
+                        label: 'Status',
+                        isRequired: true,
+                        initialItem: _leadStatusModel?.name,
+                        items: _leadStatus.map((e) => e.name).toList(),
+                        onChanged: (value) {
+                          _leadStatusModel = _leadStatus.firstWhere(
+                            (element) => element.name == value,
+                          );
+                        },
+                        validator: (value) =>
+                            value == null ? "* Required" : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    InkWell(
+                      onTap: () async {
+                        dynamic val;
+                        if (kIsMobile) {
+                          val = await Sheet.showSheet(
+                            context,
+                            widget: const LeadStatusCreate(),
+                          );
+                        } else {
+                          val = await GeneralDialog.showRTLSheet(
+                            context,
+                            const LeadStatusCreate(),
+                          );
+                        }
+                        if (val is Map && val["status"] == true) {
+                          await _init(refreshStatus: true);
+                          setState(() {});
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5.0),
+                          child: Icon(Icons.add),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8.0),
-              InkWell(
-                onTap: () async {
-                  dynamic val;
-                  if (kIsMobile) {
-                    val = await Sheet.showSheet(
-                      context,
-                      widget: const LeadStatusCreate(),
-                    );
-                  } else {
-                    val = await GeneralDialog.showRTLSheet(
-                      context,
-                      const LeadStatusCreate(),
-                    );
-                  }
-                  if (val is Map && val["status"] == true) {
-                    await _init(refreshStatus: true);
-                    setState(() {});
-                  }
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(5.0),
-                    child: Icon(Icons.add),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         SizedBox(
           width: itemWidth,
           child: FormFields(
@@ -785,20 +778,18 @@ class _LeadEditState extends State<LeadEdit> {
       spacing: horizontalSpacing,
       runSpacing: verticalSpacing,
       children: [
-        _contactrefresh == true
-            ? SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('contact_${_contacts.length}'),
                         label: 'Name',
                         isRequired: true,
-                        initialItem:
-                            _selectedContact?.clientName ?? _clientName.text,
-                        items: _getContactItems(),
+                        initialItem: _clientName.text,
+                        items: _contacts.map((e) => e.clientName).toList(),
                         onChanged: (value) {
                           _selectedContact = _contacts
                               .cast<ClientModel?>()
@@ -806,8 +797,7 @@ class _LeadEditState extends State<LeadEdit> {
                                 (cat) => cat?.clientName == value,
                                 orElse: () => null,
                               );
-                          _clientName.text =
-                              _selectedContact?.clientName ?? value ?? '';
+                          _clientName.text = _selectedContact?.clientName ?? '';
                           _email.text = _selectedContact?.email ?? "";
                           _mobile.text = _selectedContact?.mobileNumber ?? "";
                           _salutation.text = _selectedContact?.salutation ?? '';
@@ -828,16 +818,7 @@ class _LeadEditState extends State<LeadEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _contactrefresh = true;
-                          });
-                          _contacts = (await ClientService.getAllClients())
-                              .where(
-                                (c) =>
-                                    c.isCompany == false &&
-                                    (c.clientName?.isNotEmpty ?? false),
-                              )
-                              .toList();
+                          await _init(refreshContact: true);
                           if (val["contact"] != null) {
                             _selectedContact = val["contact"];
                             _clientName.text =
@@ -848,9 +829,7 @@ class _LeadEditState extends State<LeadEdit> {
                                 _selectedContact?.salutation ?? '';
                             _gender.text = _selectedContact?.gender ?? '';
                           }
-                          setState(() {
-                            _contactrefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -883,12 +862,36 @@ class _LeadEditState extends State<LeadEdit> {
           child: FormFields(
             label: "Email",
             controller: _email,
-            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return null; // Not required
+              }
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input)) {
+                return 'Please enter a valid email';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
           width: itemWidth,
-          child: FormFields(label: "Mobile", controller: _mobile),
+          child: FormFields(
+            label: "Mobile",
+            controller: _mobile,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
+          ),
         ),
         SizedBox(
           width: itemWidth,
@@ -929,20 +932,18 @@ class _LeadEditState extends State<LeadEdit> {
         //     hintText: 'Enter Company Name',
         //   ),
         // ),
-        _companyrefresh == true
-            ? SizedBox()
-            : SizedBox(
+        SizedBox(
                 width: itemWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: FormDropdownSearch(
+                        key: ValueKey('company_${_clients.length}'),
                         label: 'Company Name',
-                        initialItem:
-                            _selectedclient?.companyName ??
-                            _companyNameController.text,
-                        items: _getCompanyItems(),
+                        isRequired: true,
+                        initialItem: _selectedclient?.companyName,
+                        items: _clients.map((e) => e.companyName).toList(),
                         onChanged: (value) {
                           _selectedclient = _clients
                               .cast<ClientModel?>()
@@ -951,7 +952,7 @@ class _LeadEditState extends State<LeadEdit> {
                                 orElse: () => null,
                               );
                           _companyNameController.text =
-                              _selectedclient?.companyName ?? value ?? '';
+                              _selectedclient?.companyName ?? '';
                           _companyWebsiteController.text =
                               _selectedclient?.officialWebsite ?? '';
                           _companyMobileController.text =
@@ -979,10 +980,7 @@ class _LeadEditState extends State<LeadEdit> {
                           val = await GeneralDialog.showRTLSheet(context, form);
                         }
                         if (val is Map && val["status"] == true) {
-                          setState(() {
-                            _companyrefresh = true;
-                          });
-                          _clients = await ClientService.getAllClients();
+                          await _init(refreshCompany: true);
                           if (val["company"] != null) {
                             _selectedclient = val["company"];
                             _companyWebsiteController.text =
@@ -997,9 +995,7 @@ class _LeadEditState extends State<LeadEdit> {
                             _companyAddressController.text =
                                 _selectedclient?.companyAddress ?? "";
                           }
-                          setState(() {
-                            _companyrefresh = false;
-                          });
+                          setState(() {});
                         }
                       },
                       child: Container(
@@ -1033,6 +1029,19 @@ class _LeadEditState extends State<LeadEdit> {
             controller: _companyMobileController,
             hintText: 'Enter Mobile Number',
             keyboardType: TextInputType.phone,
+            isRequired: true,
+            valid: (input) {
+              if (input == null || input.isEmpty) {
+                return '* Mobile is required';
+              }
+              if (!RegExp(r'^\d+$').hasMatch(input)) {
+                return 'Mobile must contain only digits';
+              }
+              if (input.length != 10) {
+                return 'Mobile must be exactly 10 digits';
+              }
+              return null;
+            },
           ),
         ),
         SizedBox(
@@ -1126,25 +1135,19 @@ class _LeadEditState extends State<LeadEdit> {
 
         List<FileModel> attachments = _uploadedAttachments;
         if (_selectedAttachments.isNotEmpty) {
-          final fileDataList = await Future.wait(
-            _selectedAttachments.map((pf) async {
-              final bytes = await platformFileToBytes(pf);
-              return (bytes: bytes, fileName: pf.name);
-            }),
-          );
-          List<String> urls = await StorageService.uploadBytesInBatch(
-            files: fileDataList,
+          List<String> urls = await StorageService.uploadFilesInBatch(
+            files: _selectedAttachments,
             folder: StorageFolder.leadAttachments,
           );
 
           for (var i = 0; i < _selectedAttachments.length; i++) {
-            final pf = _selectedAttachments[i];
-            final mimeType = lookupMimeType(pf.name) ?? '';
+            var j = _selectedAttachments[i];
+            var mimeType = lookupMimeType(j.path) ?? '';
 
             FileModel file = FileModel(
-              name: pf.name,
-              extension: pf.extension ?? '',
-              size: pf.size,
+              name: path.basename(j.path),
+              extension: path.basename(j.path).split('.').last,
+              size: j.lengthSync(),
               url: urls[i],
               mimeType: mimeType,
             );

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
@@ -7,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '/utils/utils.dart';
 import '/models/models.dart';
 import '/services/services.dart';
@@ -17,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import '/utils/src/download_io.dart'
     if (dart.library.html) '/utils/src/download_web.dart'
     show saveFileToDownloads;
+import 'package:path/path.dart' as path;
 
 class LeadsViewAppColors {
   static const Color primary = Color(0xFF2563EB);
@@ -66,7 +69,6 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   late TabController _tabController;
   String? _currentUid;
   bool _isAdmin = false;
-  PermissionModel? _permissions;
 
   @override
   void initState() {
@@ -76,12 +78,6 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
     _tabController = TabController(length: 5, vsync: this);
     _loadOwnership();
     _refreshLead();
-    _loadPermissions();
-  }
-
-  Future<void> _loadPermissions() async {
-    _permissions = await PermissionService.getPermissions('Leads');
-    if (mounted) setState(() {});
   }
 
   void _syncLeadCategory() {
@@ -111,8 +107,60 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  Future<void> _downloadAndOpenAttachment(FileModel file) async {
+    if (file.url.isEmpty) {
+      FlushBar.show(context, 'File URL is unavailable', isSuccess: false);
+      return;
+    }
+    await Download.downloadFromUrl(context, file.url, file.name);
+  }
+
+  Future<void> _openAttachmentInBrowser(FileModel file) async {
+    if (file.url.isEmpty) {
+      FlushBar.show(context, 'File URL is unavailable', isSuccess: false);
+      return;
+    }
+    final uri = Uri.tryParse(file.url);
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        FlushBar.show(context, 'Could not open file', isSuccess: false);
+      }
+    }
+  }
+
   void _previewAttachment(FileModel file) {
-    previewAttachment(context, file);
+    if (file.url.isEmpty) {
+      FlushBar.show(context, 'File URL is unavailable', isSuccess: false);
+      return;
+    }
+
+    final mime = file.mimeType.toLowerCase();
+    final ext = file.extension.toLowerCase();
+
+    final imageExtensions = [
+      "png",
+      "jpg",
+      "jpeg",
+      "webp",
+      "bmp",
+      "gif",
+      "tiff",
+    ];
+    final videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+    final audioExtensions = ['mp3', 'wav', 'aac'];
+
+    if (mime.startsWith('image/') || imageExtensions.contains(ext)) {
+      Navigate.route(context, GalleryScreen(images: [file], initialIndex: 0));
+    } else if (mime.startsWith('video/') || videoExtensions.contains(ext)) {
+      Navigate.route(context, VideoPlay(file: file));
+    } else if (mime.startsWith('audio/') || audioExtensions.contains(ext)) {
+      Navigate.route(context, AudioPlay(file: file));
+    } else if (ext == 'pdf') {
+      Navigate.route(context, _LeadPdfPreviewPage(file: file));
+    } else {
+      _openAttachmentInBrowser(file);
+    }
   }
 
   Future<void> _downloadNotes() async {
@@ -129,7 +177,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
         Navigator.pop(context);
       }
       FlushBar.show(context, 'Notes downloaded successfully', isSuccess: true);
-      if (!kIsWeb) openfile(savedPath, context);
+      if(!kIsWeb)openfile(savedPath, context);
     } catch (e, st) {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -272,7 +320,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          if (_permissions?.canEdit ?? false) ...[
+          if (_isAdmin || _lead.createdBy.uid == _currentUid) ...[
             _appBarButton(Iconsax.edit, "Edit", () async {
               if (kIsMobile || width < 1000) {
                 await Sheet.showSheet(
@@ -287,53 +335,6 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               }
               await _refreshLead();
             }),
-          ],
-          if (_isAdmin || (_permissions?.canDelete ?? false)) ...[
-            const SizedBox(width: 8),
-            _appBarButton(Iconsax.trash, "Delete", () async {
-                final result = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => const ConfirmDialog(
-                    title: 'Delete Lead',
-                    content: 'Are you sure you want to delete this lead?',
-                  ),
-                );
-
-                if (result != true) return;
-
-                try {
-                  final deletedLead = widget.lead;
-                  final isUndoPressed = ValueNotifier(false);
-                  await LeadService.deleteLead(uid: _lead.uid ?? '');
-
-                  if (!mounted) return;
-
-                  FlushBar.show(
-                    context,
-                    'Lead deleted successfully',
-                    actionLabel: 'UNDO',
-                    onActionPressed: () async {
-                      isUndoPressed.value = true;
-                      await LeadService.restoreLead(deletedLead);
-
-                      // refresh list
-                      context.read<LeadBloc>().add(StreamLead());
-
-                      Navigator.of(context).pop('restored');
-                    },
-                  );
-                  // Future.delayed(const Duration(seconds: 4), () {
-                  // if (!isUndoPressed.value && mounted) {
-                  //   Navigator.of(context).pop('deleted');
-                  // }
-                  // });
-                } catch (e, st) {
-                  await ErrorService.recordError(e, st);
-                  if (mounted) {
-                    FlushBar.show(context, e.toString(), isSuccess: false);
-                  }
-                }
-              }, isDanger: true),
           ],
           const SizedBox(width: 16),
         ],
@@ -430,10 +431,19 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
           padding: EdgeInsets.all(isMobile ? 16 : 24),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -445,17 +455,24 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     width: isMobile ? 60 : 80,
                     height: isMobile ? 60 : 80,
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
+                      gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4364F7).withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Center(
                       child: Text(
-                        _lead.leadName[0].toUpperCase(),
+                        _lead.leadName.isNotEmpty
+                            ? _lead.leadName[0].toUpperCase()
+                            : '?',
                         style: TextStyle(
                           fontSize: isMobile ? 24 : 32,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.white,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -580,11 +597,8 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
+          gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -593,7 +607,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
             Text(
               "Lead Value",
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
@@ -607,7 +621,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: Theme.of(context).colorScheme.onSurface,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -647,14 +661,17 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
     String? tooltip,
   }) {
     return InkWell(
+      borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Tooltip(
         message: tooltip,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
+            color: (color ?? Theme.of(context).colorScheme.primary).withValues(
+              alpha: 0.08,
+            ),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
@@ -695,6 +712,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       child: TabBar(
         controller: _tabController,
         isScrollable: true,
+        tabAlignment: TabAlignment.start,
         dividerColor: Colors.transparent,
         labelColor: Colors.white,
         unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -707,13 +725,11 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
         indicatorSize: TabBarIndicatorSize.tab,
 
         indicator: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
+          gradient: const LinearGradient(colors: [Color(0xFF0052D4), Color(0xFF4364F7), Color(0xFF6FB1FC)]),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.25),
+              color: const Color(0xFF4364F7).withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -839,7 +855,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-              ?trailing,
+              if (trailing != null) trailing,
             ],
           ),
           const SizedBox(height: 20),
@@ -978,6 +994,14 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
         profilePic: user.profileImageUrl,
         userType: UserType.admin,
       );
+    } else if (user is EmployeeModel) {
+      userDataModel = UserDataModel(
+        uid: userId,
+        name: user.name,
+        desc: user.email,
+        profilePic: user.profileImageUrl,
+        userType: UserType.employee,
+      );
     }
 
     return Row(
@@ -1027,61 +1051,62 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (_isAdmin)
-                        InkWell(
-                          onTap: () {
-                            showMenu(
-                              context: context,
-                              color: Theme.of(context).colorScheme.surface,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              position: const RelativeRect.fromLTRB(
-                                100,
-                                100,
-                                0,
-                                0,
-                              ),
-                              items: [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: const [
-                                      Icon(Icons.edit, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Edit'),
-                                    ],
-                                  ),
+                      InkWell(
+                        onTap: () {
+                          showMenu(
+                            context: context,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surface, // popup background
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            position: const RelativeRect.fromLTRB(
+                              100,
+                              100,
+                              0,
+                              0,
+                            ),
+                            items: [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.edit, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Edit'),
+                                  ],
                                 ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: const [
-                                      Icon(
-                                        Icons.delete,
-                                        size: 18,
-                                        color: Colors.red,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text('Delete'),
-                                    ],
-                                  ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: const [
+                                    Icon(
+                                      Icons.delete,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Delete'),
+                                  ],
                                 ),
-                              ],
-                            ).then((value) {
-                              if (value == 'edit') {
-                                _editComment(comment);
-                              } else if (value == 'delete') {
-                                _deleteComment(comment);
-                              }
-                            });
-                          },
-                          child: Icon(
-                            Iconsax.more,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 16,
-                          ),
+                              ),
+                            ],
+                          ).then((value) {
+                            if (value == 'edit') {
+                              _editComment(comment);
+                            } else if (value == 'delete') {
+                              _deleteComment(comment);
+                            }
+                          });
+                        },
+                        child: Icon(
+                          Iconsax.more,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 16,
                         ),
+                      ),
                     ],
                   ),
                 ],
@@ -1202,7 +1227,9 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
       child: BlocBuilder<LeadBloc, LeadState>(
         builder: (context, state) {
@@ -1210,7 +1237,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
             if (state.history.isEmpty) {
               return _emptyState(Iconsax.activity, "No activity logs yet");
             }
-
+    
             return SizedBox(
               height: MediaQuery.of(context).size.height * 0.55,
               child: ListView.builder(
@@ -1222,7 +1249,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               ),
             );
           }
-
+    
           return const WaitingLoading();
         },
       ),
@@ -1276,7 +1303,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    CacheService.getUserByUid(history.userId)?.name ?? 'System',
+                    "${CacheService.getUserByUid(history.userId)?.name ?? 'System'}",
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -1502,7 +1529,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: .1),
+                        color: Colors.blue.withOpacity(.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -1526,19 +1553,18 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                 ),
               ),
 
-              if (_isAdmin)
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  child: Row(
+              PopupMenuItem<String>(
+                value: 'delete',
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: .1),
+                        color: Colors.red.withOpacity(.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -1561,7 +1587,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-                ),
+              ),
             ],
           ),
         ],
@@ -1587,7 +1613,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: .1),
+                    color: Colors.red.withOpacity(.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1784,8 +1810,27 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  trailing: const Icon(Iconsax.arrow_right_3, size: 16),
-                  onTap: () => _previewAttachment(file),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // IconButton(
+                      //   icon: const Icon(Iconsax.eye, size: 18),
+                      //   tooltip: 'Preview',
+                      //   onPressed: () => _previewAttachment(file),
+                      // ),
+                      IconButton(
+                        icon: const Icon(Iconsax.document_download, size: 18),
+                        tooltip: 'Download & Open',
+                        onPressed: () => _downloadAndOpenAttachment(file),
+                      ),
+                      // IconButton(
+                      //   icon: const Icon(Iconsax.export_1, size: 16),
+                      //   tooltip: 'Open in Browser',
+                      //   onPressed: () => _openAttachmentInBrowser(file),
+                      // ),
+                    ],
+                  ),
+                  onTap: () => _downloadAndOpenAttachment(file),
                 ),
               ),
             ),
@@ -1904,15 +1949,6 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   }
 
   void _deleteComment(LeadCommentModel comment) async {
-    if (!_isAdmin) {
-      FlushBar.show(
-        context,
-        'Only admins can delete comments',
-        isSuccess: false,
-      );
-      return;
-    }
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1993,37 +2029,31 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
       );
 
       if (confirm == true) {
-        _startUpload(files);
+        _startUpload(files.cast<File>());
       }
     }
   }
 
-  void _startUpload(List<PlatformFile> files) async {
+  void _startUpload(List<File> files) async {
     try {
       futureLoading(context);
       List<FileModel> attachments = [];
 
       if (files.isNotEmpty) {
-        final fileDataList = await Future.wait(
-          files.map((pf) async {
-            final bytes = await platformFileToBytes(pf);
-            return (bytes: bytes, fileName: pf.name);
-          }),
-        );
-        List<String> urls = await StorageService.uploadBytesInBatch(
-          files: fileDataList,
+        List<String> urls = await StorageService.uploadFilesInBatch(
+          files: files,
           folder: StorageFolder.leadAttachments,
         );
 
         for (var i = 0; i < files.length; i++) {
-          final pf = files[i];
-          final mimeType = lookupMimeType(pf.name) ?? '';
+          var file = files[i];
+          var mimeType = lookupMimeType(file.path) ?? '';
 
           attachments.add(
             FileModel(
-              name: pf.name,
-              extension: pf.extension ?? '',
-              size: pf.size,
+              name: path.basename(file.path),
+              extension: path.extension(file.path).replaceAll('.', ''),
+              size: file.lengthSync(),
               url: urls[i],
               mimeType: mimeType,
             ),
@@ -2244,7 +2274,7 @@ class _ScheduleLeadActivityDialogState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor.withValues(alpha: .1),
+                      color: theme.primaryColor.withOpacity(.1),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
@@ -2419,6 +2449,35 @@ class _ScheduleLeadActivityDialogState
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LeadPdfPreviewPage extends StatelessWidget {
+  final FileModel file;
+  const _LeadPdfPreviewPage({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          file.name,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Iconsax.document_download),
+            onPressed: () =>
+                Download.downloadFromUrl(context, file.url, file.name),
+          ),
+        ],
+      ),
+      body: SfPdfViewer.network(
+        file.url,
+        canShowScrollHead: true,
+        canShowScrollStatus: true,
       ),
     );
   }
