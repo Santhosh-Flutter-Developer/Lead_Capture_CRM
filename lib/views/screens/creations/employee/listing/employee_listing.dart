@@ -557,14 +557,24 @@ final ScrollController _scrollController = ScrollController();
   }
 
   Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
-    return _EmployeeSearchField(onChanged: onSearchChanged);
+    final bool isCompact =
+        kIsMobile || MediaQuery.of(context).size.width < 1000;
+    if (!isCompact) return _EmployeeSearchField(onChanged: onSearchChanged);
+    return Row(
+      children: [
+        Expanded(child: _EmployeeSearchField(onChanged: onSearchChanged)),
+        const SizedBox(width: 10),
+        _buildRefreshButton(),
+      ],
+    );
   }
 
   Widget _buildActionRow() {
     final width = MediaQuery.of(context).size.width;
+    // Single source of truth for "mobile / narrow" layout
+    final bool isCompact = kIsMobile || width < 1000;
     return LayoutBuilder(
       builder: (context, constraints) {
-        // final bool isMobile = constraints.maxWidth < 600;
 
         final buttons = <Widget>[];
 
@@ -599,8 +609,7 @@ final ScrollController _scrollController = ScrollController();
             ),
           );
         }
-        if(width > 1000)
-        buttons.add(const SizedBox(width: 10));
+        if (!isCompact) buttons.add(const SizedBox(width: 10));
 
         // Upload Button (Gated by canImport)
         if (permissions?.canImport ?? false) {
@@ -638,7 +647,7 @@ final ScrollController _scrollController = ScrollController();
             ),
           );
 
-        buttons.add(const SizedBox(width: 8));
+        if (!isCompact) buttons.add(const SizedBox(width: 8));
 
         buttons.add(
           OutlinedButton.icon(
@@ -667,8 +676,7 @@ final ScrollController _scrollController = ScrollController();
             ),
           ),
         );
-        if(width > 1000)
-buttons.add(const SizedBox(width: 8));
+        if (!isCompact) buttons.add(const SizedBox(width: 8));
         buttons.add(
           OutlinedButton.icon(
             onPressed: () async {
@@ -697,8 +705,7 @@ buttons.add(const SizedBox(width: 8));
           ),
         );
         }
-        if(width > 1000)
-buttons.add(const SizedBox(width: 10));
+        if (!isCompact) buttons.add(const SizedBox(width: 10));
         if (permissions?.canExport ?? false) {
         buttons.add(
           ElevatedButton.icon(
@@ -866,8 +873,7 @@ buttons.add(const SizedBox(width: 10));
             ),
           ),
         );*/
-        if(width > 1000)
-buttons.add(const SizedBox(width: 10));
+        if (!isCompact) buttons.add(const SizedBox(width: 10));
         if (_selectedEmployees.isNotEmpty && (permissions?.canDelete ?? false)) {
           buttons.add(
                   ElevatedButton.icon(
@@ -985,8 +991,7 @@ buttons.add(const SizedBox(width: 10));
                   ),
           );
         }
-        if(width > 1000)
-        buttons.add(const SizedBox(width: 10));
+        if (!isCompact) buttons.add(const SizedBox(width: 10));
         if (_selectedEmployees.isNotEmpty) {
           // Chat Button
           buttons.add(
@@ -1199,6 +1204,8 @@ buttons.add(const SizedBox(width: 10));
                 _selectedEmployees.length == 1
                     ? 'Chat'
                     : 'Group Chat (${_selectedEmployees.length})',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onTertiaryContainer,
                 ),
@@ -1219,8 +1226,7 @@ buttons.add(const SizedBox(width: 10));
               ),
             ),
           );
-          if(width > 1000)
-buttons.add(const SizedBox(width: 10));
+          if (!isCompact) buttons.add(const SizedBox(width: 10));
           if (tasksPermissions?.canCreate ?? false) {
           buttons.add(
                 ElevatedButton.icon(
@@ -1258,67 +1264,66 @@ buttons.add(const SizedBox(width: 10));
           }
         }
 
-        return Column(
+        // ---------- MOBILE / NARROW: neat 2-column grid ----------
+        // Every button gets the SAME width and height so rows line up.
+        // (Refresh button lives next to the search field on mobile.)
+        if (isCompact) {
+          const double spacing = 10.0;
+          final double itemWidth = (constraints.maxWidth - spacing) / 2;
+          return Wrap(
+            spacing: spacing,
+            runSpacing: 10,
+            children: buttons
+                // skip desktop-only spacer boxes so they never become empty cells
+                .where((b) => b is! SizedBox)
+                .map(
+                  (b) => SizedBox(
+                    width: itemWidth,
+                    height: 44,
+                    child: b,
+                  ),
+                )
+                .toList(),
+          );
+        }
+
+        // ---------- DESKTOP / WIDE: single scrollable row + refresh ----------
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: kIsMobile || width < 1000
-                      ? LayoutBuilder(
-                          builder: (context, innerConstraints) {
-                            const double spacing = 10.0;
-                            final double minItemWidth =
-                                (innerConstraints.maxWidth - spacing) / 2;
-                            return Wrap(
-                              spacing: spacing,
-                              runSpacing: 10,
-                              children: buttons
-                                  .map(
-                                    (b) => ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        minWidth: minItemWidth,
-                                      ),
-                                      child: b,
-                                    ),
-                                  )
-                                  .toList(),
-                            );
-                          },
-                        )
-                      : SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(children: buttons),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Tooltip(
-                  message: "Refresh",
-                  child: Material(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _refreshUsers,
-                      child: Padding(
-                        padding: const EdgeInsets.all(11),
-                        child: Icon(
-                          Iconsax.refresh,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: buttons),
+              ),
             ),
+            const SizedBox(width: 8),
+            _buildRefreshButton(),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildRefreshButton() {
+    return Tooltip(
+      message: "Refresh",
+      child: Material(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _refreshUsers,
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Icon(
+              Iconsax.refresh,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
