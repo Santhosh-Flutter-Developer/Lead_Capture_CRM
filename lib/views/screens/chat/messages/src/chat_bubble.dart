@@ -748,7 +748,10 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
         if (url != null && widget.message.attachments.isEmpty) ...[
           UrlPreview(url: url, isSender: widget.isSender),
         ] else if (widget.message.attachments.isNotEmpty) ...[
-          AttachmentPreview(attachments: widget.message.attachments),
+          AttachmentPreview(
+            attachments: widget.message.attachments,
+            isSender: widget.isSender,
+          ),
         ],
       ],
     );

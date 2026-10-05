@@ -8,7 +8,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   downloadsfolder
   file_selector_windows
   firebase_core
-  firebase_database
   firebase_storage
   flutter_window_close
   geolocator_windows

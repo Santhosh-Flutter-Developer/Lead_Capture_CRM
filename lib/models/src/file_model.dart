@@ -15,6 +15,16 @@ class FileModel {
   final String mimeType;
   final DateTime? createdAt;
 
+  /// True for WhatsApp-style voice notes recorded in the chat composer.
+  /// Older messages don't have this field and default to false.
+  final bool isVoice;
+
+  /// Length of a voice note in milliseconds (0 when unknown).
+  final int durationMs;
+
+  /// Downsampled loudness bars (0-100) used to draw the voice-note waveform.
+  final List<int> waveform;
+
   FileModel({
     required this.name,
     required this.url,
@@ -22,6 +32,9 @@ class FileModel {
     required this.extension,
     required this.mimeType,
     this.createdAt,
+    this.isVoice = false,
+    this.durationMs = 0,
+    this.waveform = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +45,9 @@ class FileModel {
       'extension': extension,
       'mimeType': mimeType,
       "createdAt": createdAt?.millisecondsSinceEpoch,
+      if (isVoice) 'isVoice': true,
+      if (durationMs > 0) 'durationMs': durationMs,
+      if (waveform.isNotEmpty) 'waveform': waveform,
     };
   }
 
@@ -49,6 +65,13 @@ class FileModel {
       createdAt: map['createdAt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'])
           : null,
+      isVoice: map['isVoice'] == true,
+      durationMs: parseFirestoreInt(map['durationMs']) ?? 0,
+      waveform: map['waveform'] is List
+          ? (map['waveform'] as List)
+                .map((e) => e is num ? e.toInt() : 0)
+                .toList()
+          : const [],
     );
   }
 }

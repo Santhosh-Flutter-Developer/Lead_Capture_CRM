@@ -419,7 +419,7 @@ class ChatService {
         } else if (mime.startsWith('video')) {
           lastMsg = "🎥 Video";
         } else if (mime.startsWith('audio')) {
-          lastMsg = "🎵 Audio";
+          lastMsg = files.first.isVoice ? "🎤 Voice message" : "🎵 Audio";
         } else {
           lastMsg = "📄 Document";
         }

@@ -12,6 +12,7 @@ export 'src/open_file.dart';
 export 'src/attachment_preview.dart';
 export 'src/platform.dart';
 export 'src/audio_recorder.dart';
+export 'src/voice_recorder.dart';
 export 'src/pick_image.dart';
 export 'src/color_picker.dart';
 export 'src/app_package_info.dart';

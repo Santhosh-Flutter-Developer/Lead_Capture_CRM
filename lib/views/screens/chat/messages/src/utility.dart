@@ -85,7 +85,14 @@ class UrlPreview extends StatelessWidget {
 /// Renders a preview for file attachments (images, videos, audio, etc.).
 class AttachmentPreview extends StatelessWidget {
   final List<FileModel> attachments;
-  const AttachmentPreview({super.key, required this.attachments});
+
+  /// Only used to tint inline voice messages (sent vs received).
+  final bool isSender;
+  const AttachmentPreview({
+    super.key,
+    required this.attachments,
+    this.isSender = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +116,7 @@ class AttachmentPreview extends StatelessWidget {
               "tiff",
             ];
             final videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
-            final audioExtensions = ['mp3', 'wav', 'aac'];
+            final audioExtensions = ['mp3', 'wav', 'aac', 'm4a'];
 
             if (mime.startsWith('image/') || imageExtensions.contains(ext)) {
               return _buildImage(e, context);
@@ -118,6 +125,13 @@ class AttachmentPreview extends StatelessWidget {
               return _buildVideo(e, context);
             } else if (mime.startsWith('audio/') ||
                 audioExtensions.contains(ext)) {
+              if (e.isVoice) {
+                return VoiceMessagePlayer(
+                  key: ValueKey(e.url),
+                  file: e,
+                  isSender: isSender,
+                );
+              }
               return _buildAudio(e, context);
             } else {
               return _buildDocument(e, context);

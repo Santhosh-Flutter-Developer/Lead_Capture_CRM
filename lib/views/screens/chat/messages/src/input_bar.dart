@@ -90,8 +90,27 @@ class _ChatInputBarState extends State<ChatInputBar> {
   MessageProvider? _messageProvider;
   bool _isReply = false;
   bool _isEdit = false;
-  bool _isRecording = false;
   MessagesModel? _chat;
+
+  // ── Voice message state ───────────────────────────────────────────────
+  final VoiceRecorder _voice = VoiceRecorder();
+
+  /// A touch press-and-hold recording is in progress.
+  bool _voiceHeld = false;
+
+  /// The finger has slid far enough left that releasing will cancel.
+  bool _voiceWillCancel = false;
+  double _voiceDragDx = 0;
+  bool _voiceFinishing = false;
+  int _voiceUploads = 0;
+
+  static const double _cancelDistance = 110;
+  static const double _lockDistance = 80;
+
+  bool get _voiceActive =>
+      _voice.state == VoiceRecorderState.recording ||
+      _voice.state == VoiceRecorderState.paused ||
+      _voiceHeld;
   // String? replyForName;
   // String? replyForAvatar;
 
@@ -169,7 +188,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
     setState(() {
       _isReply = _messageProvider?.isReply ?? false;
       _isEdit = _messageProvider?.isEdit ?? false;
-      _isRecording = _messageProvider?.isRecording ?? false;
       _chat = _messageProvider?.chat;
     });
 
@@ -356,80 +374,183 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   void dispose() {
     _messageProvider?.removeListener(_onMessageProviderChange);
+    _voice.dispose();
     _controller.dispose();
     focusNode.dispose();
     super.dispose();
   }
 
-  Timer? _timer;
+  // ───────────────────────────────────────────────────────────────────
+  // Voice messages (WhatsApp style)
+  //
+  //  • Touch devices: press & hold the mic, release to send, slide left to
+  //    cancel, slide up to lock hands-free. A quick tap also starts a
+  //    locked recording.
+  //  • Desktop / web (mouse): click the mic to start, click send to send,
+  //    trash to cancel, pause to pause.
+  // ───────────────────────────────────────────────────────────────────
 
-  String _formatDuration(int seconds) {
-    final duration = Duration(seconds: seconds);
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final secs = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$secs';
-  }
+  Future<void> _beginVoice({required bool held}) async {
+    if (_voice.isActive || _voiceFinishing) return;
+    setState(() {
+      _voiceHeld = held;
+      _voiceWillCancel = false;
+      _voiceDragDx = 0;
+    });
+    if (_isTouchPlatform()) HapticFeedback.mediumImpact();
 
-  void _startRecording() async {
-    var messageProvider = Provider.of<MessageProvider>(context, listen: false);
-    messageProvider.startRecording();
-    await AudioRecorder.startRecording();
-    _startTimer();
-  }
-
-  void _stopRecording() async {
-    var messageProvider = Provider.of<MessageProvider>(context, listen: false);
-    messageProvider.stopRecording();
-    var output = await AudioRecorder.stopRecording();
-    if (output != null && output.isNotEmpty) {
-      final name = 'recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      // AudioRecorder.stopRecording() returns a file path on native
-      // platforms and a browser blob: URL on web.
-      if (!kIsWeb) {
-        _pickedFiles.add(PlatformFile(
-          name: name,
-          size: 0,
-          path: output,
-        ));
-      } else {
-        try {
-          // blob: URLs are only readable from within the browser that
-          // created them, so fetch the bytes now while the URL is alive,
-          // then wrap them as a PlatformFile so _uploadFiles can upload
-          // them the same way it uploads any other web-picked file.
-          final response = await http.get(Uri.parse(output));
-          if (response.statusCode == 200) {
-            _pickedFiles.add(PlatformFile(
-              name: name,
-              size: response.bodyBytes.length,
-              bytes: response.bodyBytes,
-            ));
-          } else {
-            throw Exception(
-              'Failed to read recorded audio (status ${response.statusCode})',
-            );
-          }
-        } catch (e, st) {
-          await ErrorService.recordError(e, st);
-          if (mounted) {
-            FlushBar.show(context, e.toString(), isSuccess: false);
-          }
-        }
-      }
+    final ok = await _voice.start();
+    if (!ok && mounted) {
+      setState(() => _voiceHeld = false);
+      FlushBar.show(
+        context,
+        _voice.lastError ?? 'Could not start recording',
+        isSuccess: false,
+      );
     }
-    _stopTimer();
-    setState(() {});
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {});
+  void _onVoiceMove(LongPressMoveUpdateDetails d) {
+    if (!_voiceHeld) return;
+    final dx = d.offsetFromOrigin.dx;
+    final dy = d.offsetFromOrigin.dy;
+
+    if (dy < -_lockDistance) {
+      // Slid up: keep recording hands-free.
+      HapticFeedback.selectionClick();
+      setState(() {
+        _voiceHeld = false;
+        _voiceWillCancel = false;
+        _voiceDragDx = 0;
+      });
+      return;
+    }
+
+    final willCancel = dx < -_cancelDistance;
+    if (willCancel != _voiceWillCancel) HapticFeedback.selectionClick();
+    setState(() {
+      _voiceDragDx = dx.clamp(-_cancelDistance * 1.4, 0.0);
+      _voiceWillCancel = willCancel;
     });
   }
 
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
+  void _onVoiceHoldEnd() {
+    if (!_voiceHeld) return; // locked: the user finishes with the buttons
+    _finishVoice(send: !_voiceWillCancel);
+  }
+
+  Future<void> _finishVoice({required bool send}) async {
+    if (_voiceFinishing) return;
+    _voiceFinishing = true;
+    final elapsed = _voice.elapsed;
+    if (mounted) {
+      setState(() {
+        _voiceHeld = false;
+        _voiceWillCancel = false;
+        _voiceDragDx = 0;
+      });
+    }
+
+    try {
+      if (!send) {
+        await _voice.cancel();
+        return;
+      }
+      final recording = await _voice.stop();
+      if (recording == null) {
+        if (mounted && elapsed < VoiceRecorder.minDuration) {
+          FlushBar.show(
+            context,
+            'Hold the mic and speak, then release to send',
+            isSuccess: false,
+          );
+        }
+        return;
+      }
+      // Don't block the composer while uploading.
+      unawaited(_sendVoiceMessage(recording));
+    } finally {
+      _voiceFinishing = false;
+    }
+  }
+
+  Future<void> _sendVoiceMessage(VoiceRecording recording) async {
+    if (!mounted) return;
+    final uid = ChatData.of(context).uid;
+    final replyId = _isReply ? _chat?.uid : null;
+    final threadId = widget.threadId;
+
+    // Voice message consumes the pending reply, like a normal message.
+    _messageProvider?.clearMessage();
+
+    setState(() => _voiceUploads++);
+    try {
+      final Uint8List bytes;
+      if (kIsWeb) {
+        // `blob:` URLs only work inside this browser tab, so read the bytes
+        // now and upload them like any other picked file.
+        final response = await http.get(Uri.parse(recording.path));
+        if (response.statusCode != 200) {
+          throw Exception(
+            'Failed to read recorded audio (status ${response.statusCode})',
+          );
+        }
+        bytes = response.bodyBytes;
+      } else {
+        bytes = await File(recording.path).readAsBytes();
+      }
+
+      final ext = recording.extension;
+      final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final url = await StorageService.uploadBytes(
+        bytes: bytes,
+        fileName: fileName,
+        folder: StorageFolder.chats,
+      );
+
+      final file = FileModel(
+        url: url,
+        name: fileName,
+        size: (bytes.length / 1024).round(),
+        extension: ext,
+        mimeType: _getMimeType(ext),
+        createdAt: DateTime.now(),
+        isVoice: true,
+        durationMs: recording.duration.inMilliseconds,
+        waveform: recording.waveform,
+      );
+
+      await ChatService.sendChatMessage(
+        chatId: uid,
+        message: '',
+        attachments: [file],
+        replyFor: replyId,
+        mentions: const [],
+        threadId: threadId,
+      );
+      ChatService.sendNotification(
+        chatId: uid,
+        message: '🎤 Voice message',
+        isChat: true,
+      );
+
+      if (!kIsWeb) {
+        try {
+          await File(recording.path).delete();
+        } catch (_) {}
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (mounted) {
+        FlushBar.show(
+          context,
+          'Failed to send voice message. Please try again.',
+          isSuccess: false,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _voiceUploads--);
+    }
   }
 
   late final FocusNode focusNode;
@@ -479,10 +600,25 @@ class _ChatInputBarState extends State<ChatInputBar> {
       children: [
           if (_isReply) _replyMessage(_chat, context, _messageProvider),
           if (_isEdit) _editMessage(_chat, context, _messageProvider),
-          if (_isRecording) _recording(),
+          if (_voiceUploads > 0)
+            LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           if (_pickedFiles.isNotEmpty) _pickedFilesView(),
-          Row(
+          ListenableBuilder(
+            listenable: _voice,
+            builder: (context, _) {
+              // Auto-stop at the maximum length.
+              if (_voice.reachedMax && !_voiceFinishing) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _finishVoice(send: true);
+                });
+              }
+              return Row(
             children: [
+              if (!_voiceActive)
               IconButton(
                 icon: Icon(
                   Icons.add_circle_outline,
@@ -517,7 +653,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 },
               ),
               Expanded(
-                child: Column(
+                child: _voiceActive
+                    ? _voiceBar(context)
+                    : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_showMentionList) _mentionList(),
@@ -605,40 +743,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   ],
                 ),
               ),
-              if (!hasText && _pickedFiles.isEmpty) ...[
-                if (kIsMobile) ...[
-                  if (!_isRecording) ...[
-                    IconButton(
-                      icon: Icon(
-                        Icons.mic_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      onPressed: _startRecording,
-                    ),
-                  ] else ...[
-                    IconButton(
-                      icon: const Icon(Icons.stop_rounded, color: AppColors.danger),
-                      onPressed: _stopRecording,
-                    ),
-                  ],
-                ],
-              ] else
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Iconsax.send_2,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      size: 18,
-                    ),
-                    onPressed: () async => await _sendMessage(),
-                  ),
-                ),
+              _trailingAction(context),
             ],
+          );
+            },
           ),
         ],
       );
@@ -1293,76 +1401,211 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 
-  Padding _recording() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: SizedBox(
-        height: 70,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(10),
-              topRight: Radius.circular(10),
+  // ── Voice UI ────────────────────────────────────────────────────────
+
+  /// The slot at the right of the composer: send-message button, mic, or the
+  /// send-voice button while a locked recording is running.
+  Widget _trailingAction(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Hands-free recording: this button sends the voice message.
+    if (_voiceActive && !_voiceHeld) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+        child: IconButton(
+          tooltip: 'Send voice message',
+          icon: Icon(Iconsax.send_2, color: cs.onPrimary, size: 18),
+          onPressed: () => _finishVoice(send: true),
+        ),
+      );
+    }
+
+    final showMic = !hasText && _pickedFiles.isEmpty && !_isEdit;
+    if (!showMic) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+        child: IconButton(
+          icon: Icon(Iconsax.send_2, color: cs.onPrimary, size: 18),
+          onPressed: () async => await _sendMessage(),
+        ),
+      );
+    }
+
+    final touch = _isTouchPlatform();
+    return GestureDetector(
+      key: const ValueKey('voice_mic_button'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _beginVoice(held: false),
+      // Press-and-hold is touch-only; with a mouse a slow click would
+      // otherwise start (and instantly discard) a hold recording.
+      onLongPressStart: touch ? (_) => _beginVoice(held: true) : null,
+      onLongPressMoveUpdate: touch ? _onVoiceMove : null,
+      onLongPressEnd: touch ? (_) => _onVoiceHoldEnd() : null,
+      onLongPressCancel: touch
+          ? () {
+              if (_voiceHeld) _finishVoice(send: false);
+            }
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: AnimatedScale(
+          scale: _voiceHeld ? 1.7 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _voiceHeld
+                  ? (_voiceWillCancel ? cs.outline : AppColors.danger)
+                  : cs.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(
-                  context,
-                ).colorScheme.shadow.withValues(alpha: 0.1),
-                offset: const Offset(0, -3),
-                blurRadius: 6,
-                spreadRadius: -1,
+            child: Tooltip(
+              message: touch ? 'Hold to record' : 'Record voice message',
+              child: Icon(
+                Icons.mic_rounded,
+                size: 22,
+                color: _voiceHeld ? Colors.white : cs.primary,
               ),
-            ],
-            color: Theme.of(context).cardTheme.color,
+            ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
+        ),
+      ),
+    );
+  }
+
+  /// Replaces the text field while a voice message is being recorded.
+  Widget _voiceBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final paused = _voice.isPaused;
+
+    // Blinking red dot (steady when paused).
+    final blinkOn = paused || (_voice.elapsed.inMilliseconds ~/ 500) % 2 == 0;
+
+    final timer = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedOpacity(
+          opacity: blinkOn ? 1 : 0.25,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: paused ? cs.outline : AppColors.danger,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _formatVoiceDuration(_voice.elapsed),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+
+    Widget middle;
+    if (_voiceHeld) {
+      // Press-and-hold: show the slide-to-cancel hint.
+      final fade = (1 - (_voiceDragDx.abs() / _cancelDistance)).clamp(0.2, 1.0);
+      middle = Expanded(
+        child: Transform.translate(
+          offset: Offset(_voiceDragDx / 2, 0),
+          child: Opacity(
+            opacity: fade,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 6,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(10),
+                Icon(Icons.chevron_left, size: 18, color: cs.onSurfaceVariant),
+                Flexible(
+                  child: Text(
+                    _voiceWillCancel ? 'Release to cancel' : 'Slide to cancel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: _voiceWillCancel
+                          ? AppColors.danger
+                          : cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Recording Audio",
-                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Timer display
-                      SizedBox(
-                        width: double.infinity, // Force width constraint
-                        child: Text(
-                          _formatDuration(_timer?.tick ?? 0),
-                          style: Theme.of(context).textTheme.bodyMedium!
-                              .copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 15,
+                  color: cs.onSurfaceVariant,
+                ),
+                Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  size: 15,
+                  color: cs.onSurfaceVariant,
                 ),
               ],
             ),
           ),
         ),
+      );
+    } else {
+      // Locked / desktop: live waveform.
+      middle = Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: SizedBox(
+            height: 28,
+            child: CustomPaint(
+              painter: _WaveformPainter(
+                levels: _voice.liveLevels,
+                progress: 1,
+                activeColor: paused ? cs.outline : cs.primary,
+                inactiveColor: cs.outline,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 48,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: theme.inputDecorationTheme.fillColor,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: cs.outline.withValues(alpha: 0.5),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (!_voiceHeld)
+            IconButton(
+              tooltip: 'Discard',
+              icon: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              onPressed: () => _finishVoice(send: false),
+            )
+          else
+            const SizedBox(width: 8),
+          timer,
+          middle,
+          if (!_voiceHeld)
+            IconButton(
+              tooltip: paused ? 'Resume' : 'Pause',
+              icon: Icon(
+                paused ? Icons.mic_rounded : Icons.pause_rounded,
+                color: paused ? AppColors.danger : cs.onSurfaceVariant,
+              ),
+              onPressed: paused ? _voice.resume : _voice.pause,
+            ),
+        ],
       ),
     );
   }
