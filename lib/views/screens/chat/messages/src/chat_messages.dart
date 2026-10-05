@@ -30,6 +30,7 @@ import '/theme/theme.dart';
 part 'chat_data.dart';
 part 'chat_bubble.dart';
 part 'group_viewed_by_indicator.dart';
+part 'reaction_users_viewer.dart';
 part 'input_bar.dart';
 part 'chat_options.dart';
 part 'chat_top_bar.dart';

@@ -39,6 +39,7 @@ class _ChatBubbleState extends State<ChatBubble>
   late MessagesModel _msg;
   MessagesModel? _replyChat;
   bool _isAdmin = false;
+  String? _currentUid;
 
   @override
   void initState() {
@@ -47,6 +48,12 @@ class _ChatBubbleState extends State<ChatBubble>
     _isPinned = _msg.isPinned;
     _initReplyMessage();
     _checkAdmin();
+    _loadCurrentUid();
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid = await Spdb.getUid();
+    if (mounted && uid != _currentUid) setState(() => _currentUid = uid);
   }
 
   Future<void> _checkAdmin() async {
@@ -346,6 +353,7 @@ class _ChatBubbleState extends State<ChatBubble>
                 onHorizontalDragEnd: _onHorizontalDragEnd,
                 onLongPress: _showMobileChatOptions,
                 onReactionTap: _onReactionTap,
+                currentUserId: _currentUid,
                 onOpenChat: widget.onOpenChat,
               ),
             ),
@@ -368,6 +376,7 @@ class _ChatBubbleCore extends StatelessWidget {
   final ValueChanged<DragEndDetails> onHorizontalDragEnd;
   final VoidCallback onLongPress;
   final Function(String)? onReactionTap;
+  final String? currentUserId;
   final Function(ChatModel chat, String opponentUid)? onOpenChat;
 
   const _ChatBubbleCore({
@@ -382,6 +391,7 @@ class _ChatBubbleCore extends StatelessWidget {
     required this.onHorizontalDragEnd,
     required this.onLongPress,
     this.onReactionTap,
+    this.currentUserId,
     this.onOpenChat,
   });
 
@@ -471,6 +481,7 @@ class _ChatBubbleCore extends StatelessWidget {
                             child: _ReactionChips(
                               reactions: message.reactions,
                               isSender: isSender,
+                              currentUserId: currentUserId,
                               onTap: onReactionTap,
                             ),
                           ),
@@ -849,54 +860,50 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
   }
 }
 
-class _ReactionChips extends StatefulWidget {
+class _ReactionChips extends StatelessWidget {
   final Map<String, List<String>> reactions;
   final bool isSender;
+  final String? currentUserId;
   final Function(String)? onTap;
   const _ReactionChips({
     required this.reactions,
     required this.isSender,
+    this.currentUserId,
     this.onTap,
   });
 
   @override
-  State<_ReactionChips> createState() => _ReactionChipsState();
-}
-
-class _ReactionChipsState extends State<_ReactionChips> {
-  @override
   Widget build(BuildContext context) {
     // reactions = { "😂": ["u1","u2"], "❤️": ["u3"] }
-    final counts = <String, int>{};
-
-    for (var entry in widget.reactions.entries) {
-      final emoji = entry.key;
-      final users = entry.value;
-      counts[emoji] = users.length; // number of reactions for that emoji
-    }
+    final entries = reactions.entries.where((e) => e.value.isNotEmpty).toList();
+    final touchUi = _useTouchReactionUi();
 
     return Wrap(
-      alignment: widget.isSender ? WrapAlignment.end : WrapAlignment.start,
+      alignment: isSender ? WrapAlignment.end : WrapAlignment.start,
       spacing: 4,
       runSpacing: 4,
-      children: counts.entries.map((entry) {
-        return GestureDetector(
-          onTap: () => widget.onTap?.call(entry.key),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).cardTheme.color!,
-                width: 2,
-              ),
-            ),
-            child: Text(
-              "${entry.key} ${entry.value > 1 ? entry.value : ''}",
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
+      children: entries.map((entry) {
+        return _ReactionChip(
+          key: ValueKey('reaction_${entry.key}'),
+          emoji: entry.key,
+          users: entry.value,
+          isSender: isSender,
+          currentUserId: currentUserId,
+          // Mouse: click toggles your reaction, hover shows who reacted.
+          // Touch: tap opens the "who reacted" sheet (own entry removable).
+          onTap: () {
+            if (touchUi) {
+              _showReactionUsersSheet(
+                context,
+                reactions: reactions,
+                currentUserId: currentUserId,
+                initialEmoji: entry.key,
+                onRemoveOwn: (emoji) => onTap?.call(emoji),
+              );
+            } else {
+              onTap?.call(entry.key);
+            }
+          },
         );
       }).toList(),
     );
