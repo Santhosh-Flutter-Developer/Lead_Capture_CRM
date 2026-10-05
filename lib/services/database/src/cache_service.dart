@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import '/services/services.dart';
 import '/models/models.dart';
 
@@ -71,7 +72,7 @@ class CacheService {
   Future<void> init() async {
     if (_isInitialized) return;
 
-    await Hive.initFlutter('lead_capture_crm');
+    await _initHive();
     await _openBoxes();
     await _initSyncScheduler();
 
@@ -79,22 +80,42 @@ class CacheService {
     debugPrint("CacheService initialized");
   }
 
+  /// On desktop, `Hive.initFlutter()` uses the Documents folder, which on
+  /// Windows is often redirected to OneDrive. OneDrive locks the `.lock`
+  /// files Hive creates (errno 32/33), so no box can open. Use the local,
+  /// non-synced app-support folder (AppData) on desktop instead.
+  Future<void> _initHive() async {
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      await Hive.initFlutter('lead_capture_crm');
+      return;
+    }
+    final dir = await getApplicationSupportDirectory();
+    Hive.init('${dir.path}/lead_capture_crm');
+  }
+
   Future<void> _openBoxes() async {
     for (var conf in _config.values) {
-      if (Hive.isBoxOpen(conf.boxName)) continue;
-      try {
-        await Hive.openBox<Map<dynamic, dynamic>>(conf.boxName);
-      } catch (e, st) {
-        debugPrint("Failed to open box ${conf.boxName}: $e");
-        await ErrorService.recordError(e, st);
-      }
+      await _openBoxSafely<Map<dynamic, dynamic>>(conf.boxName);
     }
-    if (!Hive.isBoxOpen(_metaBox)) {
+    await _openBoxSafely<dynamic>(_metaBox);
+  }
+
+  /// Opens a box, retrying briefly if the file is locked by another process
+  /// (e.g. a previous instance that is still shutting down).
+  Future<void> _openBoxSafely<T>(String name) async {
+    if (Hive.isBoxOpen(name)) return;
+    for (var attempt = 1; attempt <= 3; attempt++) {
       try {
-        await Hive.openBox(_metaBox);
+        await Hive.openBox<T>(name);
+        return;
       } catch (e, st) {
-        debugPrint("Failed to open meta box: $e");
-        await ErrorService.recordError(e, st);
+        debugPrint("Failed to open box $name (attempt $attempt): $e");
+        if (attempt == 3) {
+          await ErrorService.recordError(e, st);
+        } else {
+          await Future.delayed(Duration(milliseconds: 300 * attempt));
+        }
       }
     }
   }
@@ -362,6 +383,8 @@ class CacheService {
   }
 
   DateTime? getLastSyncTime() {
+    // Box may be unavailable if it failed to open; don't crash the UI.
+    if (!Hive.isBoxOpen(_metaBox)) return null;
     final metaBox = Hive.box(_metaBox);
     final ts = metaBox.get('lastSync');
     if (ts == null) return null;
