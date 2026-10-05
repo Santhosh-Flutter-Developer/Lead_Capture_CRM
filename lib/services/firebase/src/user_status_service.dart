@@ -1,30 +1,56 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import '/models/models.dart';
 
 class UserStatusService {
-  static final _statusRef = FirebaseFirestore.instance.collection(
-    "user_status",
-  );
+  /// Realtime Database listeners crash the Windows runner (native C++ SDK
+  /// delivers callbacks from a non-platform thread). Presence is skipped on
+  /// Windows until the plugin is stable there.
+  static bool get _unsupported =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+  // Lazy: don't touch FirebaseDatabase.instance at all on Windows.
+  static FirebaseDatabase get _database => FirebaseDatabase.instance;
 
   static Future<void> setOnline(String uid) async {
-    await _statusRef.doc(uid).set({
-      "isOnline": true,
-      "lastSeen": FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    if (uid.isEmpty || _unsupported) return;
+
+    final presenceRef = _database.ref("status/$uid");
+    final connectedRef = _database.ref(".info/connected");
+
+    connectedRef.onValue.listen((event) async {
+      final connected = event.snapshot.value as bool? ?? false;
+      if (connected) {
+        await presenceRef.onDisconnect().set({
+          "isOnline": false,
+          "lastSeen": ServerValue.timestamp,
+        });
+
+        await presenceRef.set({
+          "isOnline": true,
+          "lastSeen": ServerValue.timestamp,
+        });
+      }
+    });
   }
 
   static Future<void> setOffline(String uid) async {
-    await _statusRef.doc(uid).set({
+    if (uid.isEmpty || _unsupported) return;
+    await _database.ref("status/$uid").set({
       "isOnline": false,
-      "lastSeen": FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      "lastSeen": ServerValue.timestamp,
+    });
   }
 
   static Stream<UserStatusModel?> streamStatus(String uid) {
-    if (uid.isEmpty) return const Stream.empty();
-    return _statusRef
-        .doc(uid)
-        .snapshots()
-        .map((doc) => doc.exists ? UserStatusModel.fromMap(doc.data()!) : null);
+    if (uid.isEmpty || _unsupported) return const Stream.empty();
+    return _database.ref("status/$uid").onValue.map((event) {
+      final data = event.snapshot.value;
+      if (data != null && data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        return UserStatusModel.fromMap(map);
+      }
+      return null;
+    });
   }
 }
