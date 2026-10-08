@@ -110,21 +110,32 @@ class _GroupViewedByIndicatorState extends State<GroupViewedByIndicator> {
           child: OverlayPortal(
             controller: _overlayController,
             overlayChildBuilder: (BuildContext context) {
-              return CompositedTransformFollower(
-                link: _layerLink,
-                showWhenUnlinked: false,
-                // Anchor the popup above the indicator (it sits right at
-                // the bottom of the conversation, just above the
-                // composer, so there's no room to show it below).
-                targetAnchor: Alignment.topRight,
-                followerAnchor: Alignment.bottomRight,
-                offset: const Offset(0, -6),
-                child: Align(
-                  alignment: Alignment.topRight,
+              // The overlay hands its child TIGHT, screen-sized
+              // constraints. The outer top-left `Align` loosens them so
+              // the follower (and the popup inside it) is sized by its own
+              // content instead of stretching across the whole screen.
+              // The follower's position comes from the layer link, not
+              // from where it sits inside this `Align`.
+              return Align(
+                alignment: Alignment.topLeft,
+                child: CompositedTransformFollower(
+                  link: _layerLink,
+                  showWhenUnlinked: false,
+                  // Popup's bottom-right sits on the indicator's top-right
+                  // (the indicator is just above the composer, so there is
+                  // no room below).
+                  targetAnchor: Alignment.topRight,
+                  followerAnchor: Alignment.bottomRight,
                   child: MouseRegion(
                     onEnter: (_) => _overlayController.show(),
                     onExit: (_) => _overlayController.hide(),
-                    child: _GroupViewedByPopup(seenBy: viewers),
+                    // Gap is padding INSIDE the MouseRegion so the pointer
+                    // can move from the label to the popup without it
+                    // closing.
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: _GroupViewedByPopup(seenBy: viewers),
+                    ),
                   ),
                 ),
               );
