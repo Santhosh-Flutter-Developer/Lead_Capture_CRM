@@ -269,77 +269,74 @@ class NotificationService {
     try {
       final notification = message.notification;
       final data = message.data;
+      debugPrint('🔔 [NOTIF] showNotification called, data=$data');
       final type = data['type'];
       final chatId = data['chatId'];
-      final senderName = notification?.title ?? 'Unknown';
-      final messageText = notification?.body ?? data['body'] ?? 'New message';
-      final senderImageUrl = data['senderImageUrl'];
+      final bool isGroupChat = data['isGroupChat'] == 'true';
+      final String chatTitle = (data['chatTitle'] ?? '').toString().trim();
+      String rawBody =
+          (notification?.body ?? data['body'] ?? 'New message').toString();
+
+      // Pushes are data-only, so `notification` is null and the old
+      // `notification?.title ?? 'Unknown'` always fell through to 'Unknown'.
+      // Resolve the real sender name from the payload instead.
+      String senderName = (data['senderName'] ?? '').toString().trim();
+      if (senderName.isEmpty && isGroupChat) {
+        // Older payloads: group body is "<sender>: <message>".
+        final idx = rawBody.indexOf(': ');
+        if (idx > 0) senderName = rawBody.substring(0, idx).trim();
+      }
+      if (senderName.isEmpty && !isGroupChat) {
+        senderName =
+            (notification?.title ?? data['title'] ?? '').toString().trim();
+      }
+      if (senderName.isEmpty) senderName = chatTitle;
+      if (senderName.isEmpty) senderName = 'New message';
+
+      // Sender name is shown separately by MessagingStyle, so drop the
+      // "<sender>: " prefix that group bodies carry.
+      String messageText = rawBody;
+      final prefix = '$senderName: ';
+      if (isGroupChat && messageText.startsWith(prefix)) {
+        messageText = messageText.substring(prefix.length);
+      }
 
       if (type == 'chat' && chatId != null) {
-        String? avatarPath = await downloadAvatarCircular(
-          senderImageUrl,
-          'sender_$chatId',
-        );
-
-        final groupKey = 'chat_$chatId';
-        final bool isUserReply = data['isReply'] == 'true';
-
-        final me = Person(name: 'You');
-        final senderPerson = Person(
-          name: isUserReply ? 'You' : senderName,
-          icon: avatarPath != null
-              ? BitmapFilePathAndroidIcon(avatarPath)
-              : null,
-        );
-
-        final newMessage = Message(messageText, DateTime.now(), senderPerson);
-        _messageHistory.putIfAbsent(groupKey, () => []);
-        _messageHistory[groupKey]!.add(newMessage);
-
-        final style = MessagingStyleInformation(
-          me,
-          messages: _messageHistory[groupKey] ?? [],
-          conversationTitle: data['chatTitle'],
-          groupConversation: false,
-        );
-
-        final notificationDetails = NotificationDetails(
-          android: AndroidNotificationDetails(
-            'chat_channel',
-            'Chat Messages',
-            channelDescription: 'All chat messages',
-            styleInformation: style,
-            importance: Importance.max,
-            priority: Priority.high,
-            groupKey: groupKey,
-            onlyAlertOnce: true,
-            actions: [
-              const AndroidNotificationAction(
-                'REPLY_ACTION_KEY',
-                'Quick Reply',
-                showsUserInterface: true,
-                allowGeneratedReplies: true,
-                inputs: [
-                  AndroidNotificationActionInput(label: 'Type reply...'),
-                ],
+        try {
+          await _showChatNotification(
+            data: data,
+            chatId: chatId.toString(),
+            senderName: senderName,
+            messageText: messageText,
+            chatTitle: chatTitle,
+            isGroupChat: isGroupChat,
+          );
+        } catch (e, st) {
+          // Never lose the notification: fall back to a plain one.
+          debugPrint('❌ [NOTIF] chat style failed: $e\n$st');
+          await ErrorService.recordError(e, st);
+          await _localNotifications.show(
+            chatId.hashCode,
+            chatTitle.isNotEmpty ? chatTitle : senderName,
+            isGroupChat ? '$senderName: $messageText' : messageText,
+            const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'chat_channel',
+                'Chat Messages',
+                channelDescription: 'All chat messages',
+                importance: Importance.max,
+                priority: Priority.high,
               ),
-            ],
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-            categoryIdentifier: 'REPLY_CATEGORY',
-          ),
-        );
-
-        await _localNotifications.show(
-          groupKey.hashCode,
-          null,
-          null,
-          notificationDetails,
-          payload: json.encode({...data, 'isReply': 'true'}),
-        );
+              iOS: DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+                categoryIdentifier: 'REPLY_CATEGORY',
+              ),
+            ),
+            payload: json.encode({...data, 'isReply': 'true'}),
+          );
+        }
         return;
       }
 
@@ -368,6 +365,81 @@ class NotificationService {
     }
   }
 
+  Future<void> _showChatNotification({
+    required Map<String, dynamic> data,
+    required String chatId,
+    required String senderName,
+    required String messageText,
+    required String chatTitle,
+    required bool isGroupChat,
+  }) async {
+    String? avatarPath = await downloadAvatarCircular(
+      data['senderImageUrl'],
+      'sender_$chatId',
+    );
+
+    final groupKey = 'chat_$chatId';
+    final bool isUserReply = data['isReply'] == 'true';
+
+    final me = Person(name: 'You');
+    final senderPerson = Person(
+      name: isUserReply ? 'You' : senderName,
+      icon: avatarPath != null
+          ? BitmapFilePathAndroidIcon(avatarPath)
+          : null,
+    );
+
+    final newMessage = Message(messageText, DateTime.now(), senderPerson);
+    _messageHistory.putIfAbsent(groupKey, () => []);
+    _messageHistory[groupKey]!.add(newMessage);
+
+    final style = MessagingStyleInformation(
+      me,
+      messages: _messageHistory[groupKey] ?? [],
+      conversationTitle: chatTitle.isNotEmpty ? chatTitle : null,
+      groupConversation: isGroupChat,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'chat_channel',
+        'Chat Messages',
+        channelDescription: 'All chat messages',
+        styleInformation: style,
+        importance: Importance.max,
+        priority: Priority.high,
+        groupKey: groupKey,
+        onlyAlertOnce: true,
+        actions: [
+          const AndroidNotificationAction(
+            'REPLY_ACTION_KEY',
+            'Quick Reply',
+            showsUserInterface: true,
+            allowGeneratedReplies: true,
+            inputs: [
+              AndroidNotificationActionInput(label: 'Type reply...'),
+            ],
+          ),
+        ],
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        categoryIdentifier: 'REPLY_CATEGORY',
+      ),
+    );
+
+    await _localNotifications.show(
+      groupKey.hashCode,
+      null,
+      null,
+      notificationDetails,
+      payload: json.encode({...data, 'isReply': 'true'}),
+    );
+    debugPrint('🔔 [NOTIF] chat notification shown for $groupKey');
+  }
+
   Future<void> _replyMessage(
     Map<String, dynamic> message,
     String typedDataFromInput,
@@ -383,6 +455,7 @@ class NotificationService {
             "type": "chat",
             "chatId": message["chatId"],
             "chatTitle": message["chatTitle"],
+            "isGroupChat": message["isGroupChat"] ?? "false",
             "isReply": "true",
           },
           notification: RemoteNotification(

@@ -65,6 +65,9 @@ class PostNotificationService {
     try {
       final String? serverKey = await _getAccessToken();
 
+      debugPrint(
+        '📤 [PUSH] serverKey=${serverKey != null}, tokens=${model.toFcms.length}, type=${model.type?.name}',
+      );
       // Try to send push notification if server key is available
       if (serverKey != null && model.toFcms.isNotEmpty) {
         String endpointFirebaseCloudMessaging =
@@ -107,7 +110,12 @@ class PostNotificationService {
             );
 
             if (response.statusCode == 200) {
-              debugPrint(response.body);
+              debugPrint('✅ [PUSH] sent OK: ${response.body}');
+            } else {
+              debugPrint(
+                '❌ [PUSH] FCM rejected (${response.statusCode}) for token '
+                '${element.substring(0, element.length > 12 ? 12 : element.length)}…: ${response.body}',
+              );
             }
           } catch (e) {
             debugPrint("Push notification failed for token $element: $e");

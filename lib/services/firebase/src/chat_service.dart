@@ -533,6 +533,8 @@ class ChatService {
                 "chatTitle": chat.isGroupChat
                     ? (chat.title ?? 'Group Chat')
                     : name,
+                "senderName": name.toString(),
+                "isGroupChat": chat.isGroupChat ? "true" : "false",
                 "senderImageUrl": user.profilePic,
               }
             : {},
