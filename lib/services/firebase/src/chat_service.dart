@@ -258,14 +258,14 @@ class ChatService {
   }) async {
     try {
       final cid = await Spdb.getCid();
-      final uid = await Spdb.getUid();
 
-      final messageRef = firebase.users
+      final chatRef = firebase.users
           .doc(cid)
           .collection(Collections.chats.name)
-          .doc(chatId)
-          .collection(Collections.messages.name)
-          .doc(messageId);
+          .doc(chatId);
+
+      final messageRef =
+          chatRef.collection(Collections.messages.name).doc(messageId);
 
       final doc = await messageRef.get(
         const GetOptions(source: Source.serverAndCache),
@@ -273,31 +273,31 @@ class ChatService {
 
       if (!doc.exists) return null;
 
-      final data = doc.data()!;
-      final message = MessagesModel.fromMap(doc.id, data);
+      final message = MessagesModel.fromMap(doc.id, doc.data()!);
 
-      // ✅ STEP 1: mark message as deleted for user
-      await messageRef.update({
-        "deletedFor": FieldValue.arrayUnion([uid]),
-      });
-
-      // ✅ STEP 2: check if this is LAST MESSAGE
-      final chatRef = firebase.users
-          .doc(cid)
-          .collection(Collections.chats.name)
-          .doc(chatId);
-
+      // Read participants so the message is hidden for everyone
       final chatDoc = await chatRef.get();
       final chatData = chatDoc.data();
+      final participants = List<String>.from(
+        chatData?['participants'] ?? <String>[],
+      );
 
+      // ✅ STEP 1: delete for everyone (sender + all receivers)
+      final everyone = <String>{
+        ...participants,
+        ...message.receiverId,
+        message.senderId,
+      }.where((e) => e.isNotEmpty).toList();
+
+      await messageRef.update({
+        "deletedFor": FieldValue.arrayUnion(everyone),
+      });
+
+      // ✅ STEP 2: if this was the LAST MESSAGE, move lastMessage back
       final lastMessage = chatData?['lastMessage'];
 
       if (lastMessage != null && lastMessage['messageId'] == messageId) {
-        // ✅ STEP 3: find next valid message
-        final messagesSnapshot = await firebase.users
-            .doc(cid)
-            .collection(Collections.chats.name)
-            .doc(chatId)
+        final messagesSnapshot = await chatRef
             .collection(Collections.messages.name)
             .orderBy('timestamp', descending: true)
             .limit(20)
@@ -305,17 +305,17 @@ class ChatService {
 
         MessagesModel? newLast;
 
-        for (var doc in messagesSnapshot.docs) {
-          final data = doc.data();
-          final msg = MessagesModel.fromMap(doc.id, data);
+        for (var d in messagesSnapshot.docs) {
+          final msg = MessagesModel.fromMap(d.id, d.data());
 
-          if (!msg.deletedFor.contains(uid)) {
+          // skip deleted messages and thread replies
+          if (msg.deletedFor.isEmpty && msg.threadId == null) {
             newLast = msg;
             break;
           }
         }
 
-        // ✅ STEP 4: update lastMessage
+        // ✅ STEP 3: update lastMessage
         await chatRef.update({
           "lastMessage": newLast != null
               ? LastMessageModel(
