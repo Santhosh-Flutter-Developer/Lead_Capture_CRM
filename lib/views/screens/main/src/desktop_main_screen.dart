@@ -3,10 +3,12 @@ part of 'main_screen.dart';
 class DesktopMainScreen extends StatefulWidget {
   final bool isAdmin;
   final String? selectedMenu;
+  final String? selectedChatUid;
   const DesktopMainScreen({
     super.key,
     required this.isAdmin,
     this.selectedMenu,
+    this.selectedChatUid,
   });
 
   @override
@@ -35,6 +37,11 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
   void initState() {
     _future = _init();
     _selectedMenu = widget.selectedMenu ?? 'Dashboard';
+    _pendingChatUid = widget.selectedChatUid;
+    // Open any chat parked from a notification tap that arrived before the UI.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.markAppReady();
+    });
     // WidgetsBinding.instance.addObserver(this);
     super.initState();
   }
@@ -111,10 +118,13 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
   }
 
   String _selectedMenu = 'Dashboard';
+  // Chat to pre-select when opened from a notification tap (used once).
+  String? _pendingChatUid;
 
   void _onMenuItemSelected(String title) async {
     setState(() {
       _selectedMenu = title;
+      _pendingChatUid = null;
     });
     RecentActivityService().addActivity(page: _selectedMenu);
   }
@@ -169,7 +179,11 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
       case 'Tickets':
         return const TicketsListing();
       case 'Chats':
-        return ChatListing(currentUserUid: _currentUserUid);
+        return ChatListing(
+          key: ValueKey('chats_${_pendingChatUid ?? ''}'),
+          currentUserUid: _currentUserUid,
+          selectedChatUid: _pendingChatUid,
+        );
       case 'Calendar':
         return const CalendarEventScreen();
       case 'Developer Area':

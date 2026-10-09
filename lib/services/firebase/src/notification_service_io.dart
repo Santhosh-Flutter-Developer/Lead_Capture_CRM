@@ -97,3 +97,9 @@ Future<void> clearAvatarCacheNative() async {
     await ErrorService.recordError(e, st);
   }
 }
+
+/// Not used outside web.
+void listenForNotificationClicks(void Function(Map<String, dynamic>) onClick) {}
+
+/// Web-only diagnostics; no-op elsewhere.
+Future<void> diagnoseServiceWorker() async {}

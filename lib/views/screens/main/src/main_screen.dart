@@ -13,7 +13,13 @@ part 'desktop_main_screen.dart';
 class MainScreen extends StatelessWidget {
   final bool isAdmin;
   final String? selectedMenu;
-  const MainScreen({super.key, required this.isAdmin, this.selectedMenu});
+  final String? selectedChatUid;
+  const MainScreen({
+    super.key,
+    required this.isAdmin,
+    this.selectedMenu,
+    this.selectedChatUid,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +27,11 @@ class MainScreen extends StatelessWidget {
     if (kIsMobile || width < 1000) {
       return MobileMainScreen(isAdmin: isAdmin);
     } else {
-      return DesktopMainScreen(isAdmin: isAdmin, selectedMenu: selectedMenu);
+      return DesktopMainScreen(
+        isAdmin: isAdmin,
+        selectedMenu: selectedMenu,
+        selectedChatUid: selectedChatUid,
+      );
     }
   }
 }

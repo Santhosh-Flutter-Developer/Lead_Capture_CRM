@@ -26,6 +26,7 @@ import 'package:leadcapture/views/screens/calendar/form/event_view.dart';
 import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
+import '/utils/utils.dart' hide timeago;
 import '/views/views.dart';
 import '/app/app.dart';
 
@@ -86,6 +87,23 @@ class NotificationService {
   /// Call this on web instead of initalize().
   /// Requests browser notification permission and sets up message handlers.
   Future<void> initializeForWeb() async {
+    // Set up notification-click handling FIRST, independent of permission /
+    // token requests below (they can fail or stall, e.g. blocked permission).
+    try {
+      // Tab already open: the service worker tells it which chat was clicked.
+      listenForNotificationClicks((data) => _handleBackgroundMessage(data));
+      diagnoseServiceWorker(); // prints SW status to the console (no await)
+
+      // Notification click on web opens the app as /?notifType=chat&chatId=..
+      final q = Uri.base.queryParameters;
+      debugPrint('🔔 [NOTIF] web init, url params=$q');
+      if (q['notifType'] == 'chat' && (q['chatId'] ?? '').isNotEmpty) {
+        _handleBackgroundMessage({'type': 'chat', 'chatId': q['chatId']});
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
+
     try {
       // Request permission — shows browser permission prompt
       await _messaging.requestPermission(
@@ -111,12 +129,6 @@ class NotificationService {
           .getInitialMessage();
       if (initialMessage != null) {
         _handleBackgroundMessage(initialMessage.data);
-      }
-
-      // Notification click on web opens the app as /?notifType=chat&chatId=..
-      final q = Uri.base.queryParameters;
-      if (q['notifType'] == 'chat' && (q['chatId'] ?? '').isNotEmpty) {
-        _handleBackgroundMessage({'type': 'chat', 'chatId': q['chatId']});
       }
     } catch (e, st) {
       debugPrint('❌ FCM initializeForWeb error: $e');
@@ -158,8 +170,19 @@ class NotificationService {
             ),
           ],
         ),
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 8),
         behavior: SnackBarBehavior.floating,
+        // Tapping "Open" goes to the exact chat / event (the tab is already
+        // in front, so no service-worker click is involved here).
+        action: const ['chat', 'eventStarted', 'eventReminder'].contains(
+              message.data['type'],
+            )
+            ? SnackBarAction(
+                label: 'Open',
+                textColor: Colors.white,
+                onPressed: () => _handleBackgroundMessage(message.data),
+              )
+            : null,
       ),
     );
   }
@@ -525,11 +548,24 @@ class NotificationService {
   }
 
   /// Public entry for platforms with their own click handlers (Windows).
-  void openFromPayload(Map<String, dynamic> payload) =>
-      _handleBackgroundMessage(payload);
+  /// Opens immediately (no ready-gate): the app is already running.
+  void openFromPayload(Map<String, dynamic> payload) {
+    debugPrint('🔔 [NOTIF] openFromPayload $payload');
+    if (navigatorKey.currentState == null) {
+      _pendingPayload = payload;
+      return;
+    }
+    _openFromPayload(payload);
+  }
 
   void _handleBackgroundMessage(Map<String, dynamic> message) {
-    if (!_appReady || navigatorKey.currentState == null) {
+    debugPrint('🔔 [NOTIF] open requested: $message');
+    // The app is already running for every runtime tap (banner "Open",
+    // notification click, onMessageOpenedApp), so open straight away. Only
+    // park the payload when there is no navigator yet (cold start). It used
+    // to also wait for _appReady, which stays false after a fresh login
+    // (login navigates itself), so those taps were silently dropped.
+    if (navigatorKey.currentState == null) {
       _pendingPayload = message;
       return;
     }
@@ -545,7 +581,35 @@ class NotificationService {
       if (navigator == null) return;
 
       final uid = await Spdb.getUid();
+      debugPrint(
+        '🔔 [NOTIF] _openFromPayload type=${message['type']} '
+        'chatId=${message['chatId']} uid=$uid',
+      );
       if (uid == null || uid.isEmpty) return; // not logged in
+
+      // Wide layouts (Windows / web / tablets) show chats inside the sidebar
+      // shell, not as a pushed screen, so open MainScreen on the Chats menu
+      // with this chat pre-selected. Mirrors MainScreen's own breakpoint.
+      final ctx = navigatorKey.currentContext;
+      final double width = ctx != null ? MediaQuery.of(ctx).size.width : 0;
+      final bool wideLayout = !kIsMobile && width >= 1000;
+      debugPrint('🔔 [NOTIF] width=$width wideLayout=$wideLayout');
+      if (message['type'] == 'chat' && wideLayout) {
+        final chatId = (message['chatId'] ?? '').toString();
+        if (chatId.isEmpty) return;
+        final isAdmin = await Spdb.isAdminLoggedIn();
+        navigator.pushAndRemoveUntil(
+          CupertinoPageRoute(
+            builder: (_) => MainScreen(
+              isAdmin: isAdmin,
+              selectedMenu: 'Chats',
+              selectedChatUid: chatId,
+            ),
+          ),
+          (route) => false,
+        );
+        return;
+      }
 
       if (resetStack) {
         bool isAdmin = await Spdb.isAdminLoggedIn();
