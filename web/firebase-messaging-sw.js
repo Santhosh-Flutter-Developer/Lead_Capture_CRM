@@ -62,19 +62,31 @@ messaging.onBackgroundMessage(function (payload) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
 
+  // Open the exact chat when the push carries one.
+  var data = event.notification.data || {};
+  var target = '/';
+  if (data.type === 'chat' && data.chatId) {
+    target = '/?notifType=chat&chatId=' + encodeURIComponent(data.chatId);
+  }
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(function (windowClients) {
-        // If a tab is already open, focus it
+        // If a tab is already open, reload it at the chat URL and focus it
         for (var i = 0; i < windowClients.length; i++) {
           var client = windowClients[i];
           if ('focus' in client) {
+            if (target !== '/' && 'navigate' in client) {
+              return client.navigate(target).then(function (c) {
+                return c ? c.focus() : client.focus();
+              });
+            }
             return client.focus();
           }
         }
         // Otherwise open a new tab
         if (clients.openWindow) {
-          return clients.openWindow('/');
+          return clients.openWindow(target);
         }
       })
   );

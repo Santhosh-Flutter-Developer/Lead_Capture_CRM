@@ -61,6 +61,15 @@ class FirestoreNotificationListener {
                     await windowManager.focus();
                     await windowManager.show();
 
+                    // Chat notification → open that exact chat.
+                    final payload = data?['payload'];
+                    if (payload is Map && payload['type'] == 'chat') {
+                      NotificationService.instance.openFromPayload(
+                        Map<String, dynamic>.from(payload),
+                      );
+                      return;
+                    }
+
                     var navigator = navigatorKey.currentState;
                     if (navigator == null) return;
                     bool isAdmin = await Spdb.isAdminLoggedIn();

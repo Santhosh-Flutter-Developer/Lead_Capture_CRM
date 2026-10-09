@@ -112,6 +112,12 @@ class NotificationService {
       if (initialMessage != null) {
         _handleBackgroundMessage(initialMessage.data);
       }
+
+      // Notification click on web opens the app as /?notifType=chat&chatId=..
+      final q = Uri.base.queryParameters;
+      if (q['notifType'] == 'chat' && (q['chatId'] ?? '').isNotEmpty) {
+        _handleBackgroundMessage({'type': 'chat', 'chatId': q['chatId']});
+      }
     } catch (e, st) {
       debugPrint('❌ FCM initializeForWeb error: $e');
       await ErrorService.recordError(e, st);
@@ -167,6 +173,7 @@ class NotificationService {
       await _requestPermission();
       await setupFlutterNotifications();
       await _setupMessageHandlers();
+      await _checkLaunchedFromNotification();
     } catch (e, st) {
       await ErrorService.recordError(e, st);
     }
@@ -485,35 +492,121 @@ class NotificationService {
     }
   }
 
-  void _handleBackgroundMessage(Map<String, dynamic> message) async {
-    var navigator = navigatorKey.currentState;
-    if (navigator == null) return;
-    bool isAdmin = await Spdb.isAdminLoggedIn();
+  // ── Notification tap routing ──────────────────────────────────────────────
+  // A tap can arrive before the UI exists (app was killed / in recents), so
+  // the payload is parked here and opened once the app reports it is ready.
+  Map<String, dynamic>? _pendingPayload;
+  bool _appReady = false;
 
-    navigator.pushAndRemoveUntil(
-      CupertinoPageRoute(builder: (_) => MainScreen(isAdmin: isAdmin)),
-      (route) => false,
-    );
+  /// Android/iOS: if the app was cold-started by tapping a local notification,
+  /// onDidReceiveNotificationResponse is NOT called, so read the launch payload.
+  Future<void> _checkLaunchedFromNotification() async {
+    try {
+      final details = await _localNotifications
+          .getNotificationAppLaunchDetails();
+      if (details?.didNotificationLaunchApp ?? false) {
+        final response = details!.notificationResponse;
+        if (response?.actionId == 'REPLY_ACTION_KEY') return;
+        final payload = convertPayload(response?.payload ?? '{}');
+        if (payload.isNotEmpty) _pendingPayload = payload;
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
+  }
 
-    await Future.delayed(const Duration(milliseconds: 200));
+  /// Called by the app once the main screen is on screen.
+  void markAppReady() {
+    _appReady = true;
+    final pending = _pendingPayload;
+    if (pending == null) return;
+    _pendingPayload = null;
+    _openFromPayload(pending, resetStack: false);
+  }
 
-    if (message['type'] == 'chat') {
-      var uid = await Spdb.getUid();
-      var chat = json.decode(message['chat']);
-      var chatModel = ChatModel.fromMap(chat["uid"], chat);
-      navigator.push(
-        CupertinoPageRoute(
-          builder: (context) => ChatMessages(
-            chat: chatModel,
-            currentUser: uid ?? '',
-            opponentUid: '',
-            onOpenChat: null,
-          ),
-        ),
-      );
+  /// Public entry for platforms with their own click handlers (Windows).
+  void openFromPayload(Map<String, dynamic> payload) =>
+      _handleBackgroundMessage(payload);
+
+  void _handleBackgroundMessage(Map<String, dynamic> message) {
+    if (!_appReady || navigatorKey.currentState == null) {
+      _pendingPayload = message;
       return;
     }
+    _openFromPayload(message);
+  }
 
+  Future<void> _openFromPayload(
+    Map<String, dynamic> message, {
+    bool resetStack = true,
+  }) async {
+    try {
+      final navigator = navigatorKey.currentState;
+      if (navigator == null) return;
+
+      final uid = await Spdb.getUid();
+      if (uid == null || uid.isEmpty) return; // not logged in
+
+      if (resetStack) {
+        bool isAdmin = await Spdb.isAdminLoggedIn();
+        navigator.pushAndRemoveUntil(
+          CupertinoPageRoute(builder: (_) => MainScreen(isAdmin: isAdmin)),
+          (route) => false,
+        );
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      if (message['type'] == 'chat') {
+        final chatId = (message['chatId'] ?? '').toString();
+        ChatModel? chatModel;
+
+        try {
+          final raw = message['chat'];
+          if (raw is String && raw.isNotEmpty) {
+            final map = json.decode(raw) as Map<String, dynamic>;
+            chatModel = ChatModel.fromMap(
+              chatId.isNotEmpty ? chatId : (map['uid'] ?? '').toString(),
+              map,
+            );
+          }
+        } catch (_) {
+          chatModel = null;
+        }
+        if (chatModel == null && chatId.isNotEmpty) {
+          chatModel = await ChatService.getChat(uid: chatId);
+        }
+        if (chatModel == null) return;
+
+        // The OTHER participant (this was '' before, which opened the
+        // "Saved messages" style header instead of the sender's chat).
+        final opponentUid = chatModel.participants.firstWhere(
+          (id) => id != uid,
+          orElse: () => '',
+        );
+
+        navigator.push(
+          CupertinoPageRoute(
+            builder: (context) => ChatMessages(
+              chat: chatModel!,
+              currentUser: uid,
+              opponentUid: opponentUid,
+              onOpenChat: null,
+            ),
+          ),
+        );
+        return;
+      }
+
+      await _openOtherNotification(message, navigator);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
+  }
+
+  Future<void> _openOtherNotification(
+    Map<String, dynamic> message,
+    NavigatorState navigator,
+  ) async {
     if (message['type'] == 'eventStarted' ||
         message['type'] == 'eventReminder') {
       final eventId = message['eventId'];

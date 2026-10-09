@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:leadcapture/views/components/src/show_dialog.dart';
 import 'package:provider/provider.dart';
 // import '../../utils/src/tray_stub.dart';
+import '/services/services.dart';
 import '/views/views.dart';
 import '/utils/utils.dart';
 import '/theme/theme.dart';
@@ -78,6 +79,16 @@ class _AppState extends State<App> {
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, child) {
           Widget home = authProvider.homeWidget ?? const Splash();
+
+          // Once the logged-in main screen is showing, let the notification
+          // service open any chat the user tapped on (cold start from a
+          // notification).
+          final ready = authProvider.homeWidget;
+          if (ready is MainScreen || ready is RouteScreen) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              NotificationService.instance.markAppReady();
+            });
+          }
 
           // On Windows native: no PopScope (window_close handles it).
           // On web AND mobile: wrap with PopScope for back-button / browser

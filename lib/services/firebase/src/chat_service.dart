@@ -546,6 +546,16 @@ class ChatService {
     }
   }
 
+  /// Public, non-throwing chat lookup (used when opening a chat from a
+  /// notification tap). Returns null if the chat can't be loaded.
+  static Future<ChatModel?> getChat({required String uid}) async {
+    try {
+      return await _getChat(uid: uid);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<ChatModel> _getChat({required String uid}) async {
     try {
       var cid = await Spdb.getCid();
