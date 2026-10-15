@@ -264,6 +264,10 @@ class DealService {
       List<DealStatusModel> dealStatusList =
           await DealStatusService.getAllDealStatus();
 
+      // No deal statuses configured yet: there are no columns to group into.
+      // (Calling `.first` on an empty list below would throw "No element".)
+      if (dealStatusList.isEmpty) return {};
+
       Map<DealStatusModel, List<DealModel>> groupedDeals = {
         for (var status in dealStatusList) status: [],
       };

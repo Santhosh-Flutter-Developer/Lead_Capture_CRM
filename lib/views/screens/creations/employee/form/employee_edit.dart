@@ -1145,10 +1145,9 @@ _scrollController.dispose();
             label: 'Email',
             controller: _emailController,
             hintText: 'Enter Email',
-            isRequired: isAdmin,
+            isRequired: true,
             prefixIcon: const Icon(Iconsax.sms, size: 18),
-            valid: (input) =>
-                Validation.validEmail(input: input, isReq: isAdmin),
+            valid: (input) => Validation.validEmail(input: input, isReq: true),
           ),
         ),
         SizedBox(

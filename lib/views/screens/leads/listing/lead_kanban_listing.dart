@@ -12,10 +12,12 @@ import '/utils/utils.dart';
 class LeadKanbanListing extends StatefulWidget {
   final List<LeadModel> leadList;
   final VoidCallback? onLeadDeleted;
+  final VoidCallback? onLeadConverted;
   const LeadKanbanListing({
     super.key,
     required this.leadList,
     this.onLeadDeleted,
+    this.onLeadConverted,
   });
 
   @override
@@ -299,13 +301,17 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-      Navigate.route(
+      // Not awaited: the board updates its own state right after this call.
+      // When the deal form closes, ask the parent to reload the leads.
+      Navigate.routeForResult(
         context,
         DealCreate(
           isFromLead: true,
           prefillDeal: DealModel.fromMap(lead.uid ?? '', dealData),
         ),
-      );
+      ).then((_) {
+        if (mounted) widget.onLeadConverted?.call();
+      });
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       if (Navigator.canPop(context)) {

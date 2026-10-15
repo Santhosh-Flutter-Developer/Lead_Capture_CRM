@@ -153,6 +153,11 @@ class _DealKanbanListingState extends State<DealKanbanListing> {
           return const WaitingLoading();
         } else if (snapshot.hasError) {
           return ErrorDisplay(error: snapshot.error.toString());
+        } else if (_dealList.isEmpty) {
+          return const NoData(
+            text:
+                'No deal statuses found. Add a deal status first to use the board.',
+          );
         } else {
           return Container(
             color: Theme.of(context).scaffoldBackgroundColor,

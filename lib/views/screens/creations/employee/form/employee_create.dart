@@ -898,12 +898,9 @@ class _EmployeeCreateState extends State<EmployeeCreate> {
             label: 'Email',
             controller: _emailController,
             hintText: 'Enter Email',
-            isRequired: isAdmin ? true : false,
+            isRequired: true,
             prefixIcon: const Icon(Iconsax.sms, size: 18),
-            valid: (input) => Validation.validEmail(
-              input: input,
-              isReq: isAdmin ? true : false,
-            ),
+            valid: (input) => Validation.validEmail(input: input, isReq: true),
           ),
         ),
         SizedBox(

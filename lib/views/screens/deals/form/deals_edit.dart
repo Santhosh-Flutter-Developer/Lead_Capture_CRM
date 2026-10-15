@@ -859,7 +859,9 @@ class _DealEditState extends State<DealEdit> {
         if (clientId != null) {
           await ClientService.editClient(client: clientModel, uid: clientId);
         } else {
-          clientId = await ClientService.createClient(client: clientModel);
+          clientId = await ClientService.getOrCreateClient(
+            client: clientModel,
+          );
         }
 
         final dealModel = _dealModel.copyWith(

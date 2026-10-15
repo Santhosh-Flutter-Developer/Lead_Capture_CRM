@@ -807,7 +807,9 @@ class _DealCreateState extends State<DealCreate> {
           isCompany: true,
         );
 
-        var clientId = await ClientService.createClient(client: clientModel);
+        var clientId = await ClientService.getOrCreateClient(
+          client: clientModel,
+        );
 
         final dealModel = DealModel(
           dealName: _dealNameController.text.trim(),

@@ -95,15 +95,18 @@ class DealStatusService {
   static Future<List<DealStatusModel>> getAllDealStatus() async {
     try {
       var cid = await Spdb.getCid();
+      // No server-side orderBy: Firestore leaves out documents that lack the
+      // 'orderNumber' field, which made such statuses disappear. Sort here
+      // instead (DealStatusModel.fromMap defaults a missing orderNumber).
       var querySnapshot = await firebase.users
           .doc(cid)
           .collection(Collections.dealStatus.name)
-          .orderBy('orderNumber', descending: false)
           .get();
 
       List<DealStatusModel> dealStatus = querySnapshot.docs.map((doc) {
         return DealStatusModel.fromMap(doc.id, doc.data());
-      }).toList();
+      }).toList()
+        ..sort((a, b) => a.orderNumber.compareTo(b.orderNumber));
 
       return dealStatus;
     } catch (e, st) {

@@ -242,6 +242,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                           leadList: _filteredLeads,
                           onLeadDeleted: () =>
                               context.read<LeadBloc>().add(StreamLead()),
+                          onLeadConverted: () =>
+                              context.read<LeadBloc>().add(StreamLead()),
                         ),
                       ] else if (_selectedView == 'Calendar') ...[
                         LeadCalendarListing(
@@ -1541,17 +1543,18 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   icon: const Icon(Iconsax.edit),
                   color: Theme.of(context).colorScheme.primary,
                   splashRadius: 20,
-                  onPressed: () {
-                    if (kIsMobile || _compact) {
-                      Sheet.showSheet(
-                        context,
-                        widget: LeadEdit(uid: lead.uid ?? ''),
-                      );
-                    } else {
-                      GeneralDialog.showRTLSheet(
-                        context,
-                        LeadEdit(uid: lead.uid ?? ''),
-                      );
+                  onPressed: () async {
+                    final result = (kIsMobile || _compact)
+                        ? await Sheet.showSheet(
+                            context,
+                            widget: LeadEdit(uid: lead.uid ?? ''),
+                          )
+                        : await GeneralDialog.showRTLSheet(
+                            context,
+                            LeadEdit(uid: lead.uid ?? ''),
+                          );
+                    if (result == true && context.mounted) {
+                      await _refreshLeads(context);
                     }
                   },
                 ),
@@ -1610,13 +1613,18 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-      Navigate.route(
+      // Refresh the leads page once the deal form closes, so the converted
+      // lead shows its updated state.
+      await Navigate.routeForResult(
         context,
         DealCreate(
           isFromLead: true,
           prefillDeal: DealModel.fromMap(lead.uid ?? '', dealData),
         ),
       );
+      if (context.mounted) {
+        await _refreshLeads(context);
+      }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       if (Navigator.canPop(context)) {

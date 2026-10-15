@@ -63,6 +63,32 @@ class ClientService {
     return newKeys.any(existingKeys.contains);
   }
 
+  /// Returns the uid of an existing client of the same type (company vs
+  /// contact) that matches [client] by the same keys used for duplicate
+  /// detection, or null when there is no match.
+  static Future<String?> findExistingClientId({
+    required ClientModel client,
+    List<ClientModel>? existingClients,
+  }) async {
+    final clients = existingClients ?? await getAllClients();
+    final newKeys = duplicateKeysForClient(client).toSet();
+    if (newKeys.isEmpty) return null;
+    for (final c in clients) {
+      if (c.uid == null || c.isCompany != client.isCompany) continue;
+      if (duplicateKeysForClient(c).any(newKeys.contains)) return c.uid;
+    }
+    return null;
+  }
+
+  /// Reuses the matching existing client if there is one, otherwise
+  /// creates a new one. Used when a deal is saved (e.g. after converting
+  /// a lead) so an already-known company does not block the deal.
+  static Future<String?> getOrCreateClient({required ClientModel client}) async {
+    final existingId = await findExistingClientId(client: client);
+    if (existingId != null) return existingId;
+    return createClient(client: client, skipDuplicateCheck: true);
+  }
+
   static Future<String?> createClient({
     required ClientModel client,
     bool skipDuplicateCheck = false,
