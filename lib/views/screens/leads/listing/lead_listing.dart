@@ -1195,6 +1195,28 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           ),
         );
 
+        // SAMPLE DATA BUTTON (template pre-filled with example leads)
+        actionButtons.add(const SizedBox(width: 10));
+        actionButtons.add(
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Download.downloadFromAsset(
+                context,
+                "assets/templates/lead_upload_template_with_data.xlsx",
+                "Lead_Sample_Data.xlsx",
+              );
+            },
+            icon: const Icon(Icons.contact_page_outlined, size: 18),
+            label: const Text("Sample Data"),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              foregroundColor: Theme.of(context).colorScheme.secondary,
+              side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+        );
+
         // EXPORT BUTTON
         if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
           actionButtons.add(const SizedBox(width: 10));
