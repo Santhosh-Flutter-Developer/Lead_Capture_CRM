@@ -46,6 +46,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   bool _isSending = false;
   bool isParticipant = false;
   bool _isActionLoading = false;
+  int _statusFieldNonce = 0; // forces the status dropdown to rebuild/reset
 
   Timer? _liveTimer;
   Duration get _taskDuration {
@@ -138,56 +139,120 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
     setState(() => _isSending = false);
   }
 
-  Future<void> _startTask() async {
+  /// Changes the task status from the dropdown.
+  /// The service re-validates against the latest server state, so the rules
+  /// (one active task, completed is final, etc.) can't be bypassed from here.
+  Future<void> _changeStatus(TaskStatus target) async {
     if (_taskModel.uid == null) return;
+    if (target == _taskModel.currentStatus) return;
+
+    if (target == TaskStatus.completed) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Mark as completed?"),
+          content: const Text(
+            "Once completed, the task is closed and its status can't be changed.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text("Complete"),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (confirmed != true) {
+        // Reset the dropdown so it doesn't keep showing the cancelled value.
+        setState(() => _statusFieldNonce++);
+        return;
+      }
+    }
 
     setState(() => _isActionLoading = true);
 
     try {
-      final startTime = DateTime.now();
+      await TaskService.updateTaskStatus(
+        taskId: _taskModel.uid!,
+        newStatus: target,
+      );
 
-      await TaskService.startTask(taskId: _taskModel.uid!);
-
+      final now = DateTime.now();
       setState(() {
-        _taskModel.hasStarted = true;
-        _taskModel.completed = false;
-        _taskModel.startedTime = startTime;
+        switch (target) {
+          case TaskStatus.completed:
+            _taskModel.completed = true;
+            _taskModel.hasStarted = false;
+            _taskModel.completedTime = now;
+            break;
+          case TaskStatus.started:
+          case TaskStatus.inProgress:
+            if (!_taskModel.hasStarted && _taskModel.startedTime == null) {
+              _taskModel.startedTime = now;
+            }
+            _taskModel.hasStarted = true;
+            _taskModel.completed = false;
+            break;
+          case TaskStatus.onHold:
+          case TaskStatus.pending:
+            break;
+        }
+        _taskModel.status = target.name;
       });
 
-      FlushBar.show(context, "Task started", isSuccess: true);
+      if (!mounted) return;
+      FlushBar.show(
+        context,
+        "Status updated to ${target.label}",
+        isSuccess: true,
+      );
     } catch (e) {
+      if (!mounted) return;
+      // Revert the dropdown to the real status.
+      setState(() => _statusFieldNonce++);
       FlushBar.show(
         context,
         e.toString().replaceAll('Exception: ', ''),
         isSuccess: false,
       );
     } finally {
-      setState(() => _isActionLoading = false);
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
-  Future<void> _completeTask() async {
-    if (_taskModel.uid == null) return;
-
-    setState(() => _isActionLoading = true);
-
-    try {
-      final endTime = DateTime.now();
-
-      await TaskService.completeTask(taskId: _taskModel.uid!);
-
-      setState(() {
-        _taskModel.completed = true;
-        _taskModel.hasStarted = false;
-        _taskModel.completedTime = endTime;
-      });
-
-      FlushBar.show(context, "Task marked completed", isSuccess: true);
-    } catch (e) {
-      FlushBar.show(context, "Failed to complete task", isSuccess: false);
-    } finally {
-      setState(() => _isActionLoading = false);
+  Color _statusColor(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.pending:
+        return AppColors.warning;
+      case TaskStatus.started:
+        return AppColors.info;
+      case TaskStatus.inProgress:
+        return AppColors.primary;
+      case TaskStatus.onHold:
+        return AppColors.blueGrey;
+      case TaskStatus.completed:
+        return AppColors.success;
     }
+  }
+
+  /// Which statuses can be chosen from the current one.
+  /// A task that was never started can only be started; completing or holding
+  /// it first would skip time tracking (same rule as the old Start button).
+  bool _canMoveTo(TaskStatus current, TaskStatus target) {
+    if (target == current) return true;
+    if (current == TaskStatus.pending) {
+      return target == TaskStatus.started || target == TaskStatus.inProgress;
+    }
+    return true;
   }
 
   static const List<Color> _brandGradient = [
@@ -459,27 +524,21 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildStatusBadge() {
-    final bool isCompleted = _taskModel.completed;
+    final status = _taskModel.currentStatus;
+    final color = _statusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isCompleted
-            ? AppColors.success.withValues(alpha: 0.1)
-            : AppColors.warning.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: (isCompleted ? AppColors.success : AppColors.warning)
-              .withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
-        isCompleted
-            ? "COMPLETED"
-            : (_taskModel.hasStarted ? "IN PROGRESS" : "PENDING"),
+        status.label.toUpperCase(),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w900,
-          color: isCompleted ? AppColors.success : AppColors.warning,
+          color: color,
           letterSpacing: 1,
         ),
       ),
@@ -1340,33 +1399,68 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
         ),
       );
     }
+    final current = _taskModel.currentStatus;
+    final isPending = current == TaskStatus.pending;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!_taskModel.hasStarted)
-          ElevatedButton.icon(
-            onPressed: _isActionLoading ? null : _startTask,
-            icon: const Icon(Iconsax.play),
-            label: const Text("Activate Task"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.all(16),
-              elevation: 0,
+        _buildSectionLabel("STATUS"),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<TaskStatus>(
+          key: ValueKey('task-status-$current-$_statusFieldNonce'),
+          initialValue: isPending ? null : current,
+          isExpanded: true,
+          hint: const Text("Pending - select status"),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
             ),
           ),
-        if (_taskModel.hasStarted)
-          ElevatedButton.icon(
-            onPressed: _isActionLoading ? null : _completeTask,
-            icon: const Icon(Iconsax.tick_circle),
-            label: const Text("Mark as Completed"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.all(16),
-              elevation: 0,
-            ),
-          ),
+          items: TaskStatusX.selectable.map((s) {
+            final enabled = _canMoveTo(current, s);
+            final color = enabled
+                ? _statusColor(s)
+                : Theme.of(context).disabledColor;
+            return DropdownMenuItem<TaskStatus>(
+              value: s,
+              enabled: enabled,
+              child: Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    s.label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: enabled ? null : Theme.of(context).disabledColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: _isActionLoading
+              ? null
+              : (value) {
+                  if (value != null) _changeStatus(value);
+                },
+        ),
+        if (_isActionLoading) ...[
+          const SizedBox(height: 10),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
       ],
     );
   }

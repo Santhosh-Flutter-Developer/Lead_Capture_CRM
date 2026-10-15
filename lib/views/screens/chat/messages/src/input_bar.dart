@@ -790,6 +790,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
     final replyId = _isReply ? _chat?.uid : null;
 
+    // Capture edit state BEFORE clearing the provider. clearMessage() notifies
+    // listeners, which resets _isEdit/_chat to false/null; reading them after
+    // that made an edit get sent as a brand new message.
+    final isEditing = _isEdit;
+    final editingMessageId = _chat?.uid ?? '';
+
     // 🚀 INSTANT UI CLEAR
     _controller.clear();
     _pickedFiles.clear();
@@ -809,13 +815,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         attachments = await _uploadFiles(pickedFiles);
       }
 
-      if (_isEdit) {
+      if (isEditing && editingMessageId.isNotEmpty) {
         await ChatService.editChatMessage(
           uid: uid,
-          chatId: _chat?.uid ?? '',
+          chatId: editingMessageId,
           message: message,
           attachments: attachments,
         );
+        // Edited existing message: no new-message notification.
+        return;
       } else {
         await ChatService.sendChatMessage(
           chatId: uid,

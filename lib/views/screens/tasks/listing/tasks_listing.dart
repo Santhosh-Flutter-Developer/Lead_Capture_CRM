@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
+import '/constants/constants.dart';
 import '/models/models.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
@@ -602,16 +603,15 @@ class _TaskListingViewState extends State<TaskListingView> {
   }
 
   Widget _statusPill(BuildContext context, TaskModel task) {
-    final color = task.completed
-        ? AppColors.success
-        : task.hasStarted
-        ? AppColors.info
-        : AppColors.warning;
-    final label = task.completed
-        ? 'Completed'
-        : task.hasStarted
-        ? 'Started'
-        : 'Pending';
+    final status = task.currentStatus;
+    final color = switch (status) {
+      TaskStatus.completed => AppColors.success,
+      TaskStatus.onHold => AppColors.blueGrey,
+      TaskStatus.inProgress => AppColors.primary,
+      TaskStatus.started => AppColors.info,
+      TaskStatus.pending => AppColors.warning,
+    };
+    final label = status.label;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

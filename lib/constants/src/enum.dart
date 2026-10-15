@@ -130,6 +130,37 @@ extension TicketStatusX on TicketStatus {
   }
 }
 
+/// Workflow status of a task.
+///
+/// [pending] is the implicit initial state (task not started yet) and is never
+/// stored. The other values are what the status dropdown offers.
+enum TaskStatus { pending, started, inProgress, onHold, completed }
+
+extension TaskStatusX on TaskStatus {
+  String get label {
+    switch (this) {
+      case TaskStatus.pending:
+        return 'Pending';
+      case TaskStatus.started:
+        return 'Started';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.onHold:
+        return 'On Hold';
+      case TaskStatus.completed:
+        return 'Completed';
+    }
+  }
+
+  /// Statuses the user can pick from the dropdown.
+  static const List<TaskStatus> selectable = [
+    TaskStatus.started,
+    TaskStatus.inProgress,
+    TaskStatus.onHold,
+    TaskStatus.completed,
+  ];
+}
+
 enum TicketPriority { low, medium, high, urgent }
 
 extension TicketPriorityX on TicketPriority {

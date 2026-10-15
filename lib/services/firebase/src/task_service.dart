@@ -255,7 +255,10 @@ class TaskService {
     }
   }
 
-  static Future<void> startTask({required String taskId}) async {
+  static Future<void> startTask({
+    required String taskId,
+    TaskStatus status = TaskStatus.inProgress,
+  }) async {
     try {
       var cid = await Spdb.getCid();
       var uid = await Spdb.getUid();
@@ -277,6 +280,7 @@ class TaskService {
         {
           "hasStarted": true,
           "completed": false,
+          "status": status.name,
           "startedTime": startTime.millisecondsSinceEpoch,
         },
         activity: 'Task started',
@@ -327,7 +331,10 @@ class TaskService {
           .where('completed', isEqualTo: false)
           .get();
 
-      return snapshot.docs.any((doc) => doc.id != excludeTaskId);
+      // Tasks that are On Hold are paused, so they don't count as active.
+      return snapshot.docs.any(
+        (doc) => doc.id != excludeTaskId && doc.data()['status'] != 'onHold',
+      );
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       return false;
@@ -347,6 +354,7 @@ class TaskService {
         {
           "completed": true,
           "hasStarted": false,
+          "status": TaskStatus.completed.name,
           "completedTime": endTime.millisecondsSinceEpoch,
         },
         activity: 'Task completed',
@@ -383,6 +391,139 @@ class TaskService {
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       throw "Error completing task: $e";
+    }
+  }
+
+  /// Moves a task to [newStatus] while keeping the existing workflow intact:
+  /// - pending -> started / in progress   (uses [startTask]: active-task check,
+  ///                                       time log, history)
+  /// - started <-> in progress             (label change only)
+  /// - started / in progress -> on hold    (pauses: closes the open time log)
+  /// - on hold -> started / in progress    (resumes: opens a new time log)
+  /// - any started task -> completed       (uses [completeTask])
+  /// Completed tasks are final and cannot be changed.
+  static Future<void> updateTaskStatus({
+    required String taskId,
+    required TaskStatus newStatus,
+  }) async {
+    try {
+      var cid = await Spdb.getCid();
+      var uid = await Spdb.getUid();
+      if (uid == null) throw "User not logged in";
+
+      final taskRef = firebase.users
+          .doc(cid)
+          .collection(Collections.tasks.name)
+          .doc(taskId);
+
+      // Always decide from the latest server state, not from what the screen
+      // thinks the status is.
+      final snap = await taskRef.get();
+      final data = snap.data();
+      if (!snap.exists || data == null) throw "Task not found";
+
+      final task = TaskModel.fromMap(snap.id, data);
+      final current = task.currentStatus;
+
+      if (current == newStatus) return;
+      if (current == TaskStatus.completed) {
+        throw "Completed tasks can't be changed.";
+      }
+      if (newStatus == TaskStatus.pending) {
+        throw "A started task can't go back to pending.";
+      }
+
+      switch (newStatus) {
+        case TaskStatus.completed:
+          if (current == TaskStatus.pending) {
+            throw "Start the task before marking it as completed.";
+          }
+          await completeTask(taskId: taskId);
+          return;
+
+        case TaskStatus.onHold:
+          if (current == TaskStatus.pending) {
+            throw "Start the task before putting it on hold.";
+          }
+          final now = DateTime.now();
+
+          await CommonService.update(
+            '${Collections.users.name}/$cid/${Collections.tasks.name}',
+            taskId,
+            {"status": TaskStatus.onHold.name},
+            activity: 'Task put on hold',
+          );
+
+          // Pause time tracking.
+          final activeLog = await taskRef
+              .collection('taskTimeLogs')
+              .where('endTime', isNull: true)
+              .limit(1)
+              .get();
+          if (activeLog.docs.isNotEmpty) {
+            await activeLog.docs.first.reference.update({
+              "endTime": now.millisecondsSinceEpoch,
+            });
+          }
+          break;
+
+        case TaskStatus.started:
+        case TaskStatus.inProgress:
+          if (current == TaskStatus.pending) {
+            // First start: identical to the original "Start" flow.
+            await startTask(taskId: taskId, status: newStatus);
+            return;
+          }
+
+          if (current == TaskStatus.onHold) {
+            // Resume: same one-active-task rule as a fresh start.
+            final hasActive = await hasActiveTask(
+              userId: uid,
+              excludeTaskId: taskId,
+            );
+            if (hasActive) {
+              throw "You already have an active task. Complete it first.";
+            }
+
+            await CommonService.update(
+              '${Collections.users.name}/$cid/${Collections.tasks.name}',
+              taskId,
+              {"status": newStatus.name},
+              activity: 'Task resumed',
+            );
+
+            await taskRef.collection('taskTimeLogs').add({
+              "userId": uid,
+              "startTime": DateTime.now().millisecondsSinceEpoch,
+              "endTime": null,
+            });
+          } else {
+            // started <-> in progress
+            await CommonService.update(
+              '${Collections.users.name}/$cid/${Collections.tasks.name}',
+              taskId,
+              {"status": newStatus.name},
+              activity: 'Task status changed',
+            );
+          }
+          break;
+
+        case TaskStatus.pending:
+          return;
+      }
+
+      await taskRef
+          .collection(Collections.taskHistory.name)
+          .add(
+            TaskHistoryModel(
+              userId: uid,
+              updateDisposition:
+                  'Status changed: ${current.label} → ${newStatus.label}',
+            ).toMap(),
+          );
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      throw e.toString();
     }
   }
 

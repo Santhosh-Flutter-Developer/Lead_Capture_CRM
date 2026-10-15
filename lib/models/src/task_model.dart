@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '/constants/constants.dart';
 import '/models/models.dart';
 
 class TaskModel {
@@ -24,6 +25,12 @@ class TaskModel {
   final String? subTaskOf;
   bool hasStarted;
   DateTime? startedTime;
+
+  /// Stored workflow status: 'started' | 'inProgress' | 'onHold' | 'completed'.
+  /// null for tasks that are pending, or created before this field existed.
+  /// `hasStarted` / `completed` stay the source of truth for older code paths
+  /// (listings, dashboard, active-task check) and are kept in sync with it.
+  String? status;
   bool completed;
   DateTime? completedTime;
   final List<FileModel> attachments;
@@ -53,6 +60,7 @@ class TaskModel {
     this.subTaskOf,
     this.hasStarted = false,
     this.startedTime,
+    this.status,
     this.completed = false,
     this.completedTime,
     this.attachments = const [],
@@ -95,6 +103,7 @@ class TaskModel {
       subTaskOf: map['subTaskOf'] as String?,
       hasStarted: map['hasStarted'] as bool? ?? false,
       startedTime: _toDateTime(map['startedTime']),
+      status: map['status'] as String?,
       completedTime: _toDateTime(map['completedTime']),
       completed: map['completed'] as bool? ?? false,
       attachments: map['attachments'] != null
@@ -145,6 +154,7 @@ class TaskModel {
       'startedTime': startedTime?.millisecondsSinceEpoch,
       'completedTime': completedTime?.millisecondsSinceEpoch,
       'completed': completed,
+      'status': status,
       'taskCreatedBy': taskCreatedBy.toMap(),
       'attachments': attachments.map((e) => e.toMap()).toList(),
       'comments': comments.map((c) => c.toMap()).toList(),
@@ -171,16 +181,32 @@ class TaskModel {
       'project': project,
       'lead': lead,
       'subTaskOf': subTaskOf,
-      'hasStarted': hasStarted,
-      'startedTime': startedTime?.millisecondsSinceEpoch,
-      'completed': completed,
-      'completedTime': completedTime?.millisecondsSinceEpoch,
+      // NOTE: workflow fields (hasStarted, startedTime, completed,
+      // completedTime, status) are intentionally NOT written here. The edit
+      // form builds a fresh TaskModel without them, so including them would
+      // reset a running/completed task back to "pending" on every edit.
       'taskCreatedBy': taskCreatedBy.toMap(),
       'attachments': attachments.map((e) => e.toMap()).toList(),
       'comments': comments.map((c) => c.toMap()).toList(),
       'history': history.map((h) => h.toMap()).toList(),
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
+  }
+
+  /// Effective status, derived from the stored flags (works for legacy tasks).
+  TaskStatus get currentStatus {
+    if (completed) return TaskStatus.completed;
+    if (!hasStarted) return TaskStatus.pending;
+    switch (status) {
+      case 'started':
+        return TaskStatus.started;
+      case 'onHold':
+        return TaskStatus.onHold;
+      case 'inProgress':
+      default:
+        // Legacy tasks (no status stored) were shown as "In Progress".
+        return TaskStatus.inProgress;
+    }
   }
 
   double get totalHours {
@@ -223,6 +249,7 @@ class TaskModel {
         other.lead == lead &&
         other.subTaskOf == subTaskOf &&
         other.hasStarted == hasStarted &&
+        other.status == status &&
         other.completed == completed &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt;
@@ -247,6 +274,7 @@ class TaskModel {
         lead.hashCode ^
         subTaskOf.hashCode ^
         hasStarted.hashCode ^
+        status.hashCode ^
         completed.hashCode ^
         createdAt.hashCode ^
         updatedAt.hashCode;
