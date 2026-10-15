@@ -117,7 +117,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   }
 
   @override
-  void disposea(){
+  @override
+  void dispose() {
     _vScrollController.dispose();
     super.dispose();
   }
@@ -1173,49 +1174,52 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           );
         }
 
-        actionButtons.add(const SizedBox(width: 10));
+        // TEMPLATE / SAMPLE DATA: only useful (and only shown) with import access
+        if (permissions?.canImport ?? false) {
+          actionButtons.add(const SizedBox(width: 10));
 
-        actionButtons.add(
-          OutlinedButton.icon(
-            onPressed: () async {
-              await Download.downloadFromAsset(
-                context,
-                "assets/templates/lead_upload_template.xlsx",
-                "Lead_Template.xlsx",
-              );
-            },
-            icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: const Text("Template"),
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(color: Theme.of(context).colorScheme.primary),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          actionButtons.add(
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Download.downloadFromAsset(
+                  context,
+                  "assets/templates/lead_upload_template.xlsx",
+                  "Lead_Template.xlsx",
+                );
+              },
+              icon: const Icon(Icons.file_download_outlined, size: 18),
+              label: const Text("Template"),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
             ),
-          ),
-        );
+          );
 
-        // SAMPLE DATA BUTTON (template pre-filled with example leads)
-        actionButtons.add(const SizedBox(width: 10));
-        actionButtons.add(
-          OutlinedButton.icon(
-            onPressed: () async {
-              await Download.downloadFromAsset(
-                context,
-                "assets/templates/lead_upload_template_with_data.xlsx",
-                "Lead_Sample_Data.xlsx",
-              );
-            },
-            icon: const Icon(Icons.contact_page_outlined, size: 18),
-            label: const Text("Sample Data"),
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              foregroundColor: Theme.of(context).colorScheme.secondary,
-              side: BorderSide(color: Theme.of(context).colorScheme.secondary),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          // SAMPLE DATA BUTTON (template pre-filled with example leads)
+          actionButtons.add(const SizedBox(width: 10));
+          actionButtons.add(
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Download.downloadFromAsset(
+                  context,
+                  "assets/templates/lead_upload_template_with_data.xlsx",
+                  "Lead_Sample_Data.xlsx",
+                );
+              },
+              icon: const Icon(Icons.contact_page_outlined, size: 18),
+              label: const Text("Sample Data"),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                foregroundColor: Theme.of(context).colorScheme.secondary,
+                side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
             ),
-          ),
-        );
+          );
+        }
 
         // EXPORT BUTTON
         if ((permissions?.canExport ?? false) && _filteredLeads.isNotEmpty) {
@@ -1457,6 +1461,11 @@ class _LeadsListingViewState extends State<LeadsListingView> {
 
       if (result == 'deleted' && context.mounted) {
         context.read<LeadBloc>().add(StreamLead());
+        showLeadDeletedUndo(
+          context,
+          lead,
+          () => context.read<LeadBloc>().add(StreamLead()),
+        );
       }
     }
 
@@ -1581,6 +1590,25 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   },
                 ),
               ],
+
+              if (permissions?.canDelete ?? false)
+                IconButton(
+                  icon: const Icon(Iconsax.trash),
+                  tooltip: 'Delete $_pageTitle',
+                  color: Theme.of(context).colorScheme.error,
+                  splashRadius: 20,
+                  onPressed: () async {
+                    final deleted = await confirmAndDeleteLead(context, lead);
+                    if (deleted && context.mounted) {
+                      context.read<LeadBloc>().add(StreamLead());
+                      showLeadDeletedUndo(
+                        context,
+                        lead,
+                        () => context.read<LeadBloc>().add(StreamLead()),
+                      );
+                    }
+                  },
+                ),
 
               if (lead.leadsConverted != true)
                 IconButton(

@@ -37,6 +37,20 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
   /// windows use the same compact layout as a phone.
   bool _compact = false;
 
+  PermissionModel? _permissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    final perm = await PermissionService.getPermissions('Leads');
+    if (!mounted) return;
+    setState(() => _permissions = perm);
+  }
+
   @override
   void dispose(){
     _vhScrollController.dispose();
@@ -83,6 +97,8 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
   }
 
   Future<void> _openLeadCreate() async {
+    // Empty-day taps are a shortcut for "Add Lead": ignore without create access.
+    if (!(_permissions?.canCreate ?? false)) return;
     final result = kIsDesktop
         ? await GeneralDialog.showRTLSheet(context, const LeadCreate())
         : await Sheet.showSheet(context, widget: const LeadCreate());
@@ -92,10 +108,16 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
   }
 
   void _openLeadEdit(String uid) {
+    final canEdit = _permissions?.canEdit ?? false;
+    final lead = widget.leadList.where((l) => l.uid == uid).firstOrNull;
+    // Without edit access a tap opens the read-only lead view instead.
+    final Widget page = (!canEdit && lead != null)
+        ? LeadsViewPage(lead: lead)
+        : LeadEdit(uid: uid);
     if (kIsDesktop) {
-      GeneralDialog.showRTLSheet(context, LeadEdit(uid: uid));
+      GeneralDialog.showRTLSheet(context, page);
     } else {
-      Sheet.showSheet(context, widget: LeadEdit(uid: uid));
+      Sheet.showSheet(context, widget: page);
     }
   }
 

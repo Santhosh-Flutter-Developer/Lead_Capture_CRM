@@ -30,6 +30,10 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
   LeadModel? _draggedLead;
   LeadStatusModel? _draggedFromList;
+  PermissionModel? _permissions;
+
+  bool get _canCreate => _permissions?.canCreate ?? false;
+  bool get _canEdit => _permissions?.canEdit ?? false;
 
   final NumberFormat _currencyFormat = NumberFormat.currency(
     locale: 'en_IN',
@@ -44,6 +48,13 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
   void initState() {
     super.initState();
     _future = _initializeBoard();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    final perm = await PermissionService.getPermissions('Leads');
+    if (!mounted) return;
+    setState(() => _permissions = perm);
   }
 
   @override
@@ -150,7 +161,9 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
   Widget _buildKanbanColumn(LeadStatusModel list, List<LeadModel> leads) {
     return DragTarget<LeadModel>(
       onWillAcceptWithDetails: (details) {
-        return details.data.uid != null && details.data.leadsConverted != true;
+        return _canEdit &&
+            details.data.uid != null &&
+            details.data.leadsConverted != true;
       },
       onAcceptWithDetails: (details) async {
         final lead = details.data;
@@ -369,18 +382,20 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () => Sheet.showSheet(
-                      context,
-                      widget: quickLead(context, list),
+                  if (_canCreate) ...[
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => Sheet.showSheet(
+                        context,
+                        widget: quickLead(context, list),
+                      ),
+                      child: const Icon(
+                        Iconsax.add_circle,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
-                    child: const Icon(
-                      Iconsax.add_circle,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -706,6 +721,11 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                   );
             if (result == 'deleted' && context.mounted) {
               widget.onLeadDeleted?.call();
+              showLeadDeletedUndo(
+                context,
+                task,
+                () => widget.onLeadDeleted?.call(),
+              );
             }
           },
           child: Container(
@@ -760,6 +780,7 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Draggable<LeadModel>(
         data: task,
+        maxSimultaneousDrags: _canEdit ? 1 : 0,
         onDragStarted: () => _handleDragStarted(task, list),
         onDragUpdate: (details) {
           _startEdgeScrolling(details);
@@ -815,6 +836,11 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                   );
             if (result == 'deleted' && context.mounted) {
               widget.onLeadDeleted?.call();
+              showLeadDeletedUndo(
+                context,
+                task,
+                () => widget.onLeadDeleted?.call(),
+              );
             }
           },
           borderRadius: BorderRadius.circular(14),

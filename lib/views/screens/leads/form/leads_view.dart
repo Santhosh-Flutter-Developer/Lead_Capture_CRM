@@ -70,6 +70,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   late TabController _tabController;
   String? _currentUid;
   bool _isAdmin = false;
+  PermissionModel? _permissions;
 
   @override
   void initState() {
@@ -280,9 +281,12 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
   Future<void> _loadOwnership() async {
     final uid = await Spdb.getUid();
     final isAdmin = await Spdb.isAdminLoggedIn();
+    final permissions = await PermissionService.getPermissions('Leads');
+    if (!mounted) return;
     setState(() {
       _currentUid = uid;
       _isAdmin = isAdmin;
+      _permissions = permissions;
     });
   }
 
@@ -322,7 +326,8 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          if (_isAdmin || _lead.createdBy.uid == _currentUid) ...[
+          if ((_permissions?.canEdit ?? false) &&
+              (_isAdmin || _lead.createdBy.uid == _currentUid)) ...[
             _appBarButton(Iconsax.edit, "Edit", () async {
               if (kIsMobile || width < 1000) {
                 await Sheet.showSheet(
@@ -337,6 +342,16 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               }
               await _refreshLead();
             }),
+          ],
+          if (_permissions?.canDelete ?? false) ...[
+            const SizedBox(width: 8),
+            _appBarButton(Iconsax.trash, "Delete", () async {
+              final deleted = await confirmAndDeleteLead(context, _lead);
+              if (deleted && context.mounted) {
+                // Opener (list / board) refreshes and offers UNDO.
+                Navigator.of(context).pop('deleted');
+              }
+            }, isDanger: true),
           ],
           const SizedBox(width: 16),
         ],
