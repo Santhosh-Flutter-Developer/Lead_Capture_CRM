@@ -1132,6 +1132,21 @@ class _LeadEditState extends State<LeadEdit> {
   }
 
   void _submitForm() async {
+    // Defense in depth: never save without the role's Edit permission, even
+    // if this form was opened from a screen that forgot to hide its button.
+    final perm = await PermissionService.getPermissions('Leads');
+    if (!(perm?.canEdit ?? false)) {
+      if (mounted) {
+        FlushBar.show(
+          context,
+          'You do not have permission to edit leads',
+          isSuccess: false,
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
     if (_formKey.currentState!.validate()) {
       try {
         futureLoading(context);

@@ -92,12 +92,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _vScrollController = ScrollController();
   String _selectedView = 'Grid';
-  final List<LeadModel> _selectedLeads = [];
-  final List<LeadModel> _leadsList = [];
   List<LeadModel> _filteredLeads = [];
   PermissionModel? permissions;
-  String? _currentUid;
-  bool _isAdmin = false;
+  bool _permissionsLoaded = false;
   bool _compact = false;
   bool _filtersExpanded = false;
   double _filterWidth = 180;
@@ -117,18 +114,27 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   }
 
   @override
-  @override
   void dispose() {
     _vScrollController.dispose();
+    _hScrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
+  /// Role-based permissions for this page. Everything on this screen
+  /// (add / edit / delete / bulk delete / import / export) is driven by the
+  /// role's flags only, so List, Board and Calendar all behave the same.
   Future<void> _loadPermissions() async {
-    permissions = await PermissionService.getPermissions(_pageTitle);
-    _currentUid = await Spdb.getUid();
-    _isAdmin = await Spdb.isAdminLoggedIn();
-    setState(() {});
+    final perm = await PermissionService.getPermissions(_pageTitle);
+    if (!mounted) return;
+    setState(() {
+      permissions = perm;
+      _permissionsLoaded = true;
+    });
   }
+
+  bool get _canEdit => permissions?.canEdit ?? false;
+  bool get _canDelete => permissions?.canDelete ?? false;
 
   List<String> statusItems(Box<Map<dynamic, dynamic>> box) {
     return box.keys.map((key) {
@@ -199,10 +205,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         listenWhen: (previous, current) => current is LeadLoaded,
         listener: (context, state) {
           if (state is LeadLoaded) {
-            controllerRead.setData(state.leads);
-            setState(() {
-              _filteredLeads = state.leads;
-            });
+            // Re-apply the active filters (instead of silently dropping them)
+            // and drop selected rows that no longer exist.
+            _applyFilters();
           }
         },
         child: BlocBuilder<LeadBloc, LeadState>(
@@ -211,6 +216,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
               return const WaitingLoading();
             }
             if (state is LeadLoaded) {
+              if (!_permissionsLoaded) {
+                return const WaitingLoading();
+              }
               if (!(permissions?.canView ?? false)) {
                 return buildNoPermissionView(context);
               }
@@ -235,6 +243,12 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                       _buildFilterRow(onSearchChanged: controllerRead.setSearch),
                       const SizedBox(height: 12),
                       _buildActionRow(context),
+                      if (_selectedView == 'List' &&
+                          _canDelete &&
+                          controllerWatch.selectedIds.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildSelectionBar(controllerWatch, controllerRead),
+                      ],
                       const SizedBox(height: 18),
                       if (controllerWatch.paginatedItems.isEmpty)
                         const NoData(text: "No matching records found")
@@ -312,7 +326,13 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
-                      showCheckboxColumn: true,
+                      showCheckboxColumn: _canDelete,
+                      onSelectAll: _canDelete
+                          ? (selected) => _setPageSelection(
+                              controllerRead,
+                              selected ?? false,
+                            )
+                          : null,
                       columnSpacing: 12,
                       horizontalMargin: 8,
                       // headingRowHeight: 40,
@@ -1114,7 +1134,118 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       _filteredLeads = filtered;
     });
 
+    controller.retainSelection(
+      filtered.map((l) => l.uid ?? '').where((id) => id.isNotEmpty).toSet(),
+    );
     controller.setData(filtered);
+  }
+
+  // ---------------------------------------------------------------------
+  // Selection + bulk delete
+  // ---------------------------------------------------------------------
+
+  /// Header checkbox: select / deselect every row on the current page.
+  void _setPageSelection(
+    PaginatedDataController<LeadModel> controller,
+    bool select,
+  ) {
+    final ids = controller.paginatedItems
+        .map((l) => l.uid ?? '')
+        .where((id) => id.isNotEmpty);
+    if (select) {
+      controller.selectAll(ids);
+    } else {
+      controller.deselectAll(ids);
+    }
+  }
+
+  List<LeadModel> _selectedLeadModels(
+    PaginatedDataController<LeadModel> controller,
+  ) {
+    return _filteredLeads
+        .where((l) => controller.selectedIds.contains(l.uid))
+        .toList();
+  }
+
+  Future<void> _bulkDelete(
+    PaginatedDataController<LeadModel> controller,
+  ) async {
+    final selected = _selectedLeadModels(controller);
+    if (selected.isEmpty) return;
+
+    final result = await confirmAndDeleteLeads(context, selected);
+    if (result == null || !mounted) return;
+
+    // Deleted rows leave the selection; failed ones stay selected so the
+    // user can retry.
+    controller.deselectAll(result.deleted.map((l) => l.uid ?? ''));
+
+    if (result.deleted.isNotEmpty) {
+      context.read<LeadBloc>().add(StreamLead());
+    }
+    showLeadsBulkDeletedUndo(
+      context,
+      result,
+      () => context.read<LeadBloc>().add(StreamLead()),
+    );
+  }
+
+  Widget _buildSelectionBar(
+    PaginatedDataController<LeadModel> controllerWatch,
+    PaginatedDataController<LeadModel> controllerRead,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final selectedCount = _selectedLeadModels(controllerWatch).length;
+    final total = _filteredLeads.length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            '$selectedCount of $total selected',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: scheme.primary,
+            ),
+          ),
+          if (selectedCount < total)
+            TextButton(
+              onPressed: () => controllerRead.selectAll(
+                _filteredLeads.map((l) => l.uid ?? ''),
+              ),
+              child: Text('Select all $total'),
+            ),
+          TextButton(
+            onPressed: controllerRead.clearSelection,
+            child: const Text('Clear'),
+          ),
+          ElevatedButton.icon(
+            onPressed: selectedCount == 0
+                ? null
+                : () => _bulkDelete(controllerRead),
+            icon: const Icon(Iconsax.trash, size: 18),
+            label: Text('Delete ($selectedCount)'),
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildActionRow(BuildContext context) {
@@ -1435,7 +1566,12 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     );
     final tap = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _selectedView = viewName),
+      onTap: () {
+        if (viewName != 'List') {
+          context.read<PaginatedDataController<LeadModel>>().clearSelection();
+        }
+        setState(() => _selectedView = viewName);
+      },
       child: child,
     );
     return _compact ? Expanded(child: tap) : tap;
@@ -1484,15 +1620,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
 
     return DataRow(
       selected: isSelected,
-      onSelectChanged: (selected) {
-        controllerRead.onSelected(lead.uid ?? '', selected);
-        if (selected ?? false) {
-          _selectedLeads.add(lead);
-        } else {
-          _selectedLeads.remove(lead);
-        }
-        setState(() {});
-      },
+      onSelectChanged: _canDelete
+          ? (selected) => controllerRead.onSelected(lead.uid ?? '', selected)
+          : null,
       cells: [
         /// Lead Number
         dataCell(
@@ -1568,8 +1698,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         DataCell(
           Row(
             children: [
-              if ((permissions?.canEdit ?? false) &&
-                  (_isAdmin || lead.createdBy.uid == _currentUid)) ...[
+              if (_canEdit) ...[
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   color: Theme.of(context).colorScheme.primary,
@@ -1591,7 +1720,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
               ],
 
-              if (permissions?.canDelete ?? false)
+              if (_canDelete)
                 IconButton(
                   icon: const Icon(Iconsax.trash),
                   tooltip: 'Delete $_pageTitle',

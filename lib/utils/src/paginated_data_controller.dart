@@ -108,6 +108,33 @@ class PaginatedDataController<T> extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds every id in [ids] to the selection (single notification).
+  void selectAll(Iterable<String> ids) {
+    _selectedIds.addAll(ids.where((id) => id.isNotEmpty));
+    notifyListeners();
+  }
+
+  /// Removes every id in [ids] from the selection (single notification).
+  void deselectAll(Iterable<String> ids) {
+    _selectedIds.removeAll(ids);
+    notifyListeners();
+  }
+
+  /// Clears the whole selection.
+  void clearSelection() {
+    if (_selectedIds.isEmpty) return;
+    _selectedIds.clear();
+    notifyListeners();
+  }
+
+  /// Keeps only the selected ids that are still in [validIds]. Used after the
+  /// data set changes (filters, deletes, live updates) so the selection can
+  /// never point at rows that are no longer visible. Does not notify; call it
+  /// right before [setData], which notifies.
+  void retainSelection(Set<String> validIds) {
+    _selectedIds.removeWhere((id) => !validIds.contains(id));
+  }
+
   // --- Private Logic ---
   void _sortAndPaginate() {
     // 1. Apply Search Filter
