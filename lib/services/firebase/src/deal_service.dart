@@ -12,30 +12,34 @@ class DealService {
   /// mobile, and deal-name+company-name as a fallback, mirroring
   /// LeadService.duplicateKeysFor so deals and leads are deduped the
   /// same way.
+  ///
+  /// One client can have many deals (projects), so email / mobile no longer
+  /// identify a duplicate. Only the same project name under the same client
+  /// does. [email] and [mobile] are accepted for compatibility and ignored.
   static List<String> duplicateKeysFor({
     String? email,
     String? mobile,
     String? dealName,
     String? companyName,
+    String? clientId,
   }) {
-    final normEmail = (email ?? '').trim().toLowerCase();
-    final normMobile = (mobile ?? '').trim();
     final normName = (dealName ?? '').trim().toLowerCase();
-    final normCompany = (companyName ?? '').trim().toLowerCase();
+    final owner = (clientId ?? '').trim().isNotEmpty
+        ? clientId!.trim()
+        : (companyName ?? '').trim().toLowerCase();
 
     final keys = <String>[];
-    if (normEmail.isNotEmpty) keys.add('email:$normEmail');
-    if (normMobile.isNotEmpty) keys.add('mobile:$normMobile');
-    if (normName.isNotEmpty) keys.add('name:$normName|$normCompany');
+    if (normName.isNotEmpty) keys.add('name:$normName|$owner');
     return keys;
   }
 
   static List<String> duplicateKeysForDeal(DealModel deal) =>
       duplicateKeysFor(
-        email: deal.dealEmail,
-        mobile: deal.companyMobile,
-        dealName: deal.dealName,
+        dealName: (deal.projectName ?? '').trim().isNotEmpty
+            ? deal.projectName
+            : deal.dealName,
         companyName: deal.companyName,
+        clientId: deal.clientId,
       );
 
   /// Returns true if [deal] matches an existing deal by email, mobile,
@@ -55,7 +59,7 @@ class DealService {
     return newKeys.any(existingKeys.contains);
   }
 
-  static Future<void> createDeal({
+  static Future<String> createDeal({
     required DealModel deal,
     bool skipDuplicateCheck = false,
   }) async {
@@ -63,7 +67,7 @@ class DealService {
       if (!skipDuplicateCheck) {
         final isDuplicate = await isDuplicateDeal(deal: deal);
         if (isDuplicate) {
-          throw 'This deal already exists (matching email, mobile number, or name & company).';
+          throw 'This deal already exists for this client (same project name).';
         }
       }
 
@@ -128,6 +132,7 @@ class DealService {
       );
 
       await PostNotificationService.sendNotification(model: notif);
+      return dealDoc.id;
     } catch (e, st) {
       debugPrint("Error creating deal: $e\n$st");
       await ErrorService.recordError(e, st);
@@ -158,7 +163,7 @@ class DealService {
           excludeUid: uid,
         );
         if (isDuplicate) {
-          throw 'This deal already exists (matching email, mobile number, or name & company).';
+          throw 'This deal already exists for this client (same project name).';
         }
       }
 
@@ -654,5 +659,82 @@ class DealService {
       debugPrint("${e.toString()}, ${st.toString()}");
       throw 'Error fetching projects: $e';
     }
+  }
+  /// Deals of one Master Client that are completed: their status is a final
+  /// stage (or is named "Completed"), or the deal is locked. These are the
+  /// projects a Project Updation can be raised against.
+  static Future<List<DealModel>> getCompletedDealsByClient({
+    required String clientId,
+  }) async {
+    try {
+      final cid = await Spdb.getCid();
+      final results = await Future.wait([
+        firebase.users
+            .doc(cid)
+            .collection(Collections.deals.name)
+            .where('clientId', isEqualTo: clientId)
+            .get(),
+        DealStatusService.getAllDealStatus(),
+      ]);
+      final snap = results[0] as QuerySnapshot<Map<String, dynamic>>;
+      final statuses = results[1] as List<DealStatusModel>;
+      final completedStatusIds = statuses
+          .where((s) => s.isFinal || s.lowercaseName == 'completed')
+          .map((s) => s.uid)
+          .toSet();
+
+      final deals = snap.docs
+          .map((d) => DealModel.fromMap(d.id, d.data()))
+          .where(
+            (d) => d.isLocked || completedStatusIds.contains(d.dealStatus),
+          )
+          .toList()
+        ..sort(
+          (a, b) => (a.projectName ?? a.dealName).toLowerCase().compareTo(
+            (b.projectName ?? b.dealName).toLowerCase(),
+          ),
+        );
+      return deals;
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      throw 'Error fetching completed deals: $e';
+    }
+  }
+
+  /// Next upcoming (not completed) follow-up date per deal uid.
+  static Future<Map<String, DateTime>> getNextFollowUps(
+    List<String> dealUids,
+  ) async {
+    final result = <String, DateTime>{};
+    try {
+      final cid = await Spdb.getCid();
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      await Future.wait(
+        dealUids.map((id) async {
+          final snap = await firebase.users
+              .doc(cid)
+              .collection(Collections.deals.name)
+              .doc(id)
+              .collection('activities')
+              .get();
+          DateTime? next;
+          for (final d in snap.docs) {
+            final m = d.data();
+            if (m['type'] != DealActivityType.followUp.name) continue;
+            if (m['completed'] == true) continue;
+            final at = DateTime.fromMillisecondsSinceEpoch(
+              (m['scheduledAt'] as num).toInt(),
+            );
+            if (at.isBefore(startOfToday)) continue;
+            if (next == null || at.isBefore(next)) next = at;
+          }
+          if (next != null) result[id] = next;
+        }),
+      );
+    } catch (e) {
+      debugPrint('getNextFollowUps: $e');
+    }
+    return result;
   }
 }

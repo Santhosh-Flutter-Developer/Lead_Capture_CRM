@@ -69,64 +69,6 @@ class _MobileMenuState extends State<MobileMenu> {
     if (mounted) setState(() {});
   }
 
-  void _openClientSection(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Only show Contacts if user has Contact permission
-              if (_hasPermission('Contact'))
-                ListTile(
-                  leading: const Icon(Iconsax.user),
-                  title: const Text("Contacts"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigate.route(
-                      context,
-                      const ClientsListing(section: ClientSection.contacts),
-                    );
-                  },
-                ),
-              // Only show Company if user has Company permission
-              if (_hasPermission('Company'))
-                ListTile(
-                  leading: const Icon(Iconsax.building),
-                  title: const Text("Company"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigate.route(
-                      context,
-                      const ClientCompanyListing(
-                        section: ClientSection.company,
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  bool _hasPermission(String permission) {
-    if (_isAdmin) return true;
-    final clientsMenuItem = _menuItems.firstWhere(
-      (item) => item.id == 'clients',
-      orElse: () => MenuItem(id: '', title: '', icon: Iconsax.info_circle),
-    );
-    if (clientsMenuItem.children == null) return false;
-    return clientsMenuItem.children!.any(
-      (child) => child.id == 'client_$permission.toLowerCase()',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,17 +295,11 @@ class _MobileMenuState extends State<MobileMenu> {
       case 'deals':
         Navigate.route(context, const DealsListing());
         break;
-      case 'client_company':
-        Navigate.route(
-          context,
-          const ClientCompanyListing(section: ClientSection.company),
-        );
+      case 'master_client':
+        Navigate.route(context, const MasterClientListing());
         break;
-      case 'client_contact':
-        Navigate.route(
-          context,
-          const ClientsListing(section: ClientSection.contacts),
-        );
+      case 'project_updation':
+        Navigate.route(context, const ProjectUpdationListing());
         break;
       case 'companies':
         Navigate.route(context, const CompaniesListing());
@@ -392,11 +328,7 @@ class _MobileMenuState extends State<MobileMenu> {
     }
   }
 
-  void _handleNestedMenu(MenuItem item) {
-    if (item.id == 'clients') {
-      _openClientSection(context);
-    }
-  }
+  void _handleNestedMenu(MenuItem item) {}
 
   Widget _buildListTile({
     required IconData icon,

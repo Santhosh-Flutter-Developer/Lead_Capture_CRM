@@ -137,8 +137,8 @@ class AppStrings {
     "Deal Status",
     "Leads",
     "Deals",
-    "Company",
-    "Contact",
+    "Project Updation",
+    "Master Client",
     "Calendar",
     "Projects",
     "Tasks",
@@ -154,6 +154,8 @@ class AppStrings {
     "Leads",
     "Clients",
     "Company",
+    "Master Client",
+    "Project Updation",
     "Admin",
   ];
 

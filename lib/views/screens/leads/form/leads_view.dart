@@ -318,7 +318,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          if (_permissions?.canEdit ?? false) ...[
+          if ((_permissions?.canEdit ?? false) && !_lead.leadsConverted) ...[
             _appBarButton(Iconsax.edit, "Edit", () async {
               if (kIsMobile || width < 1000) {
                 await Sheet.showSheet(
@@ -334,7 +334,7 @@ class _LeadsViewState extends State<LeadsView> with TickerProviderStateMixin {
               await _refreshLead();
             }),
           ],
-          if (_permissions?.canDelete ?? false) ...[
+          if ((_permissions?.canDelete ?? false) && !_lead.leadsConverted) ...[
             const SizedBox(width: 8),
             _appBarButton(Iconsax.trash, "Delete", () async {
               final deleted = await confirmAndDeleteLead(context, _lead);

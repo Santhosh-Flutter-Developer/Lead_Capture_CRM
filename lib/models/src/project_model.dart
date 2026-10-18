@@ -10,6 +10,8 @@ class ProjectModel {
   final String teamLead;
   final List<String> members;
   final String? client;
+  final String? clientId; // Master Client
+  final String? dealId; // Deal this project came from
   final String? projectCode;
   final String? category;
   final DateTime? startDate;
@@ -27,6 +29,8 @@ class ProjectModel {
     required this.teamLead,
     required this.members,
     this.client,
+    this.clientId,
+    this.dealId,
     this.projectCode,
     this.category,
     this.startDate,
@@ -47,6 +51,8 @@ class ProjectModel {
     String? teamLead,
     List<String>? members,
     String? client,
+    String? clientId,
+    String? dealId,
     String? projectCode,
     String? category,
     DateTime? startDate,
@@ -65,6 +71,8 @@ class ProjectModel {
       teamLead: teamLead ?? this.teamLead,
       members: members ?? this.members,
       client: client ?? this.client,
+      clientId: clientId ?? this.clientId,
+      dealId: dealId ?? this.dealId,
       projectCode: projectCode ?? this.projectCode,
       category: category ?? this.category,
       startDate: startDate ?? this.startDate,
@@ -85,6 +93,8 @@ class ProjectModel {
       'teamLead': teamLead,
       'members': members,
       'client': client,
+      'clientId': clientId,
+      'dealId': dealId,
       'projectCode': projectCode,
       'category': category,
       'startDate': startDate?.millisecondsSinceEpoch,
@@ -105,6 +115,8 @@ class ProjectModel {
       'teamLead': teamLead,
       'members': members,
       'client': client,
+      'clientId': clientId,
+      'dealId': dealId,
       'projectCode': projectCode,
       'category': category,
       'startDate': startDate?.millisecondsSinceEpoch,
@@ -137,6 +149,8 @@ class ProjectModel {
       client: map['client'] != null && map['client'] is String
           ? map['client'] as String
           : null,
+      clientId: map['clientId'] is String ? map['clientId'] as String : null,
+      dealId: map['dealId'] is String ? map['dealId'] as String : null,
       projectCode: map['projectCode'] != null && map['projectCode'] is String
           ? map['projectCode'] as String
           : null,

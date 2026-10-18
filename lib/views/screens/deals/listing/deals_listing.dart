@@ -97,6 +97,15 @@ class _DealsListingViewState extends State<DealsListingView> {
 
   String? _selectedStatus;
   String? _selectedCreatedBy;
+  String? _selectedClient; // master client uid
+  String? _selectedSource;
+  String? _selectedProject;
+  DateTime? _nextFollowUp;
+
+  List<ClientModel> _masterClients = [];
+  List<String> _sourceOptions = [];
+  Map<String, String> _dealSource = {}; // deal uid -> lead source name
+  Map<String, DateTime> _followUps = {}; // deal uid -> next follow-up
 
   double? _value;
 
@@ -117,7 +126,60 @@ class _DealsListingViewState extends State<DealsListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+    _loadFilterMasters();
   }
+
+  String _masterLabel(ClientModel c) {
+    final company = (c.companyName ?? '').trim();
+    final contact = (c.clientName ?? '').trim();
+    if (company.isEmpty) return contact;
+    return contact.isEmpty ? company : '$company - $contact';
+  }
+
+  Future<void> _loadFilterMasters() async {
+    try {
+      final r = await Future.wait([
+        ClientService.getMasterClients(),
+        LeadSourceService.getAllLeadSource(),
+        LeadService.getAllLeads(),
+      ]);
+      if (!mounted) return;
+      final leads = r[2] as List<LeadModel>;
+      final leadSource = {
+        for (final l in leads)
+          if (l.uid != null) l.uid!: l.leadSource.name,
+      };
+      final deals = _currentDeals;
+      setState(() {
+        _masterClients = r[0] as List<ClientModel>;
+        _sourceOptions = (r[1] as List<LeadSourceModel>)
+            .map((e) => e.name)
+            .where((e) => e.trim().isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        _dealSource = {
+          for (final d in deals)
+            if (d.uid != null && d.leadId != null && leadSource[d.leadId] != null)
+              d.uid!: leadSource[d.leadId]!,
+        };
+      });
+      _loadFollowUps(deals);
+    } catch (_) {}
+  }
+
+  Future<void> _loadFollowUps(List<DealModel> deals) async {
+    final ids = deals.map((d) => d.uid).whereType<String>().toList();
+    final f = await DealService.getNextFollowUps(ids);
+    if (!mounted) return;
+    setState(() => _followUps = f);
+    if (_nextFollowUp != null) _applyFilters();
+  }
+
+  List<DealModel> get _currentDeals =>
+      context.read<DealBloc>().state is DealLoaded
+      ? (context.read<DealBloc>().state as DealLoaded).deals
+      : <DealModel>[];
 
   @override
   void dispose() {
@@ -163,6 +225,10 @@ class _DealsListingViewState extends State<DealsListingView> {
       _toDate = null;
       _selectedStatus = null;
       _selectedCreatedBy = null;
+      _selectedClient = null;
+      _selectedSource = null;
+      _selectedProject = null;
+      _nextFollowUp = null;
       _value = null;
       _searchController.clear();
       _valueController.clear();
@@ -175,7 +241,8 @@ class _DealsListingViewState extends State<DealsListingView> {
     final controllerRead = context.read<PaginatedDataController<DealModel>>();
     final controllerWatch = context.watch<PaginatedDataController<DealModel>>();
     return Scaffold(
-      appBar: widget.showAppBar && kIsMobile
+      appBar: widget.showAppBar &&
+                (kIsMobile || MediaQuery.of(context).size.width < 1000)
           ? AppBar(
               title: const Text(_pageTitle),
               backgroundColor: AppColors.primary,
@@ -208,6 +275,7 @@ class _DealsListingViewState extends State<DealsListingView> {
             setState(() {
               _filteredDeals = state.deals;
             });
+            _loadFilterMasters();
           }
         },
         child: BlocBuilder<DealBloc, DealState>(
@@ -617,6 +685,70 @@ class _DealsListingViewState extends State<DealsListingView> {
             },
           ),
 
+          /// Master Client
+          _filterDropdown(
+            label: "Master Client",
+            value: _selectedClient == null
+                ? null
+                : _masterClients
+                      .where((c) => c.uid == _selectedClient)
+                      .map(_masterLabel)
+                      .firstOrNull,
+            items: (_masterClients.map(_masterLabel).where((e) => e.isNotEmpty).toSet().toList()..sort()),
+            onChanged: (v) {
+              final m = v == null
+                  ? null
+                  : _masterClients.where((c) => _masterLabel(c) == v).firstOrNull;
+              setState(() => _selectedClient = m?.uid);
+              _applyFilters();
+            },
+          ),
+
+          /// Lead Source
+          _filterDropdown(
+            label: "Lead Source",
+            value: _selectedSource,
+            items: _sourceOptions,
+            onChanged: (v) {
+              setState(() => _selectedSource = v);
+              _applyFilters();
+            },
+          ),
+
+          /// Project Name
+          _filterDropdown(
+            label: "Project Name",
+            value: _selectedProject,
+            items: (_currentDeals
+                .map((d) => (d.projectName ?? '').trim())
+                .where((e) => e.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort()),
+            onChanged: (v) {
+              setState(() => _selectedProject = v);
+              _applyFilters();
+            },
+          ),
+
+          /// Next Follow-up date
+          _dateFilter(
+            label: "Next Follow-up",
+            value: _nextFollowUp,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+                initialDate: _nextFollowUp ?? DateTime.now(),
+              );
+              if (picked != null) {
+                setState(() => _nextFollowUp = picked);
+                _applyFilters();
+              }
+            },
+          ),
+
           /// Deal Value Filter
           _valueFilter(onChanged: _onValueChanged),
         ];
@@ -1000,6 +1132,38 @@ class _DealsListingViewState extends State<DealsListingView> {
       filtered = filtered
           .where((e) => e.createdBy.uid == _selectedCreatedBy)
           .toList();
+    }
+
+    if (_selectedClient != null) {
+      filtered = filtered.where((e) {
+        if ((e.clientId ?? '').isNotEmpty) return e.clientId == _selectedClient;
+        final c = _masterClients
+            .where((m) => m.uid == _selectedClient)
+            .firstOrNull;
+        return c != null &&
+            (e.companyName ?? '').trim().toLowerCase() ==
+                (c.companyName ?? '').trim().toLowerCase();
+      }).toList();
+    }
+
+    if (_selectedSource != null) {
+      filtered = filtered
+          .where((e) => _dealSource[e.uid] == _selectedSource)
+          .toList();
+    }
+
+    if (_selectedProject != null) {
+      filtered = filtered
+          .where((e) => (e.projectName ?? '').trim() == _selectedProject)
+          .toList();
+    }
+
+    if (_nextFollowUp != null) {
+      final d = _nextFollowUp!;
+      filtered = filtered.where((e) {
+        final f = _followUps[e.uid];
+        return f != null && f.year == d.year && f.month == d.month && f.day == d.day;
+      }).toList();
     }
 
     if (_value != null) {

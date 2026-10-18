@@ -1,0 +1,639 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:provider/provider.dart';
+import '/utils/src/download_io.dart'
+    if (dart.library.html) '/utils/src/download_web.dart'
+    show saveFileToDownloads;
+import '/services/services.dart';
+import '/utils/utils.dart';
+import '/views/views.dart';
+import '/models/models.dart';
+import '/theme/theme.dart';
+
+const double _wideBreakpoint = 900;
+
+typedef _Stats = ({int leads, int deals, double value});
+
+/// Master Client list: company + contact captured once, reused by every
+/// Lead, Deal and Project. Shows leads count, deals count and total deal
+/// value per client.
+class MasterClientListing extends StatefulWidget {
+  const MasterClientListing({super.key});
+
+  @override
+  State<MasterClientListing> createState() => _MasterClientListingState();
+}
+
+class _MasterClientListingState extends State<MasterClientListing> {
+  static const List<Color> _brandGradient = [
+    Color(0xFF0052D4),
+    Color(0xFF4364F7),
+    Color(0xFF6FB1FC),
+  ];
+
+  late final PaginatedDataController<ClientModel> _controller;
+  final ScrollController _hScroll = ScrollController();
+  final ScrollController _vScroll = ScrollController();
+
+  Map<String, _Stats> _stats = {};
+  List<ClientModel> _all = [];
+  PermissionModel? _permissions;
+  bool _loading = true;
+  String? _error;
+
+  _Stats _statsOf(ClientModel c) =>
+      _stats[c.uid] ?? (leads: 0, deals: 0, value: 0.0);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PaginatedDataController<ClientModel>(
+      initialSortColumnIndex: 0,
+      filterLogic: (c, query) {
+        final q = query.toLowerCase();
+        return (c.companyName ?? '').toLowerCase().contains(q) ||
+            (c.clientName ?? '').toLowerCase().contains(q) ||
+            (c.mobileNumber ?? '').toLowerCase().contains(q) ||
+            (c.gstVatNumber ?? '').toLowerCase().contains(q);
+      },
+      sortLogic: (a, b, col, asc) {
+        int compare;
+        switch (col) {
+          case 0:
+            compare = (a.companyName ?? '').toLowerCase().compareTo(
+              (b.companyName ?? '').toLowerCase(),
+            );
+            break;
+          case 1:
+            compare = (a.clientName ?? '').toLowerCase().compareTo(
+              (b.clientName ?? '').toLowerCase(),
+            );
+            break;
+          case 3:
+            compare = _statsOf(a).leads.compareTo(_statsOf(b).leads);
+            break;
+          case 4:
+            compare = _statsOf(a).deals.compareTo(_statsOf(b).deals);
+            break;
+          case 5:
+            compare = _statsOf(a).value.compareTo(_statsOf(b).value);
+            break;
+          default:
+            compare = (a.uid ?? '').compareTo(b.uid ?? '');
+        }
+        return asc ? compare : -compare;
+      },
+      getItemId: (c) => c.uid ?? '',
+    );
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _hScroll.dispose();
+    _vScroll.dispose();
+    super.dispose();
+  }
+
+  /// Refresh button: show the loader, then reload clients, stats and
+  /// permissions (the search text stays as typed).
+  Future<void> _refresh() async {
+    setState(() => _loading = true);
+    await _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      // Roles created before "Master Client" existed only have the old
+      // Company / Contact pages, so fall back to those.
+      _permissions =
+          await PermissionService.getPermissions('Master Client') ??
+          await PermissionService.getPermissions('Company');
+      final clients = await ClientService.getMasterClients();
+      final stats = await ClientService.getClientStats();
+      if (!mounted) return;
+      _all = clients;
+      _stats = stats;
+      _controller.setData(clients);
+      setState(() {
+        _loading = false;
+        _error = null;
+      });
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  bool _isWide(BuildContext context) =>
+      !kIsMobile && MediaQuery.of(context).size.width >= _wideBreakpoint;
+
+  Future<void> _openForm(BuildContext context, {String? uid}) async {
+    final form = MasterClientForm(uid: uid);
+    dynamic val;
+    if (_isWide(context)) {
+      val = await GeneralDialog.showRTLSheet(context, form);
+    } else {
+      val = await Sheet.showSheet(context, widget: form);
+    }
+    if (val is Map && val['status'] == true) await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = _isWide(context);
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: isWide
+          ? null
+          : AppBar(
+              leading: const Back(),
+              title: const Text('Master Client'),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+            ),
+      body: Builder(
+        builder: (context) {
+          if (_loading) return const WaitingLoading();
+          if (_error != null) {
+            return Center(
+              child: Text(_error!, style: Theme.of(context).textTheme.bodySmall),
+            );
+          }
+          if (!(_permissions?.canView ?? false)) {
+            return buildNoPermissionView(context);
+          }
+          return ChangeNotifierProvider<PaginatedDataController<ClientModel>>.value(
+            value: _controller,
+            child: Consumer<PaginatedDataController<ClientModel>>(
+              builder: (context, controller, _) => RefreshIndicator(
+                onRefresh: _load,
+                child: Scrollbar(
+                  controller: _vScroll,
+                  thumbVisibility: true,
+                  child: ListView(
+                    controller: _vScroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(isWide ? 24.0 : 14.0),
+                    children: [
+                      if (isWide) ...[
+                        _banner(context),
+                        const SizedBox(height: 20),
+                      ],
+                      _toolbar(context, controller, isWide),
+                      const SizedBox(height: 18),
+                      controller.paginatedItems.isEmpty
+                          ? NoData(
+                              text: _all.isEmpty
+                                  ? 'No master clients available'
+                                  : 'No matching records found',
+                            )
+                          : _tableCard(context, controller),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _banner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _brandGradient,
+        ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Iconsax.people, color: AppColors.white, size: 30),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Master Client',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Capture a customer once, then raise any number of leads and deals',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '${_all.length}',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Clients',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toolbar(
+    BuildContext context,
+    PaginatedDataController<ClientModel> controller,
+    bool isWide,
+  ) {
+    final selected = controller.selectedIds.length;
+    final buttons = <Widget>[
+      if (_permissions?.canCreate ?? false)
+        FilledButton.icon(
+          onPressed: () => _openForm(context),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Add Master Client'),
+        ),
+      if ((_permissions?.canExport ?? false) &&
+          controller.paginatedItems.isNotEmpty)
+        OutlinedButton.icon(
+          onPressed: () => _export(context, controller),
+          icon: const Icon(Iconsax.export_3, size: 18),
+          label: const Text('Export'),
+        ),
+      if (selected > 0 && (_permissions?.canDelete ?? false))
+        FilledButton.icon(
+          style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+          onPressed: () => _bulkDelete(context, controller),
+          icon: const Icon(Iconsax.trash, size: 18),
+          label: Text('Delete ($selected)'),
+        ),
+      IconButton(
+        tooltip: 'Refresh',
+        onPressed: _refresh,
+        icon: const Icon(Iconsax.refresh),
+      ),
+    ];
+
+    final search = SizedBox(
+      width: isWide ? 300 : double.infinity,
+      child: TextField(
+        onChanged: controller.setSearch,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search company, contact, mobile, GST',
+          prefixIcon: const Icon(Iconsax.search_normal_1, size: 18),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: isWide
+          ? Row(
+              children: [
+                search,
+                const Spacer(),
+                Wrap(spacing: 10, runSpacing: 10, children: buttons),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: 12),
+                Wrap(spacing: 10, runSpacing: 10, children: buttons),
+              ],
+            ),
+    );
+  }
+
+  Widget _tableCard(
+    BuildContext context,
+    PaginatedDataController<ClientModel> controller,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Scrollbar(
+                controller: _hScroll,
+                thumbVisibility: true,
+                scrollbarOrientation: ScrollbarOrientation.bottom,
+                child: SingleChildScrollView(
+                  controller: _hScroll,
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                      showCheckboxColumn: true,
+                      sortColumnIndex: controller.sortColumnIndex,
+                      sortAscending: controller.sortAscending,
+                      headingRowColor: WidgetStateProperty.all(
+                        scheme.primary.withValues(alpha: 0.06),
+                      ),
+                      headingTextStyle: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: scheme.primary,
+                          ),
+                      columns: [
+                        DataColumn(
+                          label: const Text('Company'),
+                          onSort: controller.setSort,
+                        ),
+                        DataColumn(
+                          label: const Text('Contact'),
+                          onSort: controller.setSort,
+                        ),
+                        const DataColumn(label: Text('Mobile')),
+                        DataColumn(
+                          label: const Text('Leads'),
+                          numeric: true,
+                          onSort: controller.setSort,
+                        ),
+                        DataColumn(
+                          label: const Text('Deals'),
+                          numeric: true,
+                          onSort: controller.setSort,
+                        ),
+                        DataColumn(
+                          label: const Text('Total Deal Value'),
+                          numeric: true,
+                          onSort: controller.setSort,
+                        ),
+                        const DataColumn(label: Text('Created By')),
+                        const DataColumn(label: Text('Action')),
+                      ],
+                      rows: controller.paginatedItems
+                          .map((c) => _row(context, c, controller))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: PaginationControls<ClientModel>(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  DataRow _row(
+    BuildContext context,
+    ClientModel c,
+    PaginatedDataController<ClientModel> controller,
+  ) {
+    final style = Theme.of(context).textTheme.bodySmall;
+    final s = _statsOf(c);
+    return DataRow(
+      selected: controller.selectedIds.contains(c.uid),
+      onSelectChanged: (v) => controller.onSelected(c.uid!, v),
+      cells: [
+        DataCell(
+          Text(
+            c.companyName ?? '-',
+            style: style?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          onTap: (_permissions?.canEdit ?? false)
+              ? () => _openForm(context, uid: c.uid)
+              : null,
+        ),
+        DataCell(Text(c.clientName?.isNotEmpty == true ? c.clientName! : '-', style: style)),
+        DataCell(Text(c.mobileNumber?.isNotEmpty == true ? c.mobileNumber! : '-', style: style)),
+        DataCell(Text('${s.leads}', style: style)),
+        DataCell(Text('${s.deals}', style: style)),
+        DataCell(Text(s.value.toStringAsFixed(2), style: style)),
+        DataCell(CreatedByWidget(userData: c.createdBy)),
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_permissions?.canEdit ?? false)
+                IconButton(
+                  tooltip: 'Edit',
+                  color: AppColors.info,
+                  icon: const Icon(Iconsax.edit),
+                  onPressed: () => _openForm(context, uid: c.uid),
+                ),
+              if (_permissions?.canDelete ?? false)
+                IconButton(
+                  tooltip: 'Delete',
+                  color: AppColors.danger,
+                  icon: const Icon(Iconsax.trash),
+                  onPressed: () => _delete(context, c),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _export(
+    BuildContext context,
+    PaginatedDataController<ClientModel> controller,
+  ) async {
+    try {
+      final rows = <List<String>>[
+        [
+          'Company',
+          'Contact Name',
+          'Contact Mobile',
+          'Office Phone',
+          'GST/VAT',
+          'Postal Code',
+          'Address',
+          'Leads',
+          'Deals',
+          'Total Deal Value',
+          'Created By',
+        ],
+        for (final c in controller.paginatedItems)
+          [
+            c.companyName ?? '',
+            c.clientName ?? '',
+            c.mobileNumber ?? '',
+            c.officePhoneNo ?? '',
+            c.gstVatNumber ?? '',
+            c.postalCode ?? '',
+            c.companyAddress ?? '',
+            '${_statsOf(c).leads}',
+            '${_statsOf(c).deals}',
+            _statsOf(c).value.toStringAsFixed(2),
+            c.createdBy.name,
+          ],
+      ];
+      final bytes = await XlsxWriter().create(rows);
+      final path = await saveFileToDownloads(
+        bytes,
+        fileName: 'Master Client List.xlsx',
+      );
+      if (!kIsWeb && context.mounted) openfile(path, context);
+    } catch (e) {
+      if (!context.mounted) return;
+      FlushBar.show(context, e.toString(), isSuccess: false);
+    }
+  }
+
+  Future<bool> _confirmDelete(BuildContext context, int count) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => ConfirmDialog(
+        title: 'Delete Master Client',
+        content: count == 1
+            ? 'Are you sure you want to delete this master client?'
+            : 'Are you sure you want to delete $count master clients?',
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _blocked(BuildContext context) => showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Cannot Delete'),
+      content: const Text(
+        'This client is linked to leads or deals. Remove those first.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+      ],
+    ),
+  );
+
+  Future<void> _delete(BuildContext context, ClientModel c) async {
+    if (await ClientService.isClientAssigned(c.uid ?? '')) {
+      if (context.mounted) await _blocked(context);
+      return;
+    }
+    if (!context.mounted || !await _confirmDelete(context, 1)) return;
+    try {
+      final deleted = c.copyWith();
+      futureLoading(context);
+      try {
+        await ClientService.deleteClient(uid: c.uid ?? '');
+      } finally {
+        if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+      }
+      await _load();
+      if (!context.mounted) return;
+      FlushBar.show(
+        context,
+        'Master client deleted',
+        actionLabel: 'UNDO',
+        onActionPressed: () async {
+          await ClientService.restoreClient(deleted);
+          await _load();
+        },
+      );
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (context.mounted) FlushBar.show(context, '$e', isSuccess: false);
+    }
+  }
+
+  Future<void> _bulkDelete(
+    BuildContext context,
+    PaginatedDataController<ClientModel> controller,
+  ) async {
+    final chosen = _all
+        .where((c) => controller.selectedIds.contains(c.uid))
+        .toList();
+    if (chosen.isEmpty) return;
+    for (final c in chosen) {
+      if (await ClientService.isClientAssigned(c.uid ?? '')) {
+        if (context.mounted) await _blocked(context);
+        return;
+      }
+    }
+    if (!context.mounted || !await _confirmDelete(context, chosen.length)) {
+      return;
+    }
+    try {
+      final deleted = chosen.map((e) => e.copyWith()).toList();
+      futureLoading(context);
+      try {
+        for (final c in chosen) {
+          await ClientService.deleteClient(uid: c.uid ?? '');
+        }
+      } finally {
+        if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+      }
+      controller.clearSelection();
+      await _load();
+      if (!context.mounted) return;
+      FlushBar.show(
+        context,
+        'Master clients deleted',
+        actionLabel: 'UNDO',
+        onActionPressed: () async {
+          for (final c in deleted) {
+            await ClientService.restoreClient(c);
+          }
+          await _load();
+        },
+      );
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (context.mounted) FlushBar.show(context, '$e', isSuccess: false);
+    }
+  }
+}

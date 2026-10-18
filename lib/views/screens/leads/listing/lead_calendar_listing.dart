@@ -108,8 +108,10 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
   }
 
   void _openLeadEdit(String uid) {
-    final canEdit = _permissions?.canEdit ?? false;
     final lead = widget.leadList.where((l) => l.uid == uid).firstOrNull;
+    // A converted lead is locked: it opens read-only.
+    final canEdit =
+        (_permissions?.canEdit ?? false) && lead?.leadsConverted != true;
     // Without edit access a tap opens the read-only lead view instead.
     final Widget page = (!canEdit && lead != null)
         ? LeadsViewPage(lead: lead)
@@ -891,7 +893,9 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
                   ],
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.edit, size: 18, color: scheme.onSurfaceVariant),
+                if ((_permissions?.canEdit ?? false) &&
+                    !item.leadsConverted)
+                  Icon(Icons.edit, size: 18, color: scheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -990,6 +994,7 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      if (_permissions?.canCreate ?? false)
                       Container(
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
@@ -1033,7 +1038,9 @@ class _LeadCalendarListingState extends State<LeadCalendarListing> {
                             ),
                           ),
                         ),
-                      ),
+                      )
+                      else
+                        const SizedBox.shrink(),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         child: Text(

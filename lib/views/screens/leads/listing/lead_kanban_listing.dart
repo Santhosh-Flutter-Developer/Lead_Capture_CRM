@@ -8,6 +8,8 @@ import '/models/models.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 import '/utils/utils.dart';
+import '/views/screens/project_updations/project_updation_form.dart'
+    show masterClientLabel;
 
 class LeadKanbanListing extends StatefulWidget {
   final List<LeadModel> leadList;
@@ -180,44 +182,23 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
         setState(() {});
 
         try {
-          if (list.isFinal) {
-            final result = await showDialog<bool>(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => const ConfirmDialog(
-                title: 'Convert Lead',
-                content:
-                    'Are you sure you want to convert this lead to a deal?',
-              ),
-            );
-
-            if (result != true) {
-              _leadList[_draggedFromList!] = List.from(
-                _leadList[_draggedFromList]!,
-              )..add(originalLead);
-
-              _leadList[list] = List.from(_leadList[list]!)
-                ..removeWhere((l) => l.uid == lead.uid);
-
-              setState(() {});
-              return;
-            }
-          }
-
           await LeadService.updateLeadStatus(
             uid: lead.uid!,
             leadStatus: list.uid!,
-            leadsConverted: list.isFinal ? true : null,
           );
 
-          if (list.isFinal) {
-            await _convertLeadToDeal(context, lead);
-
+          // Moving a lead to "Completed" creates its deal automatically in
+          // the New stage of the Deals board.
+          if (await LeadService.isConvertStatus(list.uid ?? '')) {
             _leadList[list] = List.from(_leadList[list]!)
               ..removeWhere((l) => l.uid == lead.uid)
               ..add(lead.copyWith(leadsConverted: true));
 
             setState(() {});
+            if (mounted) {
+              FlushBar.show(context, 'Lead completed - deal added to the New stage');
+              widget.onLeadConverted?.call();
+            }
           }
         } catch (e) {
           _leadList[_draggedFromList!] = List.from(_leadList[_draggedFromList]!)
@@ -281,57 +262,6 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
         );
       },
     );
-  }
-
-  Future<void> _convertLeadToDeal(BuildContext context, LeadModel lead) async {
-    try {
-      futureLoading(context);
-
-      final leadDetails = await LeadService.getLead(uid: lead.uid ?? '');
-
-      final dealData = {
-        'dealName': leadDetails.leadName,
-        'dealEmail': leadDetails.leadEmail,
-        'companyName': leadDetails.companyName,
-        'companyWebsite': leadDetails.companyWebsite,
-        'companyCountry': leadDetails.companyCountry?.toMap(),
-        'companyState': leadDetails.companyState?.toMap(),
-        'companyCity': leadDetails.companyCity?.toMap(),
-        'companyZipCode': leadDetails.companyZipCode,
-        'companyMobile': leadDetails.companyMobile,
-        'companyAddress': leadDetails.companyAddress,
-        'clientName': leadDetails.clientName,
-        'salutation': leadDetails.salutation,
-        'clientEmail': leadDetails.clientEmail,
-        'clientMobile': leadDetails.clientMobile,
-        'clientGender': leadDetails.clientGender,
-        'dealValue': leadDetails.leadValue,
-        'notes': leadDetails.notes,
-      };
-
-      await LeadService.convertLeadToDeal(lead: leadDetails);
-
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      // Not awaited: the board updates its own state right after this call.
-      // When the deal form closes, ask the parent to reload the leads.
-      Navigate.routeForResult(
-        context,
-        DealCreate(
-          isFromLead: true,
-          prefillDeal: DealModel.fromMap(lead.uid ?? '', dealData),
-        ),
-      ).then((_) {
-        if (mounted) widget.onLeadConverted?.call();
-      });
-    } catch (e, st) {
-      await ErrorService.recordError(e, st);
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      FlushBar.show(context, e.toString(), isSuccess: false);
-    }
   }
 
   Widget _buildKanbanColumnHeader(
@@ -423,26 +353,15 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
     final TextEditingController leadNameCtrl = TextEditingController();
     final TextEditingController leadValueCtrl = TextEditingController();
 
-    final future = ClientService.getAllClients();
-    ClientModel? selectedCompany;
-    ClientModel? selectedContact;
+    final future = ClientService.getMasterClients();
+    ClientModel? selectedClient;
 
     return StatefulBuilder(
       builder: (context, setSheetState) {
         return FutureBuilder<List<ClientModel>>(
           future: future,
           builder: (context, snapshot) {
-            final allClients = snapshot.data ?? [];
-            final companies = allClients
-                .where(
-                  (c) => c.isCompany && (c.companyName?.isNotEmpty ?? false),
-                )
-                .toList();
-            final contacts = allClients
-                .where(
-                  (c) => !c.isCompany && (c.clientName?.isNotEmpty ?? false),
-                )
-                .toList();
+            final clients = snapshot.data ?? [];
             final isLoading =
                 snapshot.connectionState == ConnectionState.waiting;
 
@@ -543,9 +462,9 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
                         const SizedBox(height: 20),
 
-                        /// Company Name Dropdown
+                        /// Master Client Dropdown
                         Text(
-                          'Company Name',
+                          'Master Client',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
@@ -556,51 +475,24 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                                 child: Center(child: LinearProgressIndicator()),
                               )
                             : FormDropdownSearch(
-                                initialItem: selectedCompany?.companyName ?? '',
-                                items: companies
-                                    .map((e) => e.companyName)
-                                    .toList(),
+                                isRequired: true,
+                                initialItem: selectedClient == null
+                                    ? null
+                                    : masterClientLabel(selectedClient!),
+                                items: clients.map(masterClientLabel).toList(),
                                 onChanged: (value) {
                                   setSheetState(() {
-                                    selectedCompany = companies
+                                    selectedClient = clients
                                         .cast<ClientModel?>()
                                         .firstWhere(
-                                          (c) => c?.companyName == value,
+                                          (c) =>
+                                              c != null &&
+                                              masterClientLabel(c) == value,
                                           orElse: () => null,
                                         );
                                   });
                                 },
-                              ),
-
-                        const SizedBox(height: 20),
-
-                        /// Contact Name Dropdown
-                        Text(
-                          'Contact Name',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
-                        isLoading
-                            ? const SizedBox(
-                                height: 48,
-                                child: Center(child: LinearProgressIndicator()),
-                              )
-                            : FormDropdownSearch(
-                                initialItem: selectedContact?.clientName ?? '',
-                                items: contacts
-                                    .map((e) => e.clientName)
-                                    .toList(),
-                                onChanged: (value) {
-                                  setSheetState(() {
-                                    selectedContact = contacts
-                                        .cast<ClientModel?>()
-                                        .firstWhere(
-                                          (c) => c?.clientName == value,
-                                          orElse: () => null,
-                                        );
-                                  });
-                                },
+                                validator: (v) => v == null ? '* Required' : null,
                               ),
 
                         const SizedBox(height: 28),
@@ -626,30 +518,25 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                                     createdBy: await Spdb.getUser(),
                                     workflow:
                                         await EmployeeService.getUserWorkflow(),
-                                    // company fields
-                                    companyName: selectedCompany?.companyName,
-                                    companyWebsite:
-                                        selectedCompany?.officialWebsite,
+                                    // Master Client fields
+                                    companyName: selectedClient?.companyName,
                                     companyMobile:
-                                        selectedCompany?.officePhoneNo,
-                                    companyCountry: selectedCompany?.country,
-                                    companyState: selectedCompany?.state,
-                                    companyCity: selectedCompany?.city,
+                                        selectedClient?.officePhoneNo,
                                     companyAddress:
-                                        selectedCompany?.companyAddress,
-                                    companyZipCode: selectedCompany?.postalCode,
-                                    // contact fields
-                                    clientId:
-                                        selectedContact?.uid ??
-                                        selectedCompany?.uid,
-                                    clientName: selectedContact?.clientName,
-                                    clientEmail: selectedContact?.email,
-                                    clientMobile: selectedContact?.mobileNumber,
-                                    clientGender: selectedContact?.gender,
-                                    salutation: selectedContact?.salutation,
+                                        selectedClient?.companyAddress,
+                                    companyZipCode: selectedClient?.postalCode,
+                                    clientId: selectedClient?.uid,
+                                    clientName: selectedClient?.clientName,
+                                    clientMobile: selectedClient?.mobileNumber,
                                   );
 
-                                  await LeadService.createLead(lead: lead);
+                                  final newUid = await LeadService.createLead(
+                                    lead: lead,
+                                  );
+                                  // Created straight into "Completed": add the deal.
+                                  await LeadService.convertIfCompleted(
+                                    leadUid: newUid,
+                                  );
 
                                   // pop loading dialog
                                   if (Navigator.canPop(context))

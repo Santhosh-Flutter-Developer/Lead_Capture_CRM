@@ -3,7 +3,8 @@ export 'main/main.dart';
 export 'creations/creations.dart';
 export 'chat/chat.dart';
 export 'leads/leads.dart';
-export 'clients/clients.dart';
+export 'master_clients/master_clients.dart';
+export 'project_updations/project_updations.dart';
 export 'dashboard/dashboard.dart';
 export 'deals/deals.dart';
 export 'tasks/tasks.dart';
@@ -20,5 +21,3 @@ export 'companies/companies.dart';
 export 'download/download.dart';
 export 'holidays/holidays.dart';
 export 'projects/projects.dart';
-
-

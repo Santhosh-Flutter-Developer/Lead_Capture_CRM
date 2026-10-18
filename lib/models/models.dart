@@ -37,3 +37,4 @@ export 'src/company_model.dart';
 export 'src/holiday_model.dart';
 export 'src/permission_request_model.dart';
 export 'src/customer_ticket_model.dart';
+export 'src/project_updation_model.dart';

@@ -20,30 +20,29 @@ class LeadService {
   /// email or mobile can still be matched. This is the single source of
   /// truth for duplicate matching, shared by manual create, quick-add,
   /// and bulk import (see LeadUpload's _duplicateKeysForRow).
+  ///
+  /// A Master Client can have any number of leads, so email / mobile no
+  /// longer identify a duplicate (they belong to the client). Only the same
+  /// lead name under the same client (or company name) counts. [email] and
+  /// [mobile] are accepted for backwards compatibility and ignored.
   static List<String> duplicateKeysFor({
     String? email,
     String? mobile,
     String? leadName,
     String? companyName,
+    String? clientId,
   }) {
-    final normEmail = (email ?? '').trim().toLowerCase();
-    final normMobile = (mobile ?? '').trim();
-    final normName = (leadName ?? '').trim().toLowerCase();
-    final normCompany = (companyName ?? '').trim().toLowerCase();
-
-    final keys = <String>[];
-    if (normEmail.isNotEmpty) keys.add('email:$normEmail');
-    if (normMobile.isNotEmpty) keys.add('mobile:$normMobile');
-    if (normName.isNotEmpty) keys.add('name:$normName|$normCompany');
-    return keys;
+    // Lead names are not unique: the same name can be used again, even for
+    // the same client, so no key is produced and nothing counts as a
+    // duplicate.
+    return <String>[];
   }
 
   static List<String> duplicateKeysForLead(LeadModel lead) =>
       duplicateKeysFor(
-        email: lead.leadEmail,
-        mobile: lead.companyMobile,
         leadName: lead.leadName,
         companyName: lead.companyName,
+        clientId: lead.clientId,
       );
 
   /// Returns true if [lead] matches an existing lead by email, mobile,
@@ -72,7 +71,7 @@ class LeadService {
       if (!skipDuplicateCheck) {
         final isDuplicate = await isDuplicateLead(lead: lead);
         if (isDuplicate) {
-          throw 'This lead already exists (matching email, mobile number, or name & company).';
+          throw 'This lead already exists for this client (same lead name).';
         }
       }
 
@@ -159,7 +158,7 @@ class LeadService {
           excludeUid: uid,
         );
         if (isDuplicate) {
-          throw 'This lead already exists (matching email, mobile number, or name & company).';
+          throw 'This lead already exists for this client (same lead name).';
         }
       }
 
@@ -339,6 +338,9 @@ class LeadService {
 
         await PostNotificationService.sendNotification(model: notif);
       }
+
+      // Moving a lead to "Completed" creates its deal automatically.
+      await convertIfCompleted(leadUid: uid);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
@@ -434,29 +436,146 @@ class LeadService {
     }
   }
 
-  static Future<void> convertLeadToDeal({required LeadModel lead}) async {
+  /// True when [statusUid] is the "Completed" stage (the final status, or any
+  /// status literally named "Completed"). Reaching it converts a lead to a deal.
+  static Future<bool> isConvertStatus(String statusUid) async {
+    if (statusUid.isEmpty) return false;
+    try {
+      final status = await LeadStatusService.getLeadStatus(uid: statusUid);
+      return status.isFinal || status.lowercaseName.trim() == 'completed';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Converts the lead to a deal when its current status is "Completed" and it
+  /// has not been converted yet. Returns true if a deal was created.
+  static Future<bool> convertIfCompleted({required String leadUid}) async {
+    final lead = await getLead(uid: leadUid);
+    if (lead.leadsConverted || (lead.dealId ?? '').isNotEmpty) return false;
+    if (!await isConvertStatus(lead.leadStatus)) return false;
+    await convertLeadToDeal(lead: lead);
+    return true;
+  }
+
+  /// Creates a Deal in the "New" stage from [lead] (client, value, project
+  /// name/description, notes, attachments) and links the two. Safe to call
+  /// twice: an already-converted lead returns its existing deal id.
+  static Future<String?> convertLeadToDeal({required LeadModel lead}) async {
     try {
       final cid = await Spdb.getCid();
 
       if (cid == null || lead.uid == null) {
         throw "Missing cid or lead UID";
       }
+      if ((lead.dealId ?? '').isNotEmpty) return lead.dealId;
+
+      // Guard against two overlapping conversions of the same lead (double
+      // drag / double tap / two code paths) creating two deals. The first
+      // caller takes the lock inside a transaction; later callers stop.
+      final leadRef = firebase.users
+          .doc(cid)
+          .collection(Collections.leads.name)
+          .doc(lead.uid);
+      if (!_converting.add(lead.uid!)) return null;
+      var locked = false;
+      try {
+        locked = await firestore.runTransaction<bool>((tx) async {
+          final snap = await tx.get(leadRef);
+          final data = snap.data() ?? <String, dynamic>{};
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final lockAt = data['convertLock'];
+          // A lock older than 2 minutes is a crashed attempt: ignore it.
+          final lockedNow = lockAt is int && now - lockAt < 120000;
+          final done =
+              data['leadsConverted'] == true ||
+              ((data['dealId'] as String?) ?? '').isNotEmpty ||
+              lockedNow;
+          if (done) return false;
+          tx.update(leadRef, {'convertLock': now});
+          return true;
+        });
+        if (!locked) {
+          final fresh = await leadRef.get();
+          return fresh.data()?['dealId'] as String?;
+        }
+        return await _createDealForLead(lead: lead, cid: cid);
+      } catch (e) {
+        if (locked) {
+          // Let a later attempt retry.
+          await leadRef.update({'convertLock': FieldValue.delete()});
+        }
+        rethrow;
+      } finally {
+        _converting.remove(lead.uid!);
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      debugPrint("Error converting lead: $e\n$st");
+      rethrow;
+    }
+  }
+
+  static final Set<String> _converting = <String>{};
+
+  static Future<String?> _createDealForLead({
+    required LeadModel lead,
+    required String cid,
+  }) async {
+    {
+      final newStatus = await DealStatusService.getByNameOrCreate(name: 'New');
+      final projectName = (lead.projectName ?? '').trim();
+
+      final deal = DealModel(
+        dealName: projectName.isNotEmpty ? projectName : lead.leadName,
+        dealEmail: lead.leadEmail,
+        dealValue: lead.leadValue,
+        allowFollowUp: true,
+        dealStatus: newStatus.uid,
+        attachments: lead.attachments,
+        notes: lead.notes,
+        companyName: lead.companyName,
+        companyWebsite: lead.companyWebsite,
+        companyMobile: lead.companyMobile,
+        companyCountry: lead.companyCountry,
+        companyState: lead.companyState,
+        companyCity: lead.companyCity,
+        companyAddress: lead.companyAddress,
+        companyZipCode: lead.companyZipCode,
+        clientName: lead.clientName,
+        clientEmail: lead.clientEmail,
+        clientMobile: lead.clientMobile,
+        clientGender: lead.clientGender,
+        salutation: lead.salutation,
+        createdBy: await Spdb.getUser(),
+        workFlow: List<String>.from(lead.workflow),
+        clientId: lead.clientId,
+        projectName: projectName.isNotEmpty ? projectName : lead.leadName,
+        projectDescription: lead.projectDescription,
+        leadId: lead.uid,
+      );
+
+      final dealId = await DealService.createDeal(
+        deal: deal,
+        skipDuplicateCheck: true,
+      );
 
       await firebase.users
           .doc(cid)
           .collection(Collections.leads.name)
           .doc(lead.uid)
-          .update({'leadsConverted': true});
+          .update({
+            'leadsConverted': true,
+            'dealId': dealId,
+            'convertLock': FieldValue.delete(),
+          });
       await addLeadHistory(
         leadUid: lead.uid!,
         action: 'Lead Converted to Deal',
       );
 
-      debugPrint("Lead ${lead.leadName} marked as converted.");
-    } catch (e, st) {
-      await ErrorService.recordError(e, st);
-      debugPrint("Error converting lead: $e\n$st");
-      rethrow;
+      debugPrint("Lead ${lead.leadName} converted to deal $dealId.");
+      return dealId;
     }
   }
 

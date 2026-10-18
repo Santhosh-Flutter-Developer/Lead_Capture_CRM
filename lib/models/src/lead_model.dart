@@ -39,6 +39,8 @@ class LeadModel {
   final DateTime updatedAt;
   bool leadsConverted;
   final String? dealId;
+  final String? projectName;
+  final String? projectDescription;
 
   LeadModel({
     this.uid,
@@ -70,6 +72,8 @@ class LeadModel {
     this.workflow = const [],
     this.clientId,
     this.dealId,
+    this.projectName,
+    this.projectDescription,
     this.leadsConverted = false,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -109,6 +113,8 @@ class LeadModel {
     DateTime? updatedAt,
     bool? leadsConverted,
     String? dealId,
+    String? projectName,
+    String? projectDescription,
   }) {
     return LeadModel(
       uid: uid ?? this.uid,
@@ -143,6 +149,8 @@ class LeadModel {
       updatedAt: updatedAt ?? this.updatedAt,
       leadsConverted: leadsConverted ?? this.leadsConverted,
       dealId: dealId ?? this.dealId,
+      projectName: projectName ?? this.projectName,
+      projectDescription: projectDescription ?? this.projectDescription,
     );
   }
 
@@ -180,6 +188,8 @@ class LeadModel {
       'updatedAt': updatedAt.millisecondsSinceEpoch,
       'leadsConverted': leadsConverted,
       'dealId': dealId,
+      'projectName': projectName,
+      'projectDescription': projectDescription,
     };
   }
 
@@ -216,6 +226,8 @@ class LeadModel {
       'updatedAt': updatedAt.millisecondsSinceEpoch,
       'leadsConverted': leadsConverted,
       'dealId': dealId,
+      'projectName': projectName,
+      'projectDescription': projectDescription,
     };
     data.removeWhere(
       (key, value) =>
@@ -334,6 +346,12 @@ class LeadModel {
           : false,
       dealId: map['dealId'] != null && map['dealId'] is String
           ? map['dealId'] as String
+          : null,
+      projectName: map['projectName'] is String
+          ? map['projectName'] as String
+          : null,
+      projectDescription: map['projectDescription'] is String
+          ? map['projectDescription'] as String
           : null,
     );
   }

@@ -49,6 +49,7 @@ enum Collections {
   ticketComments,
   ticketHistory,
   eventStartNotifications,
+  projectUpdations,
 }
 
 enum StorageFolder {
@@ -63,6 +64,7 @@ enum StorageFolder {
   taskAttachments,
   feedAttachments,
   ticketAttachments,
+  updationAttachments,
 }
 
 enum TicketCategory {

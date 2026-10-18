@@ -30,6 +30,9 @@ class DealModel {
   final List<String> workFlow;
   final String? clientId;
   final bool isLocked;
+  final String? projectName;
+  final String? projectDescription;
+  final String? leadId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -60,6 +63,9 @@ class DealModel {
     this.workFlow = const [],
     this.clientId,
     this.isLocked = false,
+    this.projectName,
+    this.projectDescription,
+    this.leadId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
@@ -92,6 +98,9 @@ class DealModel {
     String? clientId,
     List<String>? workFlow,
     bool? isLocked,
+    String? projectName,
+    String? projectDescription,
+    String? leadId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -122,6 +131,9 @@ class DealModel {
       workFlow: workFlow ?? this.workFlow,
       clientId: clientId ?? this.clientId,
       isLocked: isLocked ?? this.isLocked,
+      projectName: projectName ?? this.projectName,
+      projectDescription: projectDescription ?? this.projectDescription,
+      leadId: leadId ?? this.leadId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -155,6 +167,9 @@ class DealModel {
       'workFlow': workFlow,
       'clientId': clientId,
       'isLocked': isLocked,
+      'projectName': projectName,
+      'projectDescription': projectDescription,
+      'leadId': leadId,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
@@ -187,6 +202,9 @@ class DealModel {
       'workFlow': workFlow,
       'clientId': clientId,
       'isLocked': isLocked,
+      'projectName': projectName,
+      'projectDescription': projectDescription,
+      'leadId': leadId,
       'createdBy': createdBy.toMap(),
       'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
@@ -283,6 +301,13 @@ class DealModel {
       isLocked: map['isLocked'] is bool
           ? map['isLocked'] as bool
           : false,
+      projectName: map['projectName'] is String
+          ? map['projectName'] as String
+          : null,
+      projectDescription: map['projectDescription'] is String
+          ? map['projectDescription'] as String
+          : null,
+      leadId: map['leadId'] is String ? map['leadId'] as String : null,
       createdAt: map['createdAt'] is int
           ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'] as int)
           : DateTime.now(),

@@ -104,6 +104,11 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   String? _selectedStatus;
   String? _selectedCategory;
   String? _selectedCreatedBy;
+  String? _selectedSource;
+  String? _selectedPriority; // priority name
+  String? _selectedClient; // client key (clientId, else company name)
+  String? _selectedProject;
+  String? _selectedConverted; // 'Converted' | 'Not Converted'
 
   double? _value;
 
@@ -111,6 +116,39 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+    _loadFilterMasters();
+  }
+
+  // Full master lists for the filter dropdowns (not just values already used).
+  List<String> _sourceOptions = [];
+  List<String> _priorityOptions = [];
+  List<ClientModel> _masterClients = [];
+
+  Future<void> _loadFilterMasters() async {
+    try {
+      final r = await Future.wait([
+        LeadSourceService.getAllLeadSource(),
+        LeadPriorityService.getAllLeadPriority(),
+        ClientService.getMasterClients(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _sourceOptions = _distinct(
+          (r[0] as List<LeadSourceModel>).map((e) => e.name),
+        );
+        _priorityOptions = _distinct(
+          (r[1] as List<LeadPriorityModel>).map((e) => e.name),
+        );
+        _masterClients = r[2] as List<ClientModel>;
+      });
+    } catch (_) {}
+  }
+
+  String _masterLabel(ClientModel c) {
+    final company = (c.companyName ?? '').trim();
+    final contact = (c.clientName ?? '').trim();
+    if (company.isEmpty) return contact;
+    return contact.isEmpty ? company : '$company - $contact';
   }
 
   @override
@@ -167,6 +205,11 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       _selectedStatus = null;
       _selectedCategory = null;
       _selectedCreatedBy = null;
+      _selectedSource = null;
+      _selectedPriority = null;
+      _selectedClient = null;
+      _selectedProject = null;
+      _selectedConverted = null;
       _searchController.clear();
     });
     _applyFilters();
@@ -177,7 +220,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     final controllerRead = context.read<PaginatedDataController<LeadModel>>();
     final controllerWatch = context.watch<PaginatedDataController<LeadModel>>();
     return Scaffold(
-      appBar: widget.showAppBar && kIsMobile
+      appBar: widget.showAppBar &&
+                (kIsMobile || MediaQuery.of(context).size.width < 1000)
           ? AppBar(
               title: const Text(_pageTitle),
               backgroundColor: AppColors.primary,
@@ -604,6 +648,27 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     );
   }
 
+  List<LeadModel> get _allLeads => context.read<LeadBloc>().state is LeadLoaded
+      ? (context.read<LeadBloc>().state as LeadLoaded).leads
+      : <LeadModel>[];
+
+  String _priorityName(LeadModel l) =>
+      CacheService.leadPriorityByUid(l.leadPriority)?.name ?? '';
+
+  String _clientKey(LeadModel l) => (l.clientId ?? '').isNotEmpty
+      ? l.clientId!
+      : (l.companyName ?? '').trim().toLowerCase();
+
+  String _clientLabel(LeadModel l) {
+    final company = (l.companyName ?? '').trim();
+    final contact = (l.clientName ?? '').trim();
+    if (company.isEmpty) return contact;
+    return contact.isEmpty ? company : '$company - $contact';
+  }
+
+  List<String> _distinct(Iterable<String> v) =>
+      (v.where((e) => e.trim().isNotEmpty).toSet().toList()..sort());
+
   Widget _buildFilterRow({required ValueChanged<String> onSearchChanged}) {
     if (_compact) {
       final available = MediaQuery.of(context).size.width - 28 - 32;
@@ -731,6 +796,64 @@ class _LeadsListingViewState extends State<LeadsListingView> {
 
           setState(() => _selectedCreatedBy = selectedEmployee?.uid);
 
+          _applyFilters();
+        },
+      ),
+
+      _filterDropdown(
+        label: "Lead Source",
+        value: _selectedSource,
+        items: _distinct([..._sourceOptions, ..._allLeads.map((l) => l.leadSource.name)]),
+        onChanged: (v) {
+          setState(() => _selectedSource = v);
+          _applyFilters();
+        },
+      ),
+
+      _filterDropdown(
+        label: "Lead Priority",
+        value: _selectedPriority,
+        items: _distinct([..._priorityOptions, ..._allLeads.map(_priorityName)]),
+        onChanged: (v) {
+          setState(() => _selectedPriority = v);
+          _applyFilters();
+        },
+      ),
+
+      _filterDropdown(
+        label: "Master Client",
+        value: _selectedClient == null
+            ? null
+            : _masterClients
+                  .where((c) => c.uid == _selectedClient)
+                  .map(_masterLabel)
+                  .firstOrNull,
+        items: _distinct(_masterClients.map(_masterLabel)),
+        onChanged: (v) {
+          final match = v == null
+              ? null
+              : _masterClients.where((c) => _masterLabel(c) == v).firstOrNull;
+          setState(() => _selectedClient = match?.uid);
+          _applyFilters();
+        },
+      ),
+
+      _filterDropdown(
+        label: "Project Name",
+        value: _selectedProject,
+        items: _distinct(_allLeads.map((l) => l.projectName ?? '')),
+        onChanged: (v) {
+          setState(() => _selectedProject = v);
+          _applyFilters();
+        },
+      ),
+
+      _filterDropdown(
+        label: "Converted",
+        value: _selectedConverted,
+        items: const ['Converted', 'Not Converted'],
+        onChanged: (v) {
+          setState(() => _selectedConverted = v);
           _applyFilters();
         },
       ),
@@ -1095,7 +1218,10 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     if (query.isNotEmpty) {
       filtered = filtered.where((lead) {
         return lead.leadName.toLowerCase().contains(query) ||
-            lead.leadEmail.toLowerCase().contains(query);
+            lead.leadEmail.toLowerCase().contains(query) ||
+            (lead.projectName ?? '').toLowerCase().contains(query) ||
+            _clientLabel(lead).toLowerCase().contains(query) ||
+            (lead.clientMobile ?? '').contains(query);
       }).toList();
     }
     if (_fromDate != null) {
@@ -1130,6 +1256,47 @@ class _LeadsListingViewState extends State<LeadsListingView> {
       filtered = filtered.where((e) => e.leadValue == _value!).toList();
     }
 
+    if (_selectedSource != null) {
+      filtered = filtered
+          .where((e) => e.leadSource.name == _selectedSource)
+          .toList();
+    }
+
+    if (_selectedPriority != null) {
+      filtered = filtered
+          .where((e) => _priorityName(e) == _selectedPriority)
+          .toList();
+    }
+
+    if (_selectedClient != null) {
+      filtered = filtered
+          .where((e) {
+            if ((e.clientId ?? '').isNotEmpty) {
+              return e.clientId == _selectedClient;
+            }
+            final c = _masterClients
+                .where((m) => m.uid == _selectedClient)
+                .firstOrNull;
+            return c != null &&
+                (e.companyName ?? '').trim().toLowerCase() ==
+                    (c.companyName ?? '').trim().toLowerCase();
+          })
+          .toList();
+    }
+
+    if (_selectedProject != null) {
+      filtered = filtered
+          .where((e) => (e.projectName ?? '') == _selectedProject)
+          .toList();
+    }
+
+    if (_selectedConverted != null) {
+      final wantConverted = _selectedConverted == 'Converted';
+      filtered = filtered
+          .where((e) => e.leadsConverted == wantConverted)
+          .toList();
+    }
+
     setState(() {
       _filteredLeads = filtered;
     });
@@ -1150,6 +1317,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     bool select,
   ) {
     final ids = controller.paginatedItems
+        .where((l) => !l.leadsConverted)
         .map((l) => l.uid ?? '')
         .where((id) => id.isNotEmpty);
     if (select) {
@@ -1163,7 +1331,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     PaginatedDataController<LeadModel> controller,
   ) {
     return _filteredLeads
-        .where((l) => controller.selectedIds.contains(l.uid))
+        .where(
+          (l) => !l.leadsConverted && controller.selectedIds.contains(l.uid),
+        )
         .toList();
   }
 
@@ -1196,7 +1366,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
   ) {
     final scheme = Theme.of(context).colorScheme;
     final selectedCount = _selectedLeadModels(controllerWatch).length;
-    final total = _filteredLeads.length;
+    final total = _filteredLeads.where((l) => !l.leadsConverted).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1220,7 +1390,9 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           if (selectedCount < total)
             TextButton(
               onPressed: () => controllerRead.selectAll(
-                _filteredLeads.map((l) => l.uid ?? ''),
+                _filteredLeads
+                    .where((l) => !l.leadsConverted)
+                    .map((l) => l.uid ?? ''),
               ),
               child: Text('Select all $total'),
             ),
@@ -1620,7 +1792,8 @@ class _LeadsListingViewState extends State<LeadsListingView> {
 
     return DataRow(
       selected: isSelected,
-      onSelectChanged: _canDelete
+      // A converted lead is locked: it cannot be selected for bulk delete.
+      onSelectChanged: (_canDelete && !lead.leadsConverted)
           ? (selected) => controllerRead.onSelected(lead.uid ?? '', selected)
           : null,
       cells: [
@@ -1652,8 +1825,16 @@ class _LeadsListingViewState extends State<LeadsListingView> {
           Text(lead.leadEmail, style: Theme.of(context).textTheme.bodySmall),
         ),
 
-        /// Empty column
-        dataCell(context, const Text('')),
+        /// Mobile No (from the master client)
+        dataCell(
+          context,
+          Text(
+            (lead.clientMobile ?? '').isNotEmpty
+                ? lead.clientMobile!
+                : (lead.companyMobile ?? ''),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
 
         /// Lead Value
         dataCell(
@@ -1698,7 +1879,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
         DataCell(
           Row(
             children: [
-              if (_canEdit) ...[
+              if (_canEdit && !lead.leadsConverted) ...[
                 IconButton(
                   icon: const Icon(Iconsax.edit),
                   color: Theme.of(context).colorScheme.primary,
@@ -1720,7 +1901,7 @@ class _LeadsListingViewState extends State<LeadsListingView> {
                 ),
               ],
 
-              if (_canDelete)
+              if (_canDelete && !lead.leadsConverted)
                 IconButton(
                   icon: const Icon(Iconsax.trash),
                   tooltip: 'Delete $_pageTitle',
@@ -1767,49 +1948,22 @@ class _LeadsListingViewState extends State<LeadsListingView> {
     );
   }
 
+  /// Manually converts a lead: creates the deal in the "New" stage and links
+  /// it to the lead (same result as setting the status to "Completed").
   Future<void> _convertLeadToDeal(BuildContext context, LeadModel lead) async {
     try {
       futureLoading(context);
-
       final leadDetails = await LeadService.getLead(uid: lead.uid ?? '');
-
-      final dealData = {
-        'dealName': leadDetails.leadName,
-        'dealEmail': leadDetails.leadEmail,
-        'companyName': leadDetails.companyName,
-        'companyMobile': leadDetails.companyMobile,
-        'companyAddress': leadDetails.companyAddress,
-        'dealValue': leadDetails.leadValue,
-        'notes': leadDetails.notes,
-      };
-
-      // await DealService.createDeal(
-      //   deal: DealModel.fromMap(lead.uid ?? '', dealData),
-      // );
-
       await LeadService.convertLeadToDeal(lead: leadDetails);
-
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      // Refresh the leads page once the deal form closes, so the converted
-      // lead shows its updated state.
-      await Navigate.routeForResult(
-        context,
-        DealCreate(
-          isFromLead: true,
-          prefillDeal: DealModel.fromMap(lead.uid ?? '', dealData),
-        ),
-      );
+      if (Navigator.canPop(context)) Navigator.pop(context);
       if (context.mounted) {
+        FlushBar.show(context, 'Deal created in the New stage');
         await _refreshLeads(context);
       }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      FlushBar.show(context, e.toString(), isSuccess: false);
+      if (Navigator.canPop(context)) Navigator.pop(context);
+      if (context.mounted) FlushBar.show(context, e.toString(), isSuccess: false);
     }
   }
 

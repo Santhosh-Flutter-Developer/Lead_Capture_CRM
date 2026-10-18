@@ -30,6 +30,13 @@ class ClientModel {
   final bool isCompany;
   final DateTime createdAt;
   final DateTime updatedAt;
+  /// Company name, falling back to the contact name for legacy records.
+  String get displayName {
+    final company = (companyName ?? '').trim();
+    if (company.isNotEmpty) return company;
+    return (clientName ?? '').trim();
+  }
+
   ClientModel({
     this.uid,
     this.salutation,

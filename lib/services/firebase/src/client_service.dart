@@ -31,8 +31,9 @@ class ClientService {
 
   static List<String> duplicateKeysForClient(ClientModel client) {
     if (client.isCompany) {
+      // A Master Client is identified by company name / GST-VAT only. The
+      // contact mobile and office phone can legitimately repeat.
       return duplicateKeysFor(
-        mobile: client.officePhoneNo,
         name: client.companyName,
         gstVatNumber: client.gstVatNumber,
       );
@@ -98,7 +99,7 @@ class ClientService {
         final isDuplicate = await isDuplicateClient(client: client);
         if (isDuplicate) {
           throw client.isCompany
-              ? 'This company already exists (matching name, GST/VAT number, or office phone).'
+              ? 'This client already exists (matching company name or GST/VAT number).'
               : 'This contact already exists (matching email or mobile number).';
         }
       }
@@ -118,7 +119,8 @@ class ClientService {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
       if (e is String &&
-          (e.startsWith('This company already exists') ||
+          (e.startsWith('This client already exists') ||
+              e.startsWith('This company already exists') ||
               e.startsWith('This contact already exists'))) {
         rethrow;
       }
@@ -141,7 +143,7 @@ class ClientService {
         );
         if (isDuplicate) {
           throw client.isCompany
-              ? 'This company already exists (matching name, GST/VAT number, or office phone).'
+              ? 'This client already exists (matching company name or GST/VAT number).'
               : 'This contact already exists (matching email or mobile number).';
         }
       }
@@ -159,7 +161,8 @@ class ClientService {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
       if (e is String &&
-          (e.startsWith('This company already exists') ||
+          (e.startsWith('This client already exists') ||
+              e.startsWith('This company already exists') ||
               e.startsWith('This contact already exists'))) {
         rethrow;
       }
@@ -304,6 +307,61 @@ class ClientService {
     }
   }
 
+  /// Master Clients only (a company and its contact saved together).
+  static Future<List<ClientModel>> getMasterClients() async {
+    final all = await getAllClients();
+    return all
+        .where((c) => c.isCompany && (c.companyName?.trim().isNotEmpty ?? false))
+        .toList();
+  }
+
+  /// Leads count, deals count and total deal value per Master Client uid.
+  static Future<Map<String, ({int leads, int deals, double value})>>
+  getClientStats() async {
+    try {
+      final cid = await Spdb.getCid();
+      final leadsSnap = await firebase.users
+          .doc(cid)
+          .collection(Collections.leads.name)
+          .get();
+      final dealsSnap = await firebase.users
+          .doc(cid)
+          .collection(Collections.deals.name)
+          .get();
+
+      final leads = <String, int>{};
+      final deals = <String, int>{};
+      final values = <String, double>{};
+
+      for (final d in leadsSnap.docs) {
+        final id = d.data()['clientId'];
+        if (id is String && id.isNotEmpty) leads[id] = (leads[id] ?? 0) + 1;
+      }
+      for (final d in dealsSnap.docs) {
+        final data = d.data();
+        final id = data['clientId'];
+        if (id is! String || id.isEmpty) continue;
+        deals[id] = (deals[id] ?? 0) + 1;
+        final v = data['dealValue'];
+        final value = v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0;
+        values[id] = (values[id] ?? 0) + value;
+      }
+
+      final ids = {...leads.keys, ...deals.keys};
+      return {
+        for (final id in ids)
+          id: (
+            leads: leads[id] ?? 0,
+            deals: deals[id] ?? 0,
+            value: values[id] ?? 0.0,
+          ),
+      };
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      return {};
+    }
+  }
+
   static Future<bool> isClientAssigned(String clientUid) async {
     try {
       var cid = await Spdb.getCid();
@@ -314,8 +372,16 @@ class ClientService {
           .where('clientId', isEqualTo: clientUid)
           .limit(1)
           .get();
+      if (snapshot.docs.isNotEmpty) return true;
 
-      return snapshot.docs.isNotEmpty;
+      final deals = await firebase.users
+          .doc(cid)
+          .collection(Collections.deals.name)
+          .where('clientId', isEqualTo: clientUid)
+          .limit(1)
+          .get();
+
+      return deals.docs.isNotEmpty;
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("Error checking client assignment: $e\n$st");

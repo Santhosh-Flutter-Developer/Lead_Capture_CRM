@@ -177,6 +177,16 @@ class MenuService {
             route: '/deal-status',
             requiredPermissions: ['Deal Status'],
           ),
+          // Company + Contact captured once; Leads and Deals link to it.
+          // Roles created before this menu existed only carry the old
+          // Company / Contact pages, so those still grant access.
+          MenuItem(
+            id: 'master_client',
+            title: 'Master Client',
+            icon: Iconsax.people,
+            route: '/master-client',
+            requiredPermissions: ['Master Client', 'Company', 'Contact'],
+          ),
           MenuItem(
             id: 'leads',
             title: 'Leads',
@@ -192,25 +202,11 @@ class MenuService {
             requiredPermissions: ['Deals'],
           ),
           MenuItem(
-            id: 'clients',
-            title: 'Clients',
-            icon: Iconsax.people,
-            children: [
-              MenuItem(
-                id: 'client_company',
-                title: 'Company',
-                icon: Iconsax.building,
-                route: '/client-company',
-                requiredPermissions: ['Company'],
-              ),
-              MenuItem(
-                id: 'client_contact',
-                title: 'Contact',
-                icon: Iconsax.user,
-                route: '/client-contact',
-                requiredPermissions: ['Contact'],
-              ),
-            ],
+            id: 'project_updation',
+            title: 'Project Updation',
+            icon: Iconsax.refresh_circle,
+            route: '/project-updation',
+            requiredPermissions: ['Project Updation'],
           ),
         ],
       ),
@@ -437,8 +433,8 @@ class MenuService {
       'Deal Status',
       'Leads',
       'Deals',
-      'Company',
-      'Contact',
+      'Project Updation',
+      'Master Client',
       'Calendar',
       'Projects',
       'Tasks',
