@@ -298,6 +298,9 @@ class _MobileMenuState extends State<MobileMenu> {
       case 'master_client':
         Navigate.route(context, const MasterClientListing());
         break;
+      case 'master_company':
+        Navigate.route(context, const MasterCompanyListing());
+        break;
       case 'project_updation':
         Navigate.route(context, const ProjectUpdationListing());
         break;

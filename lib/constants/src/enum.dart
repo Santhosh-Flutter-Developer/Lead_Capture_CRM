@@ -50,6 +50,7 @@ enum Collections {
   ticketHistory,
   eventStartNotifications,
   projectUpdations,
+  masterCompanies,
 }
 
 enum StorageFolder {

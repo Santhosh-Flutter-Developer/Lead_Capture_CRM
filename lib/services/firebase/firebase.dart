@@ -15,6 +15,7 @@ export 'src/lead_status_service.dart';
 export 'src/region_service.dart';
 export 'src/lead_service.dart';
 export 'src/client_service.dart';
+export 'src/master_company_service.dart';
 export 'src/windows_notification_service.dart';
 export 'src/deal_status_service.dart';
 export 'src/deal_service.dart';

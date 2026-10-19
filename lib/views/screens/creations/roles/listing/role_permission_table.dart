@@ -35,6 +35,8 @@ IconData rolePageIcon(String page) {
       return Iconsax.dollar_circle;
     case 'Master Client':
       return Iconsax.people;
+    case 'Master Company':
+      return Iconsax.building_4;
     case 'Project Updation':
       return Iconsax.refresh_circle;
     case 'Company':

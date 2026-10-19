@@ -188,6 +188,13 @@ class MenuService {
             requiredPermissions: ['Master Client', 'Company', 'Contact'],
           ),
           MenuItem(
+            id: 'master_company',
+            title: 'Master Company',
+            icon: Iconsax.building_4,
+            route: '/master-company',
+            requiredPermissions: ['Master Company'],
+          ),
+          MenuItem(
             id: 'leads',
             title: 'Leads',
             icon: Iconsax.graph,
@@ -435,6 +442,7 @@ class MenuService {
       'Deals',
       'Project Updation',
       'Master Client',
+      'Master Company',
       'Calendar',
       'Projects',
       'Tasks',

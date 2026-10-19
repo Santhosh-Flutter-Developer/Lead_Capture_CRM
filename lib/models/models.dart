@@ -12,6 +12,7 @@ export 'src/lead_status_model.dart';
 export 'src/lead_model.dart';
 export 'src/region_model.dart';
 export 'src/client_model.dart';
+export 'src/master_company_model.dart';
 export 'src/deal_status_model.dart';
 export 'src/task_model.dart';
 export 'src/deal_model.dart';
