@@ -51,6 +51,7 @@ enum Collections {
   eventStartNotifications,
   projectUpdations,
   masterCompanies,
+  payments,
 }
 
 enum StorageFolder {

@@ -195,6 +195,13 @@ class MenuService {
             requiredPermissions: ['Master Company'],
           ),
           MenuItem(
+            id: 'payment',
+            title: 'Payment',
+            icon: Iconsax.wallet_3,
+            route: '/payment',
+            requiredPermissions: ['Payment'],
+          ),
+          MenuItem(
             id: 'leads',
             title: 'Leads',
             icon: Iconsax.graph,
@@ -443,6 +450,7 @@ class MenuService {
       'Project Updation',
       'Master Client',
       'Master Company',
+      'Payment',
       'Calendar',
       'Projects',
       'Tasks',

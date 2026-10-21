@@ -701,6 +701,31 @@ class DealService {
     }
   }
 
+  /// Every completed deal (final status, named "Completed", or locked),
+  /// across all master clients.
+  static Future<List<DealModel>> getAllCompletedDeals() async {
+    try {
+      final cid = await Spdb.getCid();
+      final results = await Future.wait([
+        firebase.users.doc(cid).collection(Collections.deals.name).get(),
+        DealStatusService.getAllDealStatus(),
+      ]);
+      final snap = results[0] as QuerySnapshot<Map<String, dynamic>>;
+      final statuses = results[1] as List<DealStatusModel>;
+      final completed = statuses
+          .where((s) => s.isFinal || s.lowercaseName == 'completed')
+          .map((s) => s.uid)
+          .toSet();
+      return snap.docs
+          .map((d) => DealModel.fromMap(d.id, d.data()))
+          .where((d) => d.isLocked || completed.contains(d.dealStatus))
+          .toList();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      throw 'Error fetching completed deals: $e';
+    }
+  }
+
   /// Next upcoming (not completed) follow-up date per deal uid.
   static Future<Map<String, DateTime>> getNextFollowUps(
     List<String> dealUids,

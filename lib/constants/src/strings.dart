@@ -140,6 +140,7 @@ class AppStrings {
     "Project Updation",
     "Master Client",
     "Master Company",
+    "Payment",
     "Calendar",
     "Projects",
     "Tasks",
@@ -157,6 +158,7 @@ class AppStrings {
     "Company",
     "Master Client",
     "Master Company",
+    "Payment",
     "Project Updation",
     "Admin",
   ];
