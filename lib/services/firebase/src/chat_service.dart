@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -202,6 +203,60 @@ class ChatService {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
       throw "Error updating seen status: $e";
+    }
+  }
+
+  static final Set<String> _seenRunning = {};
+  static final Set<String> _seenRerun = {};
+
+  /// Marks EVERY unseen message of [chatId] as seen by the current user.
+  ///
+  /// Queries Firestore directly (not the UI list), so messages that are not
+  /// rendered (deleted-for-me, missing timestamp, etc.) are still cleared and
+  /// one failing update can no longer stop the rest. Uses batched writes.
+  static Future<void> markChatMessagesAsSeen(String chatId) async {
+    if (chatId.isEmpty) return;
+    if (_seenRunning.contains(chatId)) {
+      _seenRerun.add(chatId); // new messages arrived mid-run -> run again
+      return;
+    }
+    _seenRunning.add(chatId);
+    try {
+      do {
+        _seenRerun.remove(chatId);
+        final cid = await Spdb.getCid();
+        final uid = await Spdb.getUid();
+        if (cid == null || uid == null) return;
+
+        final snap = await FirebaseFirestore.instance
+            .collection(Collections.users.name)
+            .doc(cid)
+            .collection(Collections.chats.name)
+            .doc(chatId)
+            .collection(Collections.messages.name)
+            .where('receiverId', arrayContains: uid)
+            .get();
+
+        final unseen = snap.docs.where((d) {
+          final seenBy = List.from(d.data()['seenBy'] ?? []);
+          return !seenBy.contains(uid);
+        }).toList();
+
+        for (var i = 0; i < unseen.length; i += 400) {
+          final batch = FirebaseFirestore.instance.batch();
+          for (final d in unseen.skip(i).take(400)) {
+            batch.update(d.reference, {
+              'seenBy': FieldValue.arrayUnion([uid]),
+            });
+          }
+          await batch.commit();
+        }
+      } while (_seenRerun.contains(chatId));
+    } catch (e, st) {
+      debugPrint('markChatMessagesAsSeen failed: $e\n$st');
+      await ErrorService.recordError(e, st);
+    } finally {
+      _seenRunning.remove(chatId);
     }
   }
 
@@ -466,32 +521,124 @@ class ChatService {
     }
   }
 
+  /// Total unread messages (sidebar "Chats" badge).
   static ValueListenable<int> unviewedCount() {
-    _startListening();
+    _ensureUnviewedListener();
     return _unviewedCount;
   }
 
-  static void _startListening() async {
-    var uid = await Spdb.getUid();
-    var cid = await Spdb.getCid();
+  /// Unread messages per chat id (chat list row badges).
+  static ValueListenable<Map<String, int>> unviewedByChat() {
+    _ensureUnviewedListener();
+    return _unviewedByChat;
+  }
 
-    FirebaseFirestore.instance
+  static final ValueNotifier<Map<String, int>> _unviewedByChat =
+      ValueNotifier<Map<String, int>>(<String, int>{});
+  static StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _unviewedSub;
+  static String? _unviewedKey;
+
+  /// Starts ONE shared Firestore listener (per user) for all unread counts.
+  /// Previously every call / every chat row opened its own listener, and a
+  /// stalled or failed one left a stale badge on screen.
+  static Future<void> _ensureUnviewedListener() async {
+    final uid = await Spdb.getUid();
+    final cid = await Spdb.getCid();
+    if (uid == null || cid == null) return;
+
+    final key = '$cid/$uid';
+    if (_unviewedKey == key) return; // already listening for this user
+    _unviewedKey = key;
+
+    await _unviewedSub?.cancel();
+    _publishUnviewed(<String, int>{}); // new user -> start clean
+
+    _unviewedSub = FirebaseFirestore.instance
         .collectionGroup(Collections.messages.name)
         .where('receiverId', arrayContains: uid)
         .snapshots()
-        .listen((snapshot) {
-          int totalUnviewed = 0;
-
-          for (var doc in snapshot.docs) {
-            if (doc.reference.path.contains("users/$cid/")) {
-              List seenBy = doc.data()['seenBy'] ?? [];
-              if (!seenBy.contains(uid)) {
-                totalUnviewed++;
+        .listen(
+          (snapshot) {
+            final counts = <String, int>{};
+            for (final doc in snapshot.docs) {
+              // users/<cid>/chats/<chatId>/messages/<messageId>
+              final seg = doc.reference.path.split('/');
+              if (seg.length < 6 ||
+                  seg[0] != Collections.users.name ||
+                  seg[1] != cid ||
+                  seg[2] != Collections.chats.name) {
+                continue;
+              }
+              final data = doc.data();
+              final List seenBy = data['seenBy'] ?? [];
+              final List deletedFor = data['deletedFor'] ?? [];
+              if (!seenBy.contains(uid) &&
+                  !deletedFor.contains(uid) &&
+                  data['senderId'] != uid) {
+                counts[seg[3]] = (counts[seg[3]] ?? 0) + 1;
               }
             }
-          }
-          _unviewedCount.value = totalUnviewed;
-        });
+            _publishUnviewed(counts);
+
+            // A new message arrived for the chat that is open right now.
+            final active = _activeChatId;
+            if (active != null && (counts[active] ?? 0) > 0) {
+              markChatMessagesAsSeen(active);
+            }
+          },
+          onError: (Object e, StackTrace st) {
+            debugPrint('Unread listener failed: $e');
+            // Reset so the next access (or the retry below) re-attaches.
+            _unviewedSub = null;
+            _unviewedKey = null;
+            Future.delayed(const Duration(seconds: 5), _ensureUnviewedListener);
+          },
+        );
+  }
+
+  /// Raw unread counts straight from Firestore (all chats).
+  static Map<String, int> _rawUnviewed = <String, int>{};
+
+  /// The chat that is open on screen right now. Its badge is always hidden;
+  /// every other chat keeps its badge until that chat itself is opened.
+  static String? _activeChatId;
+
+  /// Marks [chatId] as the chat currently open on screen.
+  ///
+  /// Called from initState (i.e. during a build), so listeners are notified in
+  /// a microtask: updating a ValueNotifier mid-build leaves the badge widgets
+  /// stale until the next unrelated rebuild (the "hides only after I click
+  /// something" bug).
+  static void setActiveChat(String? chatId) {
+    _activeChatId = (chatId == null || chatId.isEmpty) ? null : chatId;
+    scheduleMicrotask(_republishUnviewed);
+    // If it already has unread messages, clear them right away.
+    if (_activeChatId != null && (_rawUnviewed[_activeChatId] ?? 0) > 0) {
+      markChatMessagesAsSeen(_activeChatId!);
+    }
+  }
+
+  static void clearActiveChat(String chatId) {
+    if (_activeChatId == chatId) {
+      _activeChatId = null;
+      scheduleMicrotask(_republishUnviewed);
+    }
+  }
+
+  static void _publishUnviewed(Map<String, int> counts) {
+    _rawUnviewed = counts;
+    _republishUnviewed();
+  }
+
+  /// Only notifies listeners when something really changed (no flicker).
+  static void _republishUnviewed() {
+    final visible = Map<String, int>.from(_rawUnviewed);
+    if (_activeChatId != null) visible.remove(_activeChatId);
+    if (!mapEquals(visible, _unviewedByChat.value)) {
+      _unviewedByChat.value = visible;
+    }
+    final total = visible.values.fold<int>(0, (a, b) => a + b);
+    if (total != _unviewedCount.value) _unviewedCount.value = total;
   }
 
   static Future<void> sendNotification({
@@ -676,29 +823,6 @@ class ChatService {
       debugPrint("$e\n$st");
       throw "Failed to create chat: $e";
     }
-  }
-
-  static Stream<int> unviewedChatMessageCount(String chatId) async* {
-    var userId = await Spdb.getUid();
-    var cid = await Spdb.getCid();
-
-    yield* FirebaseFirestore.instance
-        .collectionGroup(Collections.messages.name)
-        .where('receiverId', arrayContains: userId)
-        .snapshots()
-        .map((snapshot) {
-          int totalUnviewed = 0;
-
-          for (var doc in snapshot.docs) {
-            if (doc.reference.path.contains("users/$cid/chats/$chatId")) {
-              List seenBy = doc.data()['seenBy'] ?? [];
-              if (!seenBy.contains(userId)) {
-                totalUnviewed++;
-              }
-            }
-          }
-          return totalUnviewed;
-        });
   }
 
   static Future<void> toggleReaction({

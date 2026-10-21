@@ -87,29 +87,31 @@ class _ChatMessagesState extends State<ChatMessages> {
       uid: widget.chat.uid ?? '',
     ).asBroadcastStream();
 
-    // This subscription handles the *side-effect* of marking messages as seen.
-    // It does NOT call setState or manage UI data.
+    // Clear everything unread as soon as the chat is opened (covers messages
+    // that are not part of the rendered list too).
+    // This chat is now open: hide ONLY its unread badge.
+    ChatService.setActiveChat(widget.chat.uid);
+    ChatService.markChatMessagesAsSeen(widget.chat.uid ?? '');
+
+    // Side-effect only: whenever new messages arrive while the chat is open,
+    // mark them as seen. Does NOT call setState or manage UI data.
     _subscription = _stream.listen(_markMessagesAsSeen);
   }
 
   /// A background task to mark incoming messages as seen.
   void _markMessagesAsSeen(List<MessagesModel> messages) {
-    Spdb.getUid().then((uid) async {
-      if (uid == null) return;
-      for (var msg in messages) {
-        if (!msg.seenBy.contains(uid) && msg.senderId != widget.currentUser) {
-          await ChatService.updateSeenChat(
-            chatId: widget.chat.uid ?? '',
-            messageId: msg.uid ?? '',
-          );
-          // Don't mutate the message object - let the stream update naturally
-        }
-      }
-    });
+    final uid = widget.currentUser;
+    final hasUnseen = messages.any(
+      (msg) => !msg.seenBy.contains(uid) && msg.senderId != uid,
+    );
+    if (hasUnseen) {
+      ChatService.markChatMessagesAsSeen(widget.chat.uid ?? '');
+    }
   }
 
   @override
   void dispose() {
+    ChatService.clearActiveChat(widget.chat.uid ?? '');
     _subscription?.cancel();
     _scrollController.dispose();
     _scrollRegistry.dispose();

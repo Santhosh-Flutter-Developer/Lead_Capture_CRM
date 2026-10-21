@@ -91,7 +91,8 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
 
   Future<void> _load() async {
     try {
-      _permissions = await PermissionService.getPermissions('Master Company');
+      _permissions = await PermissionService.getPermissions('Our Company') ??
+          await PermissionService.getPermissions('Our Company');
       final clients = await MasterCompanyService.getAll();
       if (!mounted) return;
       _all = clients;
@@ -133,7 +134,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
           ? null
           : AppBar(
               leading: const Back(),
-              title: const Text('Master Company'),
+              title: const Text('Our Company'),
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.white,
               elevation: 0,
@@ -171,7 +172,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
                       controller.paginatedItems.isEmpty
                           ? NoData(
                               text: _all.isEmpty
-                                  ? 'No master companies available'
+                                  ? 'No companies available'
                                   : 'No matching records found',
                             )
                           : _tableCard(context, controller),
@@ -214,7 +215,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Master Company',
+                  'Our Company',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: AppColors.white,
                     fontWeight: FontWeight.bold,
@@ -270,7 +271,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
         FilledButton.icon(
           onPressed: () => _openForm(context),
           icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Add Master Company'),
+          label: const Text('Add Our Company'),
         ),
       if ((_permissions?.canExport ?? false) &&
           controller.paginatedItems.isNotEmpty)
@@ -503,7 +504,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
       final bytes = await XlsxWriter().create(rows);
       final path = await saveFileToDownloads(
         bytes,
-        fileName: 'Master Company List.xlsx',
+        fileName: 'Our Company List.xlsx',
       );
       if (!kIsWeb && context.mounted) openfile(path, context);
     } catch (e) {
@@ -516,10 +517,10 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => ConfirmDialog(
-        title: 'Delete Master Company',
+        title: 'Delete Our Company',
         content: count == 1
-            ? 'Are you sure you want to delete this master company?'
-            : 'Are you sure you want to delete $count master companies?',
+            ? 'Are you sure you want to delete this company?'
+            : 'Are you sure you want to delete $count companies?',
       ),
     );
     return ok == true;
@@ -539,7 +540,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
       if (!context.mounted) return;
       FlushBar.show(
         context,
-        'Master company deleted',
+        'Company deleted',
         actionLabel: 'UNDO',
         onActionPressed: () async {
           await MasterCompanyService.restore(deleted);
@@ -578,7 +579,7 @@ class _MasterCompanyListingState extends State<MasterCompanyListing> {
       if (!context.mounted) return;
       FlushBar.show(
         context,
-        'Master companies deleted',
+        'Companies deleted',
         actionLabel: 'UNDO',
         onActionPressed: () async {
           for (final c in deleted) {

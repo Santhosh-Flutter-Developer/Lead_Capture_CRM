@@ -30,7 +30,7 @@ class MasterCompanyService {
       return list;
     } catch (e, st) {
       await ErrorService.recordError(e, st);
-      throw 'Error fetching master companies: $e';
+      throw 'Error fetching companies: $e';
     }
   }
 
@@ -47,11 +47,11 @@ class MasterCompanyService {
       return MasterCompanyModel.fromMap(doc.id, data);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
-      throw 'Error loading master company: $e';
+      throw 'Error loading company: $e';
     }
   }
 
-  /// True when another master company already has the same company name
+  /// True when another company already has the same company name
   /// (or the same non-empty GST/VAT number).
   static Future<bool> isDuplicate({
     required MasterCompanyModel company,
@@ -78,14 +78,14 @@ class MasterCompanyService {
       final ref = await CommonService.add(
         _path(cid),
         company.toMap(),
-        activity: '${company.companyName} has been added as a master company',
+        activity: '${company.companyName} has been added as our company',
       );
       return ref.id;
     } catch (e, st) {
       debugPrint('$e, $st');
       if (e == _dupMsg) rethrow;
       await ErrorService.recordError(e, st);
-      throw 'Error creating master company: $e';
+      throw 'Error creating company: $e';
     }
   }
 
@@ -106,7 +106,7 @@ class MasterCompanyService {
       debugPrint('$e, $st');
       if (e == _dupMsg) rethrow;
       await ErrorService.recordError(e, st);
-      throw 'Error updating master company: $e';
+      throw 'Error updating company: $e';
     }
   }
 
@@ -141,7 +141,7 @@ class MasterCompanyService {
       );
     } catch (e, st) {
       await ErrorService.recordError(e, st);
-      throw 'Error deleting master company: $e';
+      throw 'Error deleting company: $e';
     }
   }
 

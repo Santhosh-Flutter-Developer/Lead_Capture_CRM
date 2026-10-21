@@ -418,7 +418,7 @@ class _PaymentFormState extends State<PaymentForm> {
                 LeadFormUI.header(
                   context,
                   title: _isEdit ? 'Edit Payment' : 'Add Payment',
-                  subtitle: 'Allocate a completed deal across master companies',
+                  subtitle: 'Allocate a completed deal across our companies',
                   icon: Iconsax.wallet_3,
                 ),
                 Expanded(
@@ -564,7 +564,7 @@ class _PaymentFormState extends State<PaymentForm> {
               Expanded(
                 child: FormDropdownSearch(
                   key: ValueKey('comp_${_companies.length}_${_company?.uid}_$_tick'),
-                  label: 'Master Company',
+                  label: 'Our Company',
                   isRequired: true,
                   initialItem: _company?.companyName,
                   items: _companies.map((c) => c.companyName).toList(),
@@ -682,7 +682,7 @@ class _PaymentFormState extends State<PaymentForm> {
               DataColumn(label: Text('Master Client')),
               DataColumn(label: Text('Project')),
               DataColumn(label: Text('Deal Value'), numeric: true),
-              DataColumn(label: Text('Master Company')),
+              DataColumn(label: Text('Our Company')),
               DataColumn(label: Text('Allocated'), numeric: true),
               DataColumn(label: Text('Payment Mode')),
               DataColumn(label: Text('Actions')),

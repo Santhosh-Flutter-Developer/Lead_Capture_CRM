@@ -260,7 +260,7 @@ class _PaymentListingState extends State<PaymentListing> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Allocate completed deals to master companies and track payment modes',
+                  'Allocate completed deals to our companies and track payment modes',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.white.withValues(alpha: 0.85),
                   ),
@@ -575,7 +575,7 @@ class _PaymentListingState extends State<PaymentListing> {
                           label: const Text('Payment Mode'),
                           onSort: controller.setSort,
                         ),
-                        const DataColumn(label: Text('Master Company')),
+                        const DataColumn(label: Text('Our Company')),
                         const DataColumn(label: Text('Created By')),
                         const DataColumn(label: Text('Actions')),
                       ],
@@ -657,7 +657,7 @@ class _PaymentListingState extends State<PaymentListing> {
           'Master Client',
           'Project',
           'Deal Value',
-          'Master Company',
+          'Our Company',
           'Allocated Value',
           'Payment Mode',
           'Created By',

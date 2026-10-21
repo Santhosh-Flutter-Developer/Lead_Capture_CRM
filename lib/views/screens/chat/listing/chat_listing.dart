@@ -173,10 +173,15 @@ class _ChatListingViewState extends State<ChatListingView> {
                         chats: state.chats,
                         selectedChatUid: _selectedChatUid,
                         onSelect: (index) {
+                          final tappedUid = state.chats[index].uid;
                           setState(() {
-                            _selectedChatUid = state.chats[index].uid;
+                            _selectedChatUid = tappedUid;
                             _pendingOpponentUid = null;
                           });
+                          // Tapping a chat (even the one already open) must
+                          // always clear its unread badge.
+                          ChatService.setActiveChat(tappedUid);
+                          ChatService.markChatMessagesAsSeen(tappedUid ?? '');
                         },
                         currentUserUid: widget.currentUserUid,
                         onRefresh: () => _refreshChats(context),
@@ -1051,50 +1056,9 @@ class _ChatListItemState extends State<_ChatListItem> {
                         ).textTheme.bodySmall?.copyWith(color: AppColors.grey),
                       ),
                       const SizedBox(height: 4),
-                      StreamBuilder<int>(
-                        stream: ChatService.unviewedChatMessageCount(
-                          chat.uid ?? '',
-                        ),
-                        builder: (context, snapshot) {
-                          final count = snapshot.data ?? 0;
-                          if (count == 0) return const SizedBox.shrink();
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            constraints: const BoxConstraints(minWidth: 20),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF0052D4),
-                                  Color(0xFF4364F7),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF4364F7,
-                                  ).withValues(alpha: 0.35),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              count > 99 ? '99+' : count.toString(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          );
-                        },
+                      _UnreadBadge(
+                        key: ValueKey('unread_${chat.uid}'),
+                        chatId: chat.uid ?? '',
                       ),
                     ],
                   ),
@@ -1207,6 +1171,55 @@ class _ChatListItemState extends State<_ChatListItem> {
         ),
       ),
       ),
+    );
+  }
+}
+
+/// Unread-count badge for a chat list row.
+///
+/// Reads from ONE shared listener in [ChatService] (no stream is created in
+/// build()), so it never flickers/hides on rebuilds and updates immediately
+/// when a chat is opened and its messages are marked as seen.
+class _UnreadBadge extends StatelessWidget {
+  final String chatId;
+  const _UnreadBadge({super.key, required this.chatId});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Map<String, int>>(
+      valueListenable: ChatService.unviewedByChat(),
+      builder: (context, counts, _) {
+        final count = counts[chatId] ?? 0;
+        if (count == 0) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          constraints: const BoxConstraints(minWidth: 20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0052D4), Color(0xFF4364F7)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4364F7).withValues(alpha: 0.35),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Text(
+            count > 99 ? '99+' : count.toString(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      },
     );
   }
 }

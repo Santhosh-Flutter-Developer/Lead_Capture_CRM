@@ -107,8 +107,8 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
                 LeadFormUI.header(
                   context,
                   title: _isEdit
-                      ? 'Edit Master Company'
-                      : 'Create Master Company',
+                      ? 'Edit Our Company'
+                      : 'Create Our Company',
                   subtitle: 'Company details and its primary contact',
                   icon: Iconsax.building_4,
                 ),
@@ -365,7 +365,7 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
       Navigator.pop(context, {"status": true, "company": saved});
       FlushBar.show(
         context,
-        _isEdit ? 'Master company updated' : 'Master company created',
+        _isEdit ? 'Company updated' : 'Company created',
         isSuccess: true,
       );
     } catch (e, st) {

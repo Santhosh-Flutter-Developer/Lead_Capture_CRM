@@ -168,7 +168,7 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
         return const DealsListing();
       case 'Master Client':
         return const MasterClientListing();
-      case 'Master Company':
+      case 'Our Company':
         return const MasterCompanyListing();
       case 'Payment':
         return const PaymentListing();
