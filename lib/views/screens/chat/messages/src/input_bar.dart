@@ -225,12 +225,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// Flutter genuinely restart the caret blink, and re-triggers the
   /// platform text-input connection so the keyboard reliably reappears.
   void _ensureFocusAndKeyboard() {
-    if (focusNode.hasFocus) {
-      focusNode.unfocus();
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      FocusScope.of(context).requestFocus(focusNode);
+      // The field is no longer re-created when the list toggles, so it keeps
+      // focus; only re-request it if it genuinely lost it.
+      if (!focusNode.hasFocus) {
+        FocusScope.of(context).requestFocus(focusNode);
+      }
       try {
         await SystemChannels.textInput.invokeMethod('TextInput.show');
       } catch (_) {
@@ -308,8 +309,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
       final newText = text.replaceRange(mentionStart, cursorPos, mentionText);
 
-      _controller.text = newText;
-      _controller.selection = TextSelection.collapsed(offset: end);
+      // One atomic update (text + caret) => the listener runs once.
+      _controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: end),
+      );
 
       // Remove duplicate mention
       _mentions.removeWhere((m) => m.uid == user.uid);
@@ -555,6 +559,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   late final FocusNode focusNode;
 
+  // Keeps the TextField's State alive when the mention list is inserted above
+  // it in the Column. Without a key Flutter re-creates the TextField every time
+  // the list opens/closes, which drops the IME connection (typing after "@"
+  // did nothing until the user clicked the box again).
+  final GlobalKey _textFieldKey = GlobalKey(debugLabel: 'chat_input_field');
+
   @override
   Widget build(BuildContext context) {
     final chatData = ChatData.of(context);
@@ -658,8 +668,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_showMentionList) _mentionList(),
+                    if (_showMentionList)
+                      KeyedSubtree(
+                        key: const ValueKey('mention_list'),
+                        child: _mentionList(),
+                      ),
                     Container(
+                      key: _textFieldKey,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(

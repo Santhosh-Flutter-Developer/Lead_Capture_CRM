@@ -84,7 +84,7 @@ class _PaymentListingState extends State<PaymentListing> {
             );
             break;
           case 2:
-            compare = a.dealValue.compareTo(b.dealValue);
+            compare = a.totalValue.compareTo(b.totalValue);
             break;
           case 3:
             compare = a.allocatedValue.compareTo(b.allocatedValue);
@@ -388,7 +388,7 @@ class _PaymentListingState extends State<PaymentListing> {
       if (_fClient != null && p.clientId != _fClient) return false;
       if (_fProject != null && p.projectId != _fProject) return false;
       if (_fMode != null && !p.modes.contains(_fMode)) return false;
-      if (_fValue != null && (p.dealValue - _fValue!).abs() > 0.0001) {
+      if (_fValue != null && (p.totalValue - _fValue!).abs() > 0.0001) {
         return false;
       }
       return true;
@@ -617,7 +617,7 @@ class _PaymentListingState extends State<PaymentListing> {
               : null,
         ),
         DataCell(Text(c.projectName.isNotEmpty ? c.projectName : '-', style: style)),
-        DataCell(Text(_money.format(c.dealValue), style: style)),
+        DataCell(Text(_money.format(c.totalValue), style: style)),
         DataCell(Text(_money.format(c.allocatedValue), style: style)),
         DataCell(Text(c.modesText.isNotEmpty ? c.modesText : '-', style: style)),
         DataCell(Text(c.companiesText.isNotEmpty ? c.companiesText : '-', style: style)),
@@ -666,7 +666,7 @@ class _PaymentListingState extends State<PaymentListing> {
           [
             c.clientLabel,
             c.projectName,
-            c.dealValue.toStringAsFixed(2),
+            c.totalValue.toStringAsFixed(2),
             c.companiesText,
             c.allocatedValue.toStringAsFixed(2),
             c.modesText,

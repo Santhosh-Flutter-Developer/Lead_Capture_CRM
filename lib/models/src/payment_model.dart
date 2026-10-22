@@ -15,6 +15,9 @@ class PaymentModel {
   final String companyName;
   final double allocatedValue;
   final String paymentMode;
+  final String? updationId; // optional completed Project Updation
+  final String? updationLabel;
+  final double updationValue;
   final UserDataModel createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -30,6 +33,9 @@ class PaymentModel {
     required this.companyName,
     required this.allocatedValue,
     required this.paymentMode,
+    this.updationId,
+    this.updationLabel,
+    this.updationValue = 0,
     required this.createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -47,6 +53,9 @@ class PaymentModel {
     String? companyName,
     double? allocatedValue,
     String? paymentMode,
+    String? updationId,
+    String? updationLabel,
+    double? updationValue,
     UserDataModel? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -61,6 +70,9 @@ class PaymentModel {
     companyName: companyName ?? this.companyName,
     allocatedValue: allocatedValue ?? this.allocatedValue,
     paymentMode: paymentMode ?? this.paymentMode,
+    updationId: updationId ?? this.updationId,
+    updationLabel: updationLabel ?? this.updationLabel,
+    updationValue: updationValue ?? this.updationValue,
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -76,6 +88,9 @@ class PaymentModel {
     'companyName': companyName,
     'allocatedValue': allocatedValue,
     'paymentMode': paymentMode,
+    'updationId': updationId,
+    'updationLabel': updationLabel,
+    'updationValue': updationValue,
     'createdBy': createdBy.toMap(),
     'createdAt': createdAt.millisecondsSinceEpoch,
     'updatedAt': updatedAt.millisecondsSinceEpoch,
@@ -96,6 +111,9 @@ class PaymentModel {
       companyName: (map['companyName'] ?? '') as String,
       allocatedValue: num_(map['allocatedValue']),
       paymentMode: (map['paymentMode'] ?? '') as String,
+      updationId: map['updationId'] as String?,
+      updationLabel: map['updationLabel'] as String?,
+      updationValue: num_(map['updationValue']),
       createdBy: map['createdBy'] is Map<String, dynamic>
           ? UserDataModel.fromMap(map['createdBy'] as Map<String, dynamic>)
           : UserDataModel.fromEmptyMap(),
@@ -122,6 +140,17 @@ class PaymentGroup {
   UserDataModel get createdBy => first.createdBy;
   double get allocatedValue =>
       lines.fold(0.0, (sum, l) => sum + l.allocatedValue);
+  /// Total value of the distinct project updations used by these lines.
+  double get updationsTotal {
+    final seen = <String, double>{};
+    for (final l in lines) {
+      if ((l.updationId ?? '').isNotEmpty) seen[l.updationId!] = l.updationValue;
+    }
+    return seen.values.fold(0.0, (a, b) => a + b);
+  }
+
+  /// Deal value plus the allocated project updations' value.
+  double get totalValue => dealValue + updationsTotal;
   List<String> get modes => _distinct(lines.map((l) => l.paymentMode));
   List<String> get companies => _distinct(lines.map((l) => l.companyName));
   String get modesText => modes.join(', ');

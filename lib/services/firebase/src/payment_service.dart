@@ -53,20 +53,27 @@ class PaymentService {
     Set<String> replacingUids = const {},
   }) async {
     final saved = await getAll();
+    final all = <PaymentModel>[
+      for (final p in saved)
+        if (!replacingUids.contains(p.uid)) p,
+      ...lines,
+    ];
+    // Each pool is limited on its own: lines without a project updation
+    // share the deal value, lines of one updation share that updation's value.
+    String keyOf(PaymentModel p) =>
+        '${p.projectId}|${(p.updationId ?? '')}';
+    double limitOf(PaymentModel p) =>
+        (p.updationId ?? '').isEmpty ? p.dealValue : p.updationValue;
     final totals = <String, double>{};
-    final values = <String, double>{};
-    for (final p in saved) {
-      if (replacingUids.contains(p.uid)) continue;
-      totals[p.projectId] = (totals[p.projectId] ?? 0) + p.allocatedValue;
+    for (final p in all) {
+      totals[keyOf(p)] = (totals[keyOf(p)] ?? 0) + p.allocatedValue;
     }
     for (final l in lines) {
-      totals[l.projectId] = (totals[l.projectId] ?? 0) + l.allocatedValue;
-      values[l.projectId] = l.dealValue;
-    }
-    for (final id in values.keys) {
-      if ((totals[id] ?? 0) > values[id]! + 0.0001) {
-        final name = lines.firstWhere((l) => l.projectId == id).projectName;
-        throw 'Allocated value for "$name" exceeds the deal value.';
+      if ((totals[keyOf(l)] ?? 0) > limitOf(l) + 0.0001) {
+        final what = (l.updationId ?? '').isEmpty
+            ? 'the deal value'
+            : 'the project updation value';
+        throw 'Allocated value for "${l.projectName}" exceeds $what.';
       }
     }
   }

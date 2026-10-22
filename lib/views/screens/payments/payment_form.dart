@@ -17,6 +17,14 @@ class _Proj {
   const _Proj(this.uid, this.label, this.dealValue);
 }
 
+/// A completed project updation of the selected project.
+class _Upd {
+  final String uid;
+  final String label;
+  final double value;
+  const _Upd(this.uid, this.label, this.value);
+}
+
 /// One allocation waiting in the table below the form.
 class _Line {
   String? uid; // set when it already exists in Firestore
@@ -25,6 +33,7 @@ class _Line {
   MasterCompanyModel company;
   double allocated;
   String mode;
+  _Upd? updation;
   _Line({
     this.uid,
     required this.client,
@@ -32,6 +41,7 @@ class _Line {
     required this.company,
     required this.allocated,
     required this.mode,
+    this.updation,
   });
 }
 
@@ -61,6 +71,7 @@ class _PaymentFormState extends State<PaymentForm> {
   final _vScroll = ScrollController();
 
   final _dealValue = TextEditingController();
+  final _updValue = TextEditingController();
   final _clientRO = TextEditingController();
   final _projectRO = TextEditingController();
   final _allocate = TextEditingController();
@@ -74,6 +85,8 @@ class _PaymentFormState extends State<PaymentForm> {
   ClientModel? _client;
   _Proj? _project;
   MasterCompanyModel? _company;
+  _Upd? _updation;
+  List<_Upd> _updations = [];
 
   final List<_Line> _lines = [];
   final List<String> _removedUids = [];
@@ -100,6 +113,7 @@ class _PaymentFormState extends State<PaymentForm> {
   void dispose() {
     _vScroll.dispose();
     _dealValue.dispose();
+    _updValue.dispose();
     _clientRO.dispose();
     _projectRO.dispose();
     _allocate.dispose();
@@ -138,11 +152,19 @@ class _PaymentFormState extends State<PaymentForm> {
               company: company,
               allocated: s.allocatedValue,
               mode: s.paymentMode,
+              updation: (s.updationId ?? '').isEmpty
+                  ? null
+                  : _Upd(
+                      s.updationId!,
+                      s.updationLabel ?? 'Project Updation',
+                      s.updationValue,
+                    ),
             ),
           );
         }
       }
       _syncLocked();
+      await _loadUpdations();
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       if (mounted) FlushBar.show(context, e.toString(), isSuccess: false);
@@ -163,21 +185,63 @@ class _PaymentFormState extends State<PaymentForm> {
 
   /// Deal value minus every other allocation of that project: lines in the
   /// table (except [excludeIndex]) and saved payments not being edited here.
-  double _remaining(_Proj p, {int? excludeIndex}) {
+  /// Amount still allocatable in one pool: the selected project updation's
+  /// own value when [selected] is given, otherwise the deal value. Lines with
+  /// a project updation never use up the deal value, and vice versa.
+  double _remaining(_Proj p, {int? excludeIndex, _Upd? selected}) {
     final editingUids = _lines.map((l) => l.uid).whereType<String>().toSet();
+    final updId = selected?.uid;
     double used = 0;
     for (final s in _saved) {
-      if (s.projectId == p.uid &&
-          !editingUids.contains(s.uid) &&
-          !_removedUids.contains(s.uid)) {
-        used += s.allocatedValue;
+      if (s.projectId != p.uid ||
+          editingUids.contains(s.uid) ||
+          _removedUids.contains(s.uid)) {
+        continue;
       }
+      final sid = (s.updationId ?? '').isEmpty ? null : s.updationId;
+      if (sid == updId) used += s.allocatedValue;
     }
     for (var i = 0; i < _lines.length; i++) {
-      if (i == excludeIndex) continue;
-      if (_lines[i].project.uid == p.uid) used += _lines[i].allocated;
+      if (i == excludeIndex || _lines[i].project.uid != p.uid) continue;
+      if (_lines[i].updation?.uid == updId) used += _lines[i].allocated;
     }
-    return p.dealValue - used;
+    return (selected?.value ?? p.dealValue) - used;
+  }
+
+  /// Updation dropdown items: completed updations that still have value
+  /// left. Removing the allocation that used one up lists it again.
+  List<_Upd> get _availableUpdations {
+    final p = _project;
+    if (p == null) return [];
+    return _updations
+        .where(
+          (u) =>
+              u.uid == _updation?.uid ||
+              _remaining(p, excludeIndex: _editingIndex, selected: u) > 0.0001,
+        )
+        .toList();
+  }
+
+  /// Completed project updations of the selected project.
+  Future<void> _loadUpdations() async {
+    final id = _project?.uid;
+    if (id == null || id.isEmpty) {
+      _updations = [];
+      return;
+    }
+    final list = await ProjectUpdationService.getAllUpdations(projectId: id);
+    _updations = [
+      for (final u in list)
+        if (u.status == UpdationStatus.completed && u.uid != null)
+          _Upd(u.uid!, '${u.updationCode} - ${u.title}', u.value ?? 0),
+    ];
+    // Keep updations already used by lines selectable.
+    for (final l in _lines) {
+      final u = l.updation;
+      if (l.project.uid == id && u != null && !_updations.any((x) => x.uid == u.uid)) {
+        _updations.add(u);
+      }
+    }
   }
 
   Future<void> _loadProjects() async {
@@ -227,6 +291,8 @@ class _PaymentFormState extends State<PaymentForm> {
   Future<void> _onClientChanged(ClientModel? c) async {
     _client = c;
     _project = null;
+    _updations = [];
+    _setUpdation(null);
     _dealValue.clear();
     try {
       await _loadProjects();
@@ -236,19 +302,34 @@ class _PaymentFormState extends State<PaymentForm> {
     if (mounted) setState(() {});
   }
 
-  void _onProjectChanged(_Proj? p) {
+  Future<void> _onProjectChanged(_Proj? p) async {
     _project = p;
     _dealValue.text = p == null ? '' : p.dealValue.toStringAsFixed(2);
+    _setUpdation(null);
+    _updations = [];
     setState(() {});
+    try {
+      await _loadUpdations();
+    } catch (e) {
+      if (mounted) FlushBar.show(context, '$e', isSuccess: false);
+    }
+    if (mounted) setState(() => _tick++);
+  }
+
+  void _setUpdation(_Upd? u) {
+    _updation = u;
+    _updValue.text = u == null ? '' : u.value.toStringAsFixed(2);
   }
 
   void _resetEntry({bool keepProject = false}) {
     _editingIndex = null;
     _company = null;
+    _setUpdation(null);
     _allocate.clear();
     _mode.clear();
     if (!keepProject) {
       _project = null;
+      _updations = [];
       _dealValue.clear();
     }
     _tick++;
@@ -286,7 +367,12 @@ class _PaymentFormState extends State<PaymentForm> {
     final project = _project!;
     final company = _company!;
     final amount = double.parse(_allocate.text.trim());
-    final left = _remaining(project, excludeIndex: _editingIndex);
+    final updation = _updation;
+    final left = _remaining(
+      project,
+      excludeIndex: _editingIndex,
+      selected: updation,
+    );
     if (amount > left + 0.0001) {
       FlushBar.show(
         context,
@@ -303,6 +389,7 @@ class _PaymentFormState extends State<PaymentForm> {
         l.company = company;
         l.allocated = amount;
         l.mode = _mode.text.trim();
+        l.updation = updation;
       } else {
         _lines.add(
           _Line(
@@ -311,6 +398,7 @@ class _PaymentFormState extends State<PaymentForm> {
             company: company,
             allocated: amount,
             mode: _mode.text.trim(),
+            updation: updation,
           ),
         );
       }
@@ -325,6 +413,7 @@ class _PaymentFormState extends State<PaymentForm> {
       _editingIndex = i;
       _syncLocked();
       _company = l.company;
+      _setUpdation(l.updation);
       _allocate.text = l.allocated.toString();
       _mode.text = l.mode;
       _tick++;
@@ -341,6 +430,8 @@ class _PaymentFormState extends State<PaymentForm> {
         _client = null;
         _project = null;
         _projects = [];
+        _updations = [];
+        _setUpdation(null);
         _dealValue.clear();
         _tick++;
       } else {
@@ -375,6 +466,9 @@ class _PaymentFormState extends State<PaymentForm> {
             companyName: l.company.companyName,
             allocatedValue: l.allocated,
             paymentMode: l.mode,
+            updationId: l.updation?.uid,
+            updationLabel: l.updation?.label,
+            updationValue: l.updation?.value ?? 0,
             createdBy: existing[l.uid]?.createdBy ?? user,
             createdAt: existing[l.uid]?.createdAt,
           ),
@@ -476,7 +570,11 @@ class _PaymentFormState extends State<PaymentForm> {
 
     final remaining = _project == null
         ? null
-        : _remaining(_project!, excludeIndex: _editingIndex);
+        : _remaining(
+            _project!,
+            excludeIndex: _editingIndex,
+            selected: _updation,
+          );
 
     return Wrap(
       spacing: spacing,
@@ -556,6 +654,33 @@ class _PaymentFormState extends State<PaymentForm> {
             hintText: 'Select a project',
           ),
         ),
+        // Project Updations (optional): completed ones of the project
+        box(
+          FormDropdownSearch(
+            key: ValueKey(
+              'upd_${_project?.uid}_${_availableUpdations.length}_${_updation?.uid}_$_tick',
+            ),
+            label: 'Project Updations',
+            allowClear: true,
+            initialItem: _updation?.label,
+            items: _availableUpdations.map((u) => u.label).toList(),
+            onChanged: (v) => setState(
+              () => _setUpdation(
+                _availableUpdations.where((u) => u.label == v).firstOrNull,
+              ),
+            ),
+            validator: (v) => null,
+          ),
+        ),
+        // Project Updation Value (auto-fetched)
+        box(
+          FormFields(
+            label: 'Project Updation Value',
+            controller: _updValue,
+            readOnly: true,
+            hintText: 'Select a project updation',
+          ),
+        ),
         // Master Company (+)
         box(
           Row(
@@ -604,7 +729,11 @@ class _PaymentFormState extends State<PaymentForm> {
               final n = double.tryParse(t);
               if (n == null || n <= 0) return 'Enter a valid amount';
               if (_project != null) {
-                final left = _remaining(_project!, excludeIndex: _editingIndex);
+                final left = _remaining(
+                  _project!,
+                  excludeIndex: _editingIndex,
+                  selected: _updation,
+                );
                 if (n > left + 0.0001) {
                   return "Can't exceed remaining ${_money.format(left)}";
                 }
@@ -665,12 +794,18 @@ class _PaymentFormState extends State<PaymentForm> {
       );
     }
     final style = Theme.of(context).textTheme.bodySmall;
-    // Per-project totals so it is clear how much of each deal is allocated.
-    final totals = <String, double>{};
-    final projects = <String, _Proj>{};
+    // One line per project: everything allocated (deal + project updations)
+    // against the deal value plus the value of the updations used.
+    final used = <String, double>{};
+    final limit = <String, double>{};
+    final updSeen = <String, Set<String>>{};
     for (final l in _lines) {
-      totals[l.project.uid] = (totals[l.project.uid] ?? 0) + l.allocated;
-      projects[l.project.uid] = l.project;
+      final key = l.project.label;
+      used[key] = (used[key] ?? 0) + l.allocated;
+      limit[key] ??= l.project.dealValue;
+      if (l.updation != null && (updSeen[key] ??= {}).add(l.updation!.uid)) {
+        limit[key] = limit[key]! + l.updation!.value;
+      }
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -681,7 +816,7 @@ class _PaymentFormState extends State<PaymentForm> {
             columns: const [
               DataColumn(label: Text('Master Client')),
               DataColumn(label: Text('Project')),
-              DataColumn(label: Text('Deal Value'), numeric: true),
+              DataColumn(label: Text('Project Updation')),
               DataColumn(label: Text('Our Company')),
               DataColumn(label: Text('Allocated'), numeric: true),
               DataColumn(label: Text('Payment Mode')),
@@ -694,7 +829,7 @@ class _PaymentFormState extends State<PaymentForm> {
                   cells: [
                     DataCell(Text(masterClientLabel(_lines[i].client), style: style)),
                     DataCell(Text(_lines[i].project.label, style: style)),
-                    DataCell(Text(_money.format(_lines[i].project.dealValue), style: style)),
+                    DataCell(Text(_lines[i].updation?.label ?? '-', style: style)),
                     DataCell(Text(_lines[i].company.companyName, style: style)),
                     DataCell(Text(_money.format(_lines[i].allocated), style: style)),
                     DataCell(Text(_lines[i].mode, style: style)),
@@ -722,12 +857,12 @@ class _PaymentFormState extends State<PaymentForm> {
           ),
         ),
         const SizedBox(height: 10),
-        for (final id in totals.keys)
+        for (final key in used.keys)
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(
-              '${projects[id]!.label}: allocated ${_money.format(totals[id])} of '
-              '${_money.format(projects[id]!.dealValue)}',
+              '$key: allocated ${_money.format(used[key])} of '
+              '${_money.format(limit[key])}',
               style: style?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
