@@ -181,6 +181,13 @@ class MenuService {
           // Roles created before this menu existed only carry the old
           // Company / Contact pages, so those still grant access.
           MenuItem(
+            id: 'payment_mode',
+            title: 'Payment Mode',
+            icon: Iconsax.card,
+            route: '/payment-mode',
+            requiredPermissions: ['Payment Mode'],
+          ),
+          MenuItem(
             id: 'master_client',
             title: 'Master Client',
             icon: Iconsax.people,
@@ -445,6 +452,7 @@ class MenuService {
       'Lead Priority',
       'Lead Status',
       'Deal Status',
+      'Payment Mode',
       'Leads',
       'Deals',
       'Project Updation',

@@ -23,6 +23,8 @@ IconData rolePageIcon(String page) {
       return Iconsax.category;
     case 'Lead Source':
       return Iconsax.share;
+    case 'Payment Mode':
+      return Iconsax.card;
     case 'Lead Status':
       return Iconsax.status_up;
     case 'Lead Priority':

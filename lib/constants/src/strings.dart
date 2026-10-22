@@ -135,6 +135,7 @@ class AppStrings {
     "Lead Status",
     "Lead Priority",
     "Deal Status",
+    "Payment Mode",
     "Leads",
     "Deals",
     "Project Updation",

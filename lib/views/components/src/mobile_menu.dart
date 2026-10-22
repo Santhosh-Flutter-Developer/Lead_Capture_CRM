@@ -280,6 +280,9 @@ class _MobileMenuState extends State<MobileMenu> {
       case 'lead_source':
         Navigate.route(context, const LeadSourceListing());
         break;
+      case 'payment_mode':
+        Navigate.route(context, const PaymentModeListing());
+        break;
       case 'lead_priority':
         Navigate.route(context, const LeadPriorityListing());
         break;

@@ -15,9 +15,11 @@ class PaymentModel {
   final String companyName;
   final double allocatedValue;
   final String paymentMode;
+  final String? upiNumber; // only when the payment mode is UPI
   final String? updationId; // optional completed Project Updation
   final String? updationLabel;
   final double updationValue;
+  final List<FileModel> attachments;
   final UserDataModel createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -33,9 +35,11 @@ class PaymentModel {
     required this.companyName,
     required this.allocatedValue,
     required this.paymentMode,
+    this.upiNumber,
     this.updationId,
     this.updationLabel,
     this.updationValue = 0,
+    this.attachments = const [],
     required this.createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -53,9 +57,11 @@ class PaymentModel {
     String? companyName,
     double? allocatedValue,
     String? paymentMode,
+    String? upiNumber,
     String? updationId,
     String? updationLabel,
     double? updationValue,
+    List<FileModel>? attachments,
     UserDataModel? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -70,9 +76,11 @@ class PaymentModel {
     companyName: companyName ?? this.companyName,
     allocatedValue: allocatedValue ?? this.allocatedValue,
     paymentMode: paymentMode ?? this.paymentMode,
+    upiNumber: upiNumber ?? this.upiNumber,
     updationId: updationId ?? this.updationId,
     updationLabel: updationLabel ?? this.updationLabel,
     updationValue: updationValue ?? this.updationValue,
+    attachments: attachments ?? this.attachments,
     createdBy: createdBy ?? this.createdBy,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -88,9 +96,11 @@ class PaymentModel {
     'companyName': companyName,
     'allocatedValue': allocatedValue,
     'paymentMode': paymentMode,
+    'upiNumber': upiNumber,
     'updationId': updationId,
     'updationLabel': updationLabel,
     'updationValue': updationValue,
+    'attachments': attachments.map((x) => x.toMap()).toList(),
     'createdBy': createdBy.toMap(),
     'createdAt': createdAt.millisecondsSinceEpoch,
     'updatedAt': updatedAt.millisecondsSinceEpoch,
@@ -111,9 +121,16 @@ class PaymentModel {
       companyName: (map['companyName'] ?? '') as String,
       allocatedValue: num_(map['allocatedValue']),
       paymentMode: (map['paymentMode'] ?? '') as String,
+      upiNumber: map['upiNumber'] as String?,
       updationId: map['updationId'] as String?,
       updationLabel: map['updationLabel'] as String?,
       updationValue: num_(map['updationValue']),
+      attachments: map['attachments'] is List
+          ? (map['attachments'] as List)
+                .whereType<Map>()
+                .map((e) => FileModel.fromMap(Map<String, dynamic>.from(e)))
+                .toList()
+          : const [],
       createdBy: map['createdBy'] is Map<String, dynamic>
           ? UserDataModel.fromMap(map['createdBy'] as Map<String, dynamic>)
           : UserDataModel.fromEmptyMap(),

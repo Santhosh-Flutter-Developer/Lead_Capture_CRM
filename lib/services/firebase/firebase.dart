@@ -17,6 +17,7 @@ export 'src/lead_service.dart';
 export 'src/client_service.dart';
 export 'src/master_company_service.dart';
 export 'src/payment_service.dart';
+export 'src/payment_mode_service.dart';
 export 'src/windows_notification_service.dart';
 export 'src/deal_status_service.dart';
 export 'src/deal_service.dart';

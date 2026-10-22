@@ -52,6 +52,7 @@ enum Collections {
   projectUpdations,
   masterCompanies,
   payments,
+  paymentMode,
 }
 
 enum StorageFolder {
@@ -67,6 +68,7 @@ enum StorageFolder {
   feedAttachments,
   ticketAttachments,
   updationAttachments,
+  paymentAttachments,
 }
 
 enum TicketCategory {

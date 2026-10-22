@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
+import 'package:mime/mime.dart';
+import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/utils/utils.dart';
@@ -9,7 +11,7 @@ import '/views/screens/leads/form/lead_form_ui.dart';
 import '/views/screens/project_updations/project_updation_form.dart'
     show masterClientLabel;
 
-/// A completed deal shown in the Projects dropdown.
+/// A deal shown in the Projects dropdown.
 class _Proj {
   final String uid;
   final String label;
@@ -17,7 +19,7 @@ class _Proj {
   const _Proj(this.uid, this.label, this.dealValue);
 }
 
-/// A completed project updation of the selected project.
+/// A project updation of the selected project.
 class _Upd {
   final String uid;
   final String label;
@@ -33,7 +35,10 @@ class _Line {
   MasterCompanyModel company;
   double allocated;
   String mode;
+  String upi;
   _Upd? updation;
+  List<FileModel> uploaded;
+  List<PlatformFile> files;
   _Line({
     this.uid,
     required this.client,
@@ -41,7 +46,10 @@ class _Line {
     required this.company,
     required this.allocated,
     required this.mode,
+    this.upi = '',
     this.updation,
+    this.uploaded = const [],
+    this.files = const [],
   });
 }
 
@@ -76,17 +84,22 @@ class _PaymentFormState extends State<PaymentForm> {
   final _projectRO = TextEditingController();
   final _allocate = TextEditingController();
   final _mode = TextEditingController();
+  final _upi = TextEditingController();
 
   List<ClientModel> _clients = [];
   List<MasterCompanyModel> _companies = [];
   List<PaymentModel> _saved = [];
   List<_Proj> _projects = [];
+  List<String> _modes = []; // names from the Payment Mode page
 
   ClientModel? _client;
   _Proj? _project;
   MasterCompanyModel? _company;
   _Upd? _updation;
   List<_Upd> _updations = [];
+  List<ProjectUpdationModel> _allUpds = []; // every updation, any status
+  final List<PlatformFile> _newFiles = [];
+  List<FileModel> _uploaded = [];
 
   final List<_Line> _lines = [];
   final List<String> _removedUids = [];
@@ -98,6 +111,8 @@ class _PaymentFormState extends State<PaymentForm> {
   late Future<void> _future;
 
   bool get _isEdit => (widget.uid ?? '').isNotEmpty;
+
+  bool get _isUpi => _mode.text.trim().toLowerCase() == 'upi';
 
   /// Once any allocation exists, Master Client, Project and Deal Value are
   /// fixed. They unlock again only after every allocation is deleted.
@@ -118,6 +133,7 @@ class _PaymentFormState extends State<PaymentForm> {
     _projectRO.dispose();
     _allocate.dispose();
     _mode.dispose();
+    _upi.dispose();
     super.dispose();
   }
 
@@ -127,10 +143,19 @@ class _PaymentFormState extends State<PaymentForm> {
         ClientService.getMasterClients(),
         MasterCompanyService.getAll(),
         PaymentService.getAll(),
+        PaymentModeService.getAllPaymentMode(),
+        ProjectUpdationService.getAllUpdations(),
       ]);
+      _allUpds = r[4] as List<ProjectUpdationModel>;
       _clients = r[0] as List<ClientModel>;
       _companies = r[1] as List<MasterCompanyModel>;
       _saved = r[2] as List<PaymentModel>;
+      _modes = (r[3] as List<PaymentModeModel>)
+          .map((m) => m.name.trim())
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 
       if (_isEdit) {
         final p = _saved.firstWhere(
@@ -152,6 +177,8 @@ class _PaymentFormState extends State<PaymentForm> {
               company: company,
               allocated: s.allocatedValue,
               mode: s.paymentMode,
+              upi: s.upiNumber ?? '',
+              uploaded: List<FileModel>.from(s.attachments),
               updation: (s.updationId ?? '').isEmpty
                   ? null
                   : _Upd(
@@ -208,7 +235,7 @@ class _PaymentFormState extends State<PaymentForm> {
     return (selected?.value ?? p.dealValue) - used;
   }
 
-  /// Updation dropdown items: completed updations that still have value
+  /// Updation dropdown items: updations that still have value
   /// left. Removing the allocation that used one up lists it again.
   List<_Upd> get _availableUpdations {
     final p = _project;
@@ -222,7 +249,7 @@ class _PaymentFormState extends State<PaymentForm> {
         .toList();
   }
 
-  /// Completed project updations of the selected project.
+  /// Project updations (any status) of the selected project.
   Future<void> _loadUpdations() async {
     final id = _project?.uid;
     if (id == null || id.isEmpty) {
@@ -232,7 +259,7 @@ class _PaymentFormState extends State<PaymentForm> {
     final list = await ProjectUpdationService.getAllUpdations(projectId: id);
     _updations = [
       for (final u in list)
-        if (u.status == UpdationStatus.completed && u.uid != null)
+        if (u.uid != null)
           _Upd(u.uid!, '${u.updationCode} - ${u.title}', u.value ?? 0),
     ];
     // Keep updations already used by lines selectable.
@@ -250,19 +277,39 @@ class _PaymentFormState extends State<PaymentForm> {
       _projects = [];
       return;
     }
-    final deals = await DealService.getCompletedDealsByClient(clientId: id);
-    // Projects that already have saved payments are not offered again
-    // (except the ones being edited in this form).
+    final deals = (await DealService.getAllDeals())
+        .where((d) => d.clientId == id)
+        .toList()
+      ..sort((a, b) => (a.projectName ?? a.dealName)
+          .toLowerCase()
+          .compareTo((b.projectName ?? b.dealName).toLowerCase()));
+    // Deals (any status) are offered until the deal and all of its project
+    // updations are fully allocated.
     // Payments opened for editing are never treated as "already paid", even
     // after their rows were removed here (they are deleted on submit).
     final editingUids = {
       ..._origUids,
       ..._lines.map((l) => l.uid).whereType<String>(),
     };
-    final paid = _saved
-        .where((s) => !editingUids.contains(s.uid))
-        .map((s) => s.projectId)
-        .toSet();
+    final paid = <String>{};
+    for (final d in deals) {
+      final pid = d.uid;
+      if (pid == null) continue;
+      final others = _saved
+          .where((s) => s.projectId == pid && !editingUids.contains(s.uid))
+          .toList();
+      double usedFor(String? updId) => others
+          .where((s) => ((s.updationId ?? '').isEmpty ? null : s.updationId) == updId)
+          .fold(0.0, (a, s) => a + s.allocatedValue);
+      final dealOpen = d.dealValue - usedFor(null) > 0.0001;
+      final updOpen = _allUpds.any(
+        (u) =>
+            u.projectId == pid &&
+            u.uid != null &&
+            (u.value ?? 0) - usedFor(u.uid) > 0.0001,
+      );
+      if (!dealOpen && !updOpen) paid.add(pid);
+    }
     String nameOf(DealModel d) =>
         (d.projectName ?? '').trim().isEmpty ? d.dealName : d.projectName!;
     final counts = <String, int>{};
@@ -327,6 +374,9 @@ class _PaymentFormState extends State<PaymentForm> {
     _setUpdation(null);
     _allocate.clear();
     _mode.clear();
+    _upi.clear();
+    _newFiles.clear();
+    _uploaded = [];
     if (!keepProject) {
       _project = null;
       _updations = [];
@@ -376,7 +426,7 @@ class _PaymentFormState extends State<PaymentForm> {
     if (amount > left + 0.0001) {
       FlushBar.show(
         context,
-        'Allocated value exceeds the deal value. Remaining: ${_money.format(left)}',
+        'Payment value exceeds the allowed value. Remaining: ${_money.format(left)}',
         isSuccess: false,
       );
       return;
@@ -389,7 +439,10 @@ class _PaymentFormState extends State<PaymentForm> {
         l.company = company;
         l.allocated = amount;
         l.mode = _mode.text.trim();
+        l.upi = _isUpi ? _upi.text.trim() : '';
         l.updation = updation;
+        l.uploaded = List<FileModel>.from(_uploaded);
+        l.files = List<PlatformFile>.from(_newFiles);
       } else {
         _lines.add(
           _Line(
@@ -398,7 +451,10 @@ class _PaymentFormState extends State<PaymentForm> {
             company: company,
             allocated: amount,
             mode: _mode.text.trim(),
+            upi: _isUpi ? _upi.text.trim() : '',
             updation: updation,
+            uploaded: List<FileModel>.from(_uploaded),
+            files: List<PlatformFile>.from(_newFiles),
           ),
         );
       }
@@ -416,6 +472,11 @@ class _PaymentFormState extends State<PaymentForm> {
       _setUpdation(l.updation);
       _allocate.text = l.allocated.toString();
       _mode.text = l.mode;
+      _upi.text = l.upi;
+      _uploaded = List<FileModel>.from(l.uploaded);
+      _newFiles
+        ..clear()
+        ..addAll(l.files);
       _tick++;
     });
   }
@@ -453,9 +514,39 @@ class _PaymentFormState extends State<PaymentForm> {
       futureLoading(context);
       final user = await Spdb.getUser();
       final existing = {for (final s in _saved) s.uid: s};
+      final attMap = <_Line, List<FileModel>>{};
+      for (final l in _lines) {
+        final atts = List<FileModel>.from(l.uploaded);
+        if (l.files.isNotEmpty) {
+          final data = await Future.wait(
+            l.files.map((pf) async {
+              final bytes = await platformFileToBytes(pf);
+              return (bytes: bytes, fileName: pf.name);
+            }),
+          );
+          final urls = await StorageService.uploadBytesInBatch(
+            files: data,
+            folder: StorageFolder.paymentAttachments,
+          );
+          for (var i = 0; i < l.files.length; i++) {
+            final pf = l.files[i];
+            atts.add(
+              FileModel(
+                name: pf.name,
+                extension: pf.extension ?? '',
+                size: pf.size,
+                url: urls[i],
+                mimeType: lookupMimeType(pf.name) ?? '',
+              ),
+            );
+          }
+        }
+        attMap[l] = atts;
+      }
       final models = [
         for (final l in _lines)
           PaymentModel(
+            attachments: attMap[l] ?? const [],
             uid: l.uid,
             clientId: l.client.uid ?? '',
             clientLabel: masterClientLabel(l.client),
@@ -466,6 +557,7 @@ class _PaymentFormState extends State<PaymentForm> {
             companyName: l.company.companyName,
             allocatedValue: l.allocated,
             paymentMode: l.mode,
+            upiNumber: l.upi.isEmpty ? null : l.upi,
             updationId: l.updation?.uid,
             updationLabel: l.updation?.label,
             updationValue: l.updation?.value ?? 0,
@@ -512,7 +604,7 @@ class _PaymentFormState extends State<PaymentForm> {
                 LeadFormUI.header(
                   context,
                   title: _isEdit ? 'Edit Payment' : 'Add Payment',
-                  subtitle: 'Allocate a completed deal across our companies',
+                  subtitle: 'Allocate a deal across our companies',
                   icon: Iconsax.wallet_3,
                 ),
                 Expanded(
@@ -620,7 +712,7 @@ class _PaymentFormState extends State<PaymentForm> {
             ],
           ),
         ),
-        // Projects = the client's completed, not-yet-allocated deals
+        // Projects = the client's deals (any status) not fully allocated
         box(
           _locked
               ? FormFields(
@@ -640,7 +732,7 @@ class _PaymentFormState extends State<PaymentForm> {
             ),
             validator: (v) {
               if (_client == null) return '* Select a master client first';
-              if (_projects.isEmpty) return '* No completed deals to allocate';
+              if (_projects.isEmpty) return '* No deals to allocate';
               return v == null ? '* Required' : null;
             },
           ),
@@ -654,7 +746,7 @@ class _PaymentFormState extends State<PaymentForm> {
             hintText: 'Select a project',
           ),
         ),
-        // Project Updations (optional): completed ones of the project
+        // Project Updations (optional): any status, not fully allocated
         box(
           FormDropdownSearch(
             key: ValueKey(
@@ -716,7 +808,7 @@ class _PaymentFormState extends State<PaymentForm> {
         // Allocate Value
         box(
           FormFields(
-            label: 'Allocate Value',
+            label: 'Payment Value',
             controller: _allocate,
             hintText: remaining == null
                 ? 'Enter amount'
@@ -725,7 +817,7 @@ class _PaymentFormState extends State<PaymentForm> {
             isRequired: true,
             valid: (v) {
               final t = (v ?? '').trim();
-              if (t.isEmpty) return '* Allocate value is required';
+              if (t.isEmpty) return '* Payment value is required';
               final n = double.tryParse(t);
               if (n == null || n <= 0) return 'Enter a valid amount';
               if (_project != null) {
@@ -744,13 +836,76 @@ class _PaymentFormState extends State<PaymentForm> {
         ),
         // Payment Mode
         box(
-          FormFields(
+          FormDropdownSearch(
+            key: ValueKey('mode_${_modes.length}_$_tick'),
             label: 'Payment Mode',
-            controller: _mode,
-            hintText: 'e.g. Cash, UPI, Bank Transfer',
             isRequired: true,
-            valid: (v) =>
-                (v == null || v.trim().isEmpty) ? '* Payment mode is required' : null,
+            initialItem: _mode.text.isEmpty ? null : _mode.text,
+            // A mode saved earlier that is no longer in the list stays
+            // selectable so the payment can still be edited.
+            items: [
+              ..._modes,
+              if (_mode.text.isNotEmpty && !_modes.contains(_mode.text))
+                _mode.text,
+            ],
+            onChanged: (v) => setState(() {
+              _mode.text = (v as String?) ?? '';
+              if (!_isUpi) _upi.clear();
+            }),
+            validator: (v) => v == null ? '* Payment mode is required' : null,
+          ),
+        ),
+        // UPI Number: only when the payment mode is UPI
+        if (_isUpi)
+          box(
+            FormFields(
+              label: 'UPI Number',
+              controller: _upi,
+              hintText: 'Enter UPI number / ID',
+              isRequired: true,
+              valid: (v) => (v == null || v.trim().isEmpty)
+                  ? '* UPI number is required'
+                  : null,
+            ),
+          ),
+        // Attachments (optional)
+        SizedBox(
+          width: constraints.maxWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FormFields(
+                label: 'Attachments',
+                hintText: 'Tap to select files',
+                suffixIcon: const Icon(Iconsax.document_upload),
+                readOnly: true,
+                onTap: () async {
+                  final files = await FilePick.pickFiles(context);
+                  if (files != null && files.isNotEmpty) {
+                    _newFiles.addAll(files);
+                    setState(() {});
+                  }
+                },
+              ),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ..._uploaded.map(
+                    (f) => AttachmentPill(
+                      name: f.name,
+                      onRemove: () => setState(() => _uploaded.remove(f)),
+                    ),
+                  ),
+                  ..._newFiles.map(
+                    (f) => AttachmentPill(
+                      name: f.name,
+                      onRemove: () => setState(() => _newFiles.remove(f)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         SizedBox(
@@ -818,8 +973,10 @@ class _PaymentFormState extends State<PaymentForm> {
               DataColumn(label: Text('Project')),
               DataColumn(label: Text('Project Updation')),
               DataColumn(label: Text('Our Company')),
-              DataColumn(label: Text('Allocated'), numeric: true),
+              DataColumn(label: Text('Payment Value'), numeric: true),
               DataColumn(label: Text('Payment Mode')),
+              DataColumn(label: Text('UPI Number')),
+              DataColumn(label: Text('Attachments')),
               DataColumn(label: Text('Actions')),
             ],
             rows: [
@@ -833,6 +990,13 @@ class _PaymentFormState extends State<PaymentForm> {
                     DataCell(Text(_lines[i].company.companyName, style: style)),
                     DataCell(Text(_money.format(_lines[i].allocated), style: style)),
                     DataCell(Text(_lines[i].mode, style: style)),
+                    DataCell(Text(_lines[i].upi.isEmpty ? '-' : _lines[i].upi, style: style)),
+                    DataCell(Text(
+                      (_lines[i].uploaded.length + _lines[i].files.length) == 0
+                          ? '-'
+                          : '${_lines[i].uploaded.length + _lines[i].files.length} file(s)',
+                      style: style,
+                    )),
                     DataCell(
                       Row(
                         mainAxisSize: MainAxisSize.min,

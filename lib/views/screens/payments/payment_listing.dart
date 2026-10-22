@@ -50,6 +50,7 @@ class _PaymentListingState extends State<PaymentListing> {
   String? _fClient; // master client uid
   String? _fProject; // deal uid
   String? _fMode;
+  List<String> _modeNames = []; // every Payment Mode master item
   double? _fValue;
   String _search = '';
   final _valueCtrl = TextEditingController();
@@ -126,8 +127,15 @@ class _PaymentListingState extends State<PaymentListing> {
       final results = await Future.wait([
         PaymentService.getAll(),
         ClientService.getMasterClients(),
-        DealService.getAllCompletedDeals(),
+        DealService.getAllDeals(),
+        PaymentModeService.getAllPaymentMode(),
       ]);
+      _modeNames = (results[3] as List<PaymentModeModel>)
+          .map((m) => m.name.trim())
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
       final clients = PaymentGroup.group(results[0] as List<PaymentModel>);
       _clients = results[1] as List<ClientModel>;
       _deals = results[2] as List<DealModel>;
@@ -478,7 +486,7 @@ class _PaymentListingState extends State<PaymentListing> {
         dd(
           'Payment Mode',
           _fMode,
-          _distinct(_all.expand((p) => p.modes)),
+          {..._modeNames, ..._all.expand((p) => p.modes)}.toList()..sort(),
           (v) => _fMode = v,
         ),
         OutlinedButton.icon(
@@ -567,7 +575,7 @@ class _PaymentListingState extends State<PaymentListing> {
                           onSort: controller.setSort,
                         ),
                         DataColumn(
-                          label: const Text('Allocated Value'),
+                          label: const Text('Payment Value'),
                           numeric: true,
                           onSort: controller.setSort,
                         ),
@@ -658,7 +666,7 @@ class _PaymentListingState extends State<PaymentListing> {
           'Project',
           'Deal Value',
           'Our Company',
-          'Allocated Value',
+          'Payment Value',
           'Payment Mode',
           'Created By',
         ],
