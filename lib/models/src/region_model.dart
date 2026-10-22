@@ -215,3 +215,51 @@ class CityModel {
     return uid.hashCode ^ id.hashCode ^ name.hashCode;
   }
 }
+
+class DistrictModel {
+  final String? uid;
+  final int id;
+  final String name;
+  DistrictModel({this.uid, required this.id, required this.name});
+
+  DistrictModel copyWith({String? uid, int? id, String? name}) {
+    return DistrictModel(
+      uid: uid ?? this.uid,
+      id: id ?? this.id,
+      name: name ?? this.name,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{'uid': uid, 'id': id, 'name': name};
+  }
+
+  factory DistrictModel.fromMap(Map<String, dynamic> map) {
+    return DistrictModel(
+      uid: map['uid'] != null && map['uid'] is String
+          ? map['uid'] as String
+          : null,
+      id: map['id'] != null && map['id'] is int ? map['id'] as int : 0,
+      name: map['name'] != null && map['name'] is String
+          ? map['name'] as String
+          : '',
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory DistrictModel.fromJson(String source) =>
+      DistrictModel.fromMap(json.decode(source) as Map<String, dynamic>);
+
+  @override
+  String toString() => 'DistrictModel(uid: $uid, id: $id, name: $name)';
+
+  @override
+  bool operator ==(covariant DistrictModel other) {
+    if (identical(this, other)) return true;
+    return other.uid == uid && other.id == id && other.name == name;
+  }
+
+  @override
+  int get hashCode => uid.hashCode ^ id.hashCode ^ name.hashCode;
+}

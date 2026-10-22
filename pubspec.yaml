@@ -114,6 +114,7 @@ flutter:
     - assets/audio/
     - assets/templates/
     - assets/icons/
+    - assets/data/
     - assets/mobilefacenet.tflite
     - shorebird.yaml
 

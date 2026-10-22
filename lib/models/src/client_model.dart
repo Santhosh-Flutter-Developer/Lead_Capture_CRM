@@ -19,6 +19,7 @@ class ClientModel {
   final String? officePhoneNo;
   final RegionModel? country;
   final StateModel? state;
+  final DistrictModel? district;
   final CityModel? city;
   final String? postalCode;
   final UserDataModel createdBy;
@@ -55,6 +56,7 @@ class ClientModel {
     this.officePhoneNo,
     this.country,
     this.state,
+    this.district,
     this.city,
     this.postalCode,
     required this.createdBy,
@@ -87,6 +89,7 @@ class ClientModel {
     String? officePhoneNo,
     RegionModel? country,
     StateModel? state,
+    DistrictModel? district,
     CityModel? city,
     String? postalCode,
     UserDataModel? createdBy,
@@ -98,6 +101,9 @@ class ClientModel {
     bool? isCompany,
     DateTime? createdAt,
     DateTime? updatedAt,
+    // When true, country/state/district/city are taken exactly as passed
+    // (including null) so a cleared dropdown actually clears the value.
+    bool clearLocation = false,
   }) {
     return ClientModel(
       uid: uid ?? this.uid,
@@ -116,9 +122,10 @@ class ClientModel {
       officialWebsite: officialWebsite ?? this.officialWebsite,
       gstVatNumber: gstVatNumber ?? this.gstVatNumber,
       officePhoneNo: officePhoneNo ?? this.officePhoneNo,
-      country: country ?? this.country,
-      state: state ?? this.state,
-      city: city ?? this.city,
+      country: clearLocation ? country : (country ?? this.country),
+      state: clearLocation ? state : (state ?? this.state),
+      district: clearLocation ? district : (district ?? this.district),
+      city: clearLocation ? city : (city ?? this.city),
       postalCode: postalCode ?? this.postalCode,
       createdBy: createdBy ?? this.createdBy,
       companyAddress: companyAddress ?? this.companyAddress,
@@ -151,6 +158,7 @@ class ClientModel {
       'officePhoneNo': officePhoneNo,
       'country': country?.toMap(),
       'state': state?.toMap(),
+      'district': district?.toMap(),
       'city': city?.toMap(),
       'postalCode': postalCode,
       'createdBy': createdBy.toMap(),
@@ -184,6 +192,7 @@ class ClientModel {
       'officePhoneNo': officePhoneNo,
       'country': country?.toMap(),
       'state': state?.toMap(),
+      'district': district?.toMap(),
       'city': city?.toMap(),
       'postalCode': postalCode,
       'createdBy': createdBy.toMap(),
@@ -248,6 +257,10 @@ class ClientModel {
       state: map['state'] != null && map['state'] is Map<String, dynamic>
           ? StateModel.fromMap(map['state'] as Map<String, dynamic>)
           : null,
+      district:
+          map['district'] != null && map['district'] is Map<String, dynamic>
+          ? DistrictModel.fromMap(map['district'] as Map<String, dynamic>)
+          : null,
       city: map['city'] != null && map['city'] is Map<String, dynamic>
           ? CityModel.fromMap(map['city'] as Map<String, dynamic>)
           : null,
@@ -291,7 +304,7 @@ class ClientModel {
 
   @override
   String toString() {
-    return 'ClientModel(uid: $uid, salutation: $salutation, clientName: $clientName, email: $email, password: $password, mobileNumber: $mobileNumber, gender: $gender, changeLanguage: $changeLanguage, profilePictureUrl: $profilePictureUrl, loginAllowed: $loginAllowed, receiveEmailNotifications: $receiveEmailNotifications, companyName: $companyName, officialWebsite: $officialWebsite, gstVatNumber: $gstVatNumber, officePhoneNo: $officePhoneNo, country: $country, state: $state, city: $city, postalCode: $postalCode, createdBy: $createdBy, companyAddress: $companyAddress, shippingAddress: $shippingAddress, notes: $notes, companyLogoUrl: $companyLogoUrl, isActive: $isActive, isCompany: $isCompany, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'ClientModel(uid: $uid, salutation: $salutation, clientName: $clientName, email: $email, password: $password, mobileNumber: $mobileNumber, gender: $gender, changeLanguage: $changeLanguage, profilePictureUrl: $profilePictureUrl, loginAllowed: $loginAllowed, receiveEmailNotifications: $receiveEmailNotifications, companyName: $companyName, officialWebsite: $officialWebsite, gstVatNumber: $gstVatNumber, officePhoneNo: $officePhoneNo, country: $country, state: $state, district: $district, city: $city, postalCode: $postalCode, createdBy: $createdBy, companyAddress: $companyAddress, shippingAddress: $shippingAddress, notes: $notes, companyLogoUrl: $companyLogoUrl, isActive: $isActive, isCompany: $isCompany, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -315,6 +328,7 @@ class ClientModel {
         other.officePhoneNo == officePhoneNo &&
         other.country == country &&
         other.state == state &&
+        other.district == district &&
         other.city == city &&
         other.postalCode == postalCode &&
         other.createdBy == createdBy &&
@@ -347,6 +361,7 @@ class ClientModel {
         officePhoneNo.hashCode ^
         country.hashCode ^
         state.hashCode ^
+        district.hashCode ^
         city.hashCode ^
         postalCode.hashCode ^
         createdBy.hashCode ^

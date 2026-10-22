@@ -34,6 +34,25 @@ class _MasterClientFormState extends State<MasterClientForm> {
   ClientModel? _client;
   late Future<void> _future;
 
+  // Location hierarchy: Country -> State -> District -> City.
+  // Each list below is derived from the selection above it.
+  RegionModel? _country;
+  StateModel? _state;
+  DistrictModel? _district;
+  CityModel? _city;
+
+  List<RegionModel> _countries = [];
+  List<StateModel> _states = [];
+  List<DistrictModel> _districts = [];
+  List<CityModel> _cities = [];
+
+  // Cached name lists so the dropdowns keep a stable `items` instance
+  // between rebuilds.
+  List<String> _countryNames = [];
+  List<String> _stateNames = [];
+  List<String> _districtNames = [];
+  List<String> _cityNames = [];
+
   bool get _isEdit => (widget.uid ?? '').isNotEmpty;
 
   @override
@@ -56,10 +75,30 @@ class _MasterClientFormState extends State<MasterClientForm> {
   }
 
   Future<void> _load() async {
-    if (!_isEdit) return;
+    try {
+      _countries = await RegionDataService.getCountries();
+      _countryNames = _countries.map((e) => e.name).toList();
+      // India is pre-selected by default.
+      _country = await RegionDataService.getDefaultCountry();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
+
+    if (!_isEdit) {
+      await _loadStates();
+      return;
+    }
     try {
       final c = await ClientService.getClient(uid: widget.uid!);
       _client = c;
+      // Restore the saved location (older records may not have one).
+      _country = c.country ?? _country;
+      _state = c.state;
+      _district = c.district;
+      _city = c.city;
+      await _loadStates();
+      await _loadDistricts();
+      await _loadCities();
       _companyName.text = c.companyName ?? '';
       _contactName.text = c.clientName ?? '';
       _contactMobile.text = c.mobileNumber ?? '';
@@ -71,6 +110,62 @@ class _MasterClientFormState extends State<MasterClientForm> {
       await ErrorService.recordError(e, st);
       if (mounted) FlushBar.show(context, e.toString(), isSuccess: false);
     }
+  }
+
+  Future<void> _loadStates() async {
+    _states = await RegionDataService.getStates(country: _country?.name);
+    _stateNames = _states.map((e) => e.name).toList();
+  }
+
+  Future<void> _loadDistricts() async {
+    _districts = await RegionDataService.getDistricts(
+      country: _country?.name,
+      state: _state?.name,
+    );
+    _districtNames = _districts.map((e) => e.name).toList();
+  }
+
+  Future<void> _loadCities() async {
+    _cities = await RegionDataService.getCities(
+      country: _country?.name,
+      state: _state?.name,
+      district: _district?.name,
+    );
+    _cityNames = _cities.map((e) => e.name).toList();
+  }
+
+  Future<void> _onCountryChanged(String? name) async {
+    _country = _countries.where((e) => e.name == name).firstOrNull;
+    _state = null;
+    _district = null;
+    _city = null;
+    _districts = [];
+    _districtNames = [];
+    _cities = [];
+    _cityNames = [];
+    await _loadStates();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _onStateChanged(String? name) async {
+    _state = _states.where((e) => e.name == name).firstOrNull;
+    _district = null;
+    _city = null;
+    _cities = [];
+    _cityNames = [];
+    await _loadDistricts();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _onDistrictChanged(String? name) async {
+    _district = _districts.where((e) => e.name == name).firstOrNull;
+    _city = null;
+    await _loadCities();
+    if (mounted) setState(() {});
+  }
+
+  void _onCityChanged(String? name) {
+    setState(() => _city = _cities.where((e) => e.name == name).firstOrNull);
   }
 
   @override
@@ -203,6 +298,48 @@ class _MasterClientFormState extends State<MasterClientForm> {
             hintText: 'Enter GST / VAT number',
           ),
         ),
+        // ── Location: Country → State → District → City ─────────────
+        box(
+          FormDropdownSearch(
+            key: ValueKey('country_${_countryNames.length}'),
+            label: 'Country',
+            initialItem: _country?.name,
+            items: _countryNames,
+            allowClear: false,
+            onChanged: (v) => _onCountryChanged(v as String?),
+          ),
+        ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey('state_${_country?.name}_${_stateNames.length}'),
+            label: 'State',
+            initialItem: _state?.name,
+            items: _stateNames,
+            onChanged: (v) => _onStateChanged(v as String?),
+          ),
+        ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey(
+              'district_${_state?.name}_${_districtNames.length}',
+            ),
+            label: 'District',
+            initialItem: _district?.name,
+            items: _districtNames,
+            onChanged: (v) => _onDistrictChanged(v as String?),
+          ),
+        ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey(
+              'city_${_district?.name}_${_cityNames.length}',
+            ),
+            label: 'City',
+            initialItem: _city?.name,
+            items: _cityNames,
+            onChanged: (v) => _onCityChanged(v as String?),
+          ),
+        ),
         box(
           FormFields(
             label: 'Postal Code',
@@ -246,6 +383,11 @@ class _MasterClientFormState extends State<MasterClientForm> {
           postalCode: _postal.text.trim(),
           gstVatNumber: _gst.text.trim(),
           officePhoneNo: _officePhone.text.trim(),
+          country: _country,
+          state: _state,
+          district: _district,
+          city: _city,
+          clearLocation: true,
           isCompany: true,
           updatedAt: DateTime.now(),
         );
@@ -259,6 +401,10 @@ class _MasterClientFormState extends State<MasterClientForm> {
           postalCode: _postal.text.trim(),
           gstVatNumber: _gst.text.trim(),
           officePhoneNo: _officePhone.text.trim(),
+          country: _country,
+          state: _state,
+          district: _district,
+          city: _city,
           loginAllowed: false,
           receiveEmailNotifications: false,
           createdBy: await Spdb.getUser(),
