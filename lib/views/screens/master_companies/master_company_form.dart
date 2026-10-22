@@ -29,6 +29,22 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
   final _mobile = TextEditingController();
   final _email = TextEditingController();
   final _address = TextEditingController();
+  final _postal = TextEditingController();
+
+  // Location hierarchy: Country -> State -> District -> City.
+  RegionModel? _country;
+  StateModel? _state;
+  DistrictModel? _district;
+  CityModel? _city;
+
+  List<RegionModel> _countries = [];
+  List<StateModel> _states = [];
+  List<DistrictModel> _districts = [];
+  List<CityModel> _cities = [];
+  List<String> _countryNames = [];
+  List<String> _stateNames = [];
+  List<String> _districtNames = [];
+  List<String> _cityNames = [];
 
   MasterCompanyModel? _company;
   Uint8List? _newLogo; // freshly picked logo
@@ -52,14 +68,36 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
     _mobile.dispose();
     _email.dispose();
     _address.dispose();
+    _postal.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    if (!_isEdit) return;
+    try {
+      _countries = await RegionDataService.getCountries();
+      _countryNames = _countries.map((e) => e.name).toList();
+      // India is pre-selected by default.
+      _country = await RegionDataService.getDefaultCountry();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
+
+    if (!_isEdit) {
+      await _loadStates();
+      return;
+    }
     try {
       final c = await MasterCompanyService.get(uid: widget.uid!);
       _company = c;
+      // Restore the saved location (older records may not have one).
+      _country = c.country ?? _country;
+      _state = c.state;
+      _district = c.district;
+      _city = c.city;
+      await _loadStates();
+      await _loadDistricts();
+      await _loadCities();
+      _postal.text = c.postalCode ?? '';
       _companyName.text = c.companyName;
       _gst.text = c.gstVatNumber ?? '';
       _contactName.text = c.contactName;
@@ -70,6 +108,62 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
       await ErrorService.recordError(e, st);
       if (mounted) FlushBar.show(context, e.toString(), isSuccess: false);
     }
+  }
+
+  Future<void> _loadStates() async {
+    _states = await RegionDataService.getStates(country: _country?.name);
+    _stateNames = _states.map((e) => e.name).toList();
+  }
+
+  Future<void> _loadDistricts() async {
+    _districts = await RegionDataService.getDistricts(
+      country: _country?.name,
+      state: _state?.name,
+    );
+    _districtNames = _districts.map((e) => e.name).toList();
+  }
+
+  Future<void> _loadCities() async {
+    _cities = await RegionDataService.getCities(
+      country: _country?.name,
+      state: _state?.name,
+      district: _district?.name,
+    );
+    _cityNames = _cities.map((e) => e.name).toList();
+  }
+
+  Future<void> _onCountryChanged(String? name) async {
+    _country = _countries.where((e) => e.name == name).firstOrNull;
+    _state = null;
+    _district = null;
+    _city = null;
+    _districts = [];
+    _districtNames = [];
+    _cities = [];
+    _cityNames = [];
+    await _loadStates();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _onStateChanged(String? name) async {
+    _state = _states.where((e) => e.name == name).firstOrNull;
+    _district = null;
+    _city = null;
+    _cities = [];
+    _cityNames = [];
+    await _loadDistricts();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _onDistrictChanged(String? name) async {
+    _district = _districts.where((e) => e.name == name).firstOrNull;
+    _city = null;
+    await _loadCities();
+    if (mounted) setState(() {});
+  }
+
+  void _onCityChanged(String? name) {
+    setState(() => _city = _cities.where((e) => e.name == name).firstOrNull);
   }
 
   Future<void> _pickLogo() async {
@@ -295,6 +389,59 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
             },
           ),
         ),
+        // ── Location: Country → State → District → City ─────────────
+        box(
+          FormDropdownSearch(
+            key: ValueKey('country_${_countryNames.length}'),
+            label: 'Country',
+            initialItem: _country?.name,
+            items: _countryNames,
+            allowClear: false,
+            onChanged: (v) => _onCountryChanged(v as String?),
+          ),
+        ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey('state_${_country?.name}_${_stateNames.length}'),
+            label: 'State',
+            initialItem: _state?.name,
+            items: _stateNames,
+            onChanged: (v) => _onStateChanged(v as String?),
+          ),
+        ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey('district_${_state?.name}_${_districtNames.length}'),
+            label: 'District',
+            initialItem: _district?.name,
+            items: _districtNames,
+            onChanged: (v) => _onDistrictChanged(v as String?),
+          ),
+        ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey('city_${_district?.name}_${_cityNames.length}'),
+            label: 'City',
+            initialItem: _city?.name,
+            items: _cityNames,
+            onChanged: (v) => _onCityChanged(v as String?),
+          ),
+        ),
+        box(
+          FormFields(
+            label: 'Postal Code',
+            controller: _postal,
+            hintText: 'Enter postal code',
+            keyboardType: TextInputType.number,
+            valid: (input) {
+              if (input == null || input.trim().isEmpty) return null;
+              if (!RegExp(r'^\d{6}$').hasMatch(input.trim())) {
+                return 'Must be 6 digits';
+              }
+              return null;
+            },
+          ),
+        ),
         SizedBox(
           width: constraints.maxWidth,
           child: FormFields(
@@ -342,6 +489,12 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
           mobileNumber: _mobile.text.trim(),
           email: opt(_email) ?? '',
           companyAddress: opt(_address) ?? '',
+          postalCode: _postal.text.trim(),
+          country: _country,
+          state: _state,
+          district: _district,
+          city: _city,
+          clearLocation: true,
           updatedAt: DateTime.now(),
         );
         await MasterCompanyService.edit(uid: widget.uid!, company: saved);
@@ -354,6 +507,11 @@ class _MasterCompanyFormState extends State<MasterCompanyForm> {
           mobileNumber: _mobile.text.trim(),
           email: opt(_email),
           companyAddress: opt(_address),
+          postalCode: opt(_postal),
+          country: _country,
+          state: _state,
+          district: _district,
+          city: _city,
           createdBy: await Spdb.getUser(),
         );
         final id = await MasterCompanyService.create(company: model);

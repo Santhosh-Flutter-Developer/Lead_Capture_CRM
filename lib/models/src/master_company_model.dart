@@ -12,6 +12,11 @@ class MasterCompanyModel {
   final String mobileNumber;
   final String? email;
   final String? companyAddress;
+  final RegionModel? country;
+  final StateModel? state;
+  final DistrictModel? district;
+  final CityModel? city;
+  final String? postalCode;
   final UserDataModel createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -25,6 +30,11 @@ class MasterCompanyModel {
     required this.mobileNumber,
     this.email,
     this.companyAddress,
+    this.country,
+    this.state,
+    this.district,
+    this.city,
+    this.postalCode,
     required this.createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -41,6 +51,14 @@ class MasterCompanyModel {
     String? mobileNumber,
     String? email,
     String? companyAddress,
+    RegionModel? country,
+    StateModel? state,
+    DistrictModel? district,
+    CityModel? city,
+    String? postalCode,
+    // When true, country/state/district/city are taken exactly as passed
+    // (including null) so a cleared dropdown actually clears the value.
+    bool clearLocation = false,
     UserDataModel? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -54,6 +72,11 @@ class MasterCompanyModel {
       mobileNumber: mobileNumber ?? this.mobileNumber,
       email: email ?? this.email,
       companyAddress: companyAddress ?? this.companyAddress,
+      country: clearLocation ? country : (country ?? this.country),
+      state: clearLocation ? state : (state ?? this.state),
+      district: clearLocation ? district : (district ?? this.district),
+      city: clearLocation ? city : (city ?? this.city),
+      postalCode: postalCode ?? this.postalCode,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -68,6 +91,11 @@ class MasterCompanyModel {
     'mobileNumber': mobileNumber,
     'email': email,
     'companyAddress': companyAddress,
+    'country': country?.toMap(),
+    'state': state?.toMap(),
+    'district': district?.toMap(),
+    'city': city?.toMap(),
+    'postalCode': postalCode,
     'createdBy': createdBy.toMap(),
     'createdAt': createdAt.millisecondsSinceEpoch,
     'updatedAt': updatedAt.millisecondsSinceEpoch,
@@ -86,6 +114,19 @@ class MasterCompanyModel {
       mobileNumber: (map['mobileNumber'] ?? '') as String,
       email: map['email'] as String?,
       companyAddress: map['companyAddress'] as String?,
+      country: map['country'] is Map<String, dynamic>
+          ? RegionModel.fromRefMap(map['country'] as Map<String, dynamic>)
+          : null,
+      state: map['state'] is Map<String, dynamic>
+          ? StateModel.fromMap(map['state'] as Map<String, dynamic>)
+          : null,
+      district: map['district'] is Map<String, dynamic>
+          ? DistrictModel.fromMap(map['district'] as Map<String, dynamic>)
+          : null,
+      city: map['city'] is Map<String, dynamic>
+          ? CityModel.fromMap(map['city'] as Map<String, dynamic>)
+          : null,
+      postalCode: map['postalCode'] as String?,
       createdBy: map['createdBy'] is Map<String, dynamic>
           ? UserDataModel.fromMap(map['createdBy'] as Map<String, dynamic>)
           : UserDataModel.fromEmptyMap(),
