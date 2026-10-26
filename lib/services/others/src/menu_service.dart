@@ -181,13 +181,6 @@ class MenuService {
           // Roles created before this menu existed only carry the old
           // Company / Contact pages, so those still grant access.
           MenuItem(
-            id: 'payment_mode',
-            title: 'Payment Mode',
-            icon: Iconsax.card,
-            route: '/payment-mode',
-            requiredPermissions: ['Payment Mode'],
-          ),
-          MenuItem(
             id: 'master_client',
             title: 'Master Client',
             icon: Iconsax.people,
@@ -223,11 +216,25 @@ class MenuService {
             requiredPermissions: ['Our Company', 'Master Company'],
           ),
           MenuItem(
+            id: 'payment_mode',
+            title: 'Payment Mode',
+            icon: Iconsax.card,
+            route: '/payment-mode',
+            requiredPermissions: ['Payment Mode'],
+          ),
+          MenuItem(
             id: 'payment',
             title: 'Payment',
             icon: Iconsax.wallet_3,
             route: '/payment',
             requiredPermissions: ['Payment'],
+          ),
+          MenuItem(
+            id: 'payment_report',
+            title: 'Payment Report',
+            icon: Iconsax.chart_21,
+            route: '/payment-report',
+            requiredPermissions: ['Payment Report'],
           ),
         ],
       ),
@@ -459,6 +466,7 @@ class MenuService {
       'Master Client',
       'Our Company',
       'Payment',
+      'Payment Report',
       'Calendar',
       'Projects',
       'Tasks',

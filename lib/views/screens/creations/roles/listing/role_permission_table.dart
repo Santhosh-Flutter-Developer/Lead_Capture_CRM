@@ -41,6 +41,8 @@ IconData rolePageIcon(String page) {
       return Iconsax.building_4;
     case 'Payment':
       return Iconsax.wallet_3;
+    case 'Payment Report':
+      return Iconsax.chart_21;
     case 'Project Updation':
       return Iconsax.refresh_circle;
     case 'Company':

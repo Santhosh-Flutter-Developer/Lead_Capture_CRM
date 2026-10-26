@@ -6,6 +6,7 @@ export 'leads/leads.dart';
 export 'master_clients/master_clients.dart';
 export 'master_companies/master_companies.dart';
 export 'payments/payments.dart';
+export 'payment_report/payment_report.dart';
 export 'project_updations/project_updations.dart';
 export 'dashboard/dashboard.dart';
 export 'deals/deals.dart';

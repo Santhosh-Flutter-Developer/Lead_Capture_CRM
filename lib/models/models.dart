@@ -15,6 +15,7 @@ export 'src/client_model.dart';
 export 'src/master_company_model.dart';
 export 'src/payment_model.dart';
 export 'src/payment_mode_model.dart';
+export 'src/payment_report_model.dart';
 export 'src/deal_status_model.dart';
 export 'src/task_model.dart';
 export 'src/deal_model.dart';
