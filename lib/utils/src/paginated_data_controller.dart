@@ -24,6 +24,9 @@ class PaginatedDataController<T> extends ChangeNotifier {
   int _currentPage = 1;
   int _rowsPerPage;
   String _searchQuery = '';
+  // Optional extra predicate (e.g. dropdown / date-range filters) that is
+  // applied on top of the search. null = no extra filtering.
+  bool Function(T item)? _extraFilter;
   final Set<String> _selectedIds = {};
 
   PaginatedDataController({
@@ -37,6 +40,9 @@ class PaginatedDataController<T> extends ChangeNotifier {
 
   // --- Getters for the UI ---
   List<T> get paginatedItems => _paginatedItems;
+
+  /// Every item that passes search + extra filters (all pages, sorted).
+  List<T> get filteredItems => _filteredItems;
   int get sortColumnIndex => _sortColumnIndex;
   bool get sortAscending => _sortAscending;
   int get rowsPerPage => _rowsPerPage;
@@ -62,6 +68,15 @@ class PaginatedDataController<T> extends ChangeNotifier {
   void setSearch(String query) {
     _searchQuery = query;
     _currentPage = 1; // Reset to first page
+    _sortAndPaginate();
+  }
+
+  /// Sets (or clears, with null) an extra filter applied on top of the search.
+  /// Goes back to page 1 so the user never lands on a page that no longer
+  /// exists after the result set shrinks.
+  void setFilter(bool Function(T item)? predicate) {
+    _extraFilter = predicate;
+    _currentPage = 1;
     _sortAndPaginate();
   }
 
@@ -137,9 +152,10 @@ class PaginatedDataController<T> extends ChangeNotifier {
 
   // --- Private Logic ---
   void _sortAndPaginate() {
-    // 1. Apply Search Filter
+    // 1. Apply Search + extra filters
     _filteredItems = _allItems.where((item) {
-      return filterLogic(item, _searchQuery);
+      return filterLogic(item, _searchQuery) &&
+          (_extraFilter?.call(item) ?? true);
     }).toList();
 
     // 2. Apply Sorting

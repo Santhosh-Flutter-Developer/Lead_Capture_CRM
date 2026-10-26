@@ -80,6 +80,150 @@ class _TaskListingViewState extends State<TaskListingView> {
   final ScrollController _hScrollController = ScrollController();
   final ScrollController _vScrollController = ScrollController();
 
+  // ---------------------------------------------------------------------
+  // Filters: Status, Assignee, Created By, Deadline range
+  // ---------------------------------------------------------------------
+  TaskStatus? _fStatus;
+  String? _fAssigneeUid;
+  String? _fAssigneeName;
+  String? _fCreatedByUid;
+  String? _fCreatedByName;
+  DateTimeRange? _fDeadline;
+  // Bumped by "Clear filters" so the dropdowns rebuild with no selection.
+  int _filterEpoch = 0;
+
+  // Option lists are rebuilt only when the task list itself changes, so the
+  // dropdowns keep their state across unrelated rebuilds.
+  List<TaskModel>? _optionsSource;
+  Map<String, String> _assigneeOpts = {}; // display name -> uid
+  Map<String, String> _creatorOpts = {}; // display name -> uid
+  List<String> _assigneeItems = const [];
+  List<String> _creatorItems = const [];
+
+  static final Map<String, TaskStatus> _statusOpts = {
+    for (final s in TaskStatus.values) s.label: s,
+  };
+  static final List<String> _statusItems = _statusOpts.keys.toList();
+
+  int get _activeFilterCount =>
+      (_fStatus != null ? 1 : 0) +
+      (_fAssigneeUid != null ? 1 : 0) +
+      (_fCreatedByUid != null ? 1 : 0) +
+      (_fDeadline != null ? 1 : 0);
+
+  bool get _hasActiveFilters => _activeFilterCount > 0;
+
+  /// Same rule the "Created By" column uses to decide who to show.
+  static List<String> _creatorUids(TaskModel t) =>
+      t.taskCreatedBy.uid.isNotEmpty ? [t.taskCreatedBy.uid] : t.createdBy;
+
+  bool _matchesFilters(TaskModel t) {
+    if (_fStatus != null && t.currentStatus != _fStatus) return false;
+    if (_fAssigneeUid != null && !t.assignees.contains(_fAssigneeUid)) {
+      return false;
+    }
+    if (_fCreatedByUid != null && !_creatorUids(t).contains(_fCreatedByUid)) {
+      return false;
+    }
+    final range = _fDeadline;
+    if (range != null) {
+      final d = t.deadline;
+      if (d == null) return false; // no deadline => outside any range
+      final start = DateTime(
+        range.start.year,
+        range.start.month,
+        range.start.day,
+      );
+      // Inclusive of the whole end day.
+      final endExclusive = DateTime(
+        range.end.year,
+        range.end.month,
+        range.end.day + 1,
+      );
+      if (d.isBefore(start) || !d.isBefore(endExclusive)) return false;
+    }
+    return true;
+  }
+
+  /// Builds "display name -> uid" maps for the Assignee / Created By
+  /// dropdowns from the tasks currently loaded.
+  void _buildUserOptions(List<TaskModel> tasks) {
+    if (identical(tasks, _optionsSource)) return;
+    _optionsSource = tasks;
+
+    final assignees = <String, String>{}; // uid -> name
+    final creators = <String, String>{};
+    for (final t in tasks) {
+      for (final uid in t.assignees) {
+        final name = CacheService.getUserByUid(uid)?.name ?? '';
+        if (name.isNotEmpty) assignees[uid] = name;
+      }
+      for (final uid in _creatorUids(t)) {
+        final name = uid == t.taskCreatedBy.uid
+            ? t.taskCreatedBy.name
+            : (CacheService.getUserByUid(uid)?.name ?? '');
+        if (name.isNotEmpty) creators[uid] = name;
+      }
+    }
+    _assigneeOpts = _nameToUid(assignees);
+    _creatorOpts = _nameToUid(creators);
+    _assigneeItems = _assigneeOpts.keys.toList();
+    _creatorItems = _creatorOpts.keys.toList();
+  }
+
+  /// uid->name  ==>  name->uid, sorted A-Z. Two people with the same name get
+  /// a "(2)" suffix so picking one can never silently match the other.
+  static Map<String, String> _nameToUid(Map<String, String> uidToName) {
+    final entries = uidToName.entries.toList()
+      ..sort((a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()));
+    final out = <String, String>{};
+    for (final e in entries) {
+      var label = e.value;
+      var n = 2;
+      while (out.containsKey(label)) {
+        label = '${e.value} ($n)';
+        n++;
+      }
+      out[label] = e.key;
+    }
+    return out;
+  }
+
+  /// Re-applies the filters. Selection is cleared because rows that were
+  /// ticked may no longer be visible (and must not be bulk-deleted unseen).
+  void _applyFilters(PaginatedDataController<TaskModel> c) {
+    _selectedTasks.clear();
+    c.clearSelection();
+    c.setFilter(_hasActiveFilters ? _matchesFilters : null);
+  }
+
+  void _clearFilters(PaginatedDataController<TaskModel> c) {
+    setState(() {
+      _fStatus = null;
+      _fAssigneeUid = _fAssigneeName = null;
+      _fCreatedByUid = _fCreatedByName = null;
+      _fDeadline = null;
+      _filterEpoch++;
+    });
+    _applyFilters(c);
+  }
+
+  Future<void> _pickDeadlineRange(
+    PaginatedDataController<TaskModel> c,
+  ) async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _fDeadline,
+      helpText: 'Select deadline range',
+      saveText: 'Apply',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _fDeadline = picked);
+    _applyFilters(c);
+  }
+
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
     Color(0xFF4364F7),
@@ -172,11 +316,15 @@ class _TaskListingViewState extends State<TaskListingView> {
                           const SizedBox(height: 20),
                         ],
                         _buildToolbar(context, controllerRead),
+                        const SizedBox(height: 14),
+                        _buildFilterBar(context, controllerRead, state.tasks),
                         const SizedBox(height: 18),
                         if (controllerWatch.paginatedItems.isEmpty)
                           const NoData(text: "No matching records found")
                         else if (_selectedView == 'Calendar') ...[
-                          TaskCalendarListing(tasks: state.tasks),
+                          TaskCalendarListing(
+                            tasks: controllerWatch.filteredItems,
+                          ),
                         ] else ...[
                           _buildMainBody(
                             context,
@@ -358,6 +506,115 @@ class _TaskListingViewState extends State<TaskListingView> {
                 Wrap(spacing: 10, runSpacing: 10, children: buttons),
               ],
             ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Filter bar: Status / Assignee / Created By / Deadline range
+  // ---------------------------------------------------------------------
+  Widget _buildFilterBar(
+    BuildContext context,
+    PaginatedDataController<TaskModel> controllerRead,
+    List<TaskModel> allTasks,
+  ) {
+    _buildUserOptions(allTasks);
+    final scheme = Theme.of(context).colorScheme;
+
+    final fields = <Widget>[
+      FormDropdownSearch(
+        key: ValueKey('f_status_$_filterEpoch'),
+        label: 'Status',
+        initialItem: _fStatus?.label,
+        items: _statusItems,
+        onChanged: (v) {
+          setState(() => _fStatus = v == null ? null : _statusOpts[v as String]);
+          _applyFilters(controllerRead);
+        },
+      ),
+      FormDropdownSearch(
+        key: ValueKey('f_assignee_${_filterEpoch}_${_assigneeOpts.length}'),
+        label: 'Assignee',
+        initialItem: _fAssigneeName,
+        items: _assigneeItems,
+        onChanged: (v) {
+          setState(() {
+            _fAssigneeName = v as String?;
+            _fAssigneeUid = v == null ? null : _assigneeOpts[v];
+          });
+          _applyFilters(controllerRead);
+        },
+      ),
+      FormDropdownSearch(
+        key: ValueKey('f_creator_${_filterEpoch}_${_creatorOpts.length}'),
+        label: 'Created By',
+        initialItem: _fCreatedByName,
+        items: _creatorItems,
+        onChanged: (v) {
+          setState(() {
+            _fCreatedByName = v as String?;
+            _fCreatedByUid = v == null ? null : _creatorOpts[v];
+          });
+          _applyFilters(controllerRead);
+        },
+      ),
+      _DeadlineRangeField(
+        range: _fDeadline,
+        onTap: () => _pickDeadlineRange(controllerRead),
+        onClear: () {
+          setState(() => _fDeadline = null);
+          _applyFilters(controllerRead);
+        },
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final cols = c.maxWidth >= 900 ? 4 : (c.maxWidth >= 520 ? 2 : 1);
+          const gap = 12.0;
+          final w = (c.maxWidth - gap * (cols - 1)) / cols;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Iconsax.filter, size: 16, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    _hasActiveFilters
+                        ? 'Filters ($_activeFilterCount applied)'
+                        : 'Filters',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: _hasActiveFilters
+                        ? () => _clearFilters(controllerRead)
+                        : null,
+                    icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+                    label: const Text('Clear filters'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: gap,
+                runSpacing: 12,
+                children: [for (final f in fields) SizedBox(width: w, child: f)],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -871,6 +1128,94 @@ class _TaskListingViewState extends State<TaskListingView> {
       if (!mounted) return;
       FlushBar.show(context, e.toString(), isSuccess: false);
     }
+  }
+}
+
+// ---------------------------------------------------------------------
+// Deadline range field. Looks like the other filter dropdowns (label on top,
+// 33px outlined box) but opens a date-range picker.
+// ---------------------------------------------------------------------
+class _DeadlineRangeField extends StatelessWidget {
+  final DateTimeRange? range;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+  const _DeadlineRangeField({
+    required this.range,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final r = range;
+    final hasValue = r != null;
+    final String text;
+    if (r == null) {
+      text = 'Select range';
+    } else if (r.start == r.end) {
+      text = r.start.formatDateMonth;
+    } else {
+      text = '${r.start.formatDateMonth} - ${r.end.formatDateMonth}';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Deadline Range',
+          style: textTheme.bodySmall?.copyWith(
+            color: scheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            height: 33,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: hasValue
+                          ? scheme.onSurface
+                          : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                if (hasValue)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onClear,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2),
+                      child: Icon(Icons.clear, size: 16, color: Colors.grey),
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                Icon(
+                  Iconsax.calendar_1,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
