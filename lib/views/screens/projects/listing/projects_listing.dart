@@ -70,6 +70,146 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   final ScrollController _hScrollController = ScrollController();
   final ScrollController _vScrollController = ScrollController();
 
+  // ---------------------------------------------------------------------
+  // Filters: Lead, Created By, Deadline range
+  // ---------------------------------------------------------------------
+  String? _fLeadUid;
+  String? _fLeadName;
+  String? _fCreatedByUid;
+  String? _fCreatedByName;
+  DateTimeRange? _fDeadline;
+  // Bumped by "Clear filters" so the dropdowns rebuild with no selection.
+  int _filterEpoch = 0;
+
+  // Rebuilt only when the project list itself changes, so the dropdowns keep
+  // their state across unrelated rebuilds.
+  List<ProjectModel>? _optionsSource;
+  Map<String, String> _leadOpts = {}; // display name -> uid
+  Map<String, String> _creatorOpts = {}; // display name -> uid
+  List<String> _leadItems = const [];
+  List<String> _creatorItems = const [];
+
+  int get _activeFilterCount =>
+      (_fLeadUid != null ? 1 : 0) +
+      (_fCreatedByUid != null ? 1 : 0) +
+      (_fDeadline != null ? 1 : 0);
+
+  bool get _hasActiveFilters => _activeFilterCount > 0;
+
+  bool _matchesFilters(ProjectModel p) {
+    // "Lead" column shows projectOwner, so that is what we filter on.
+    if (_fLeadUid != null && p.projectOwner != _fLeadUid) return false;
+    if (_fCreatedByUid != null && p.createdBy.uid != _fCreatedByUid) {
+      return false;
+    }
+    final range = _fDeadline;
+    if (range != null && !dateInRange(p.deadline, range)) return false;
+    return true;
+  }
+
+  void _buildUserOptions(List<ProjectModel> projects) {
+    if (identical(projects, _optionsSource)) return;
+    _optionsSource = projects;
+
+    final leads = <String, String>{}; // uid -> name
+    final creators = <String, String>{};
+    for (final p in projects) {
+      final lead = CacheService.getUserByUid(p.projectOwner)?.name ?? '';
+      if (p.projectOwner.isNotEmpty && lead.isNotEmpty) {
+        leads[p.projectOwner] = lead;
+      }
+      if (p.createdBy.uid.isNotEmpty && p.createdBy.name.isNotEmpty) {
+        creators[p.createdBy.uid] = p.createdBy.name;
+      }
+    }
+    _leadOpts = nameToUidOptions(leads);
+    _creatorOpts = nameToUidOptions(creators);
+    _leadItems = _leadOpts.keys.toList();
+    _creatorItems = _creatorOpts.keys.toList();
+  }
+
+  /// Re-applies the filters. Selection is cleared because ticked rows may no
+  /// longer be visible (and must not be bulk-deleted unseen).
+  void _applyFilters(PaginatedDataController<ProjectModel> c) {
+    _selectedProjects.clear();
+    c.clearSelection();
+    c.setFilter(_hasActiveFilters ? _matchesFilters : null);
+  }
+
+  void _clearFilters(PaginatedDataController<ProjectModel> c) {
+    setState(() {
+      _fLeadUid = _fLeadName = null;
+      _fCreatedByUid = _fCreatedByName = null;
+      _fDeadline = null;
+      _filterEpoch++;
+    });
+    _applyFilters(c);
+  }
+
+  Future<void> _pickDeadlineRange(
+    PaginatedDataController<ProjectModel> c,
+  ) async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _fDeadline,
+      helpText: 'Select deadline range',
+      saveText: 'Apply',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _fDeadline = picked);
+    _applyFilters(c);
+  }
+
+  Widget _buildFilterBar(
+    PaginatedDataController<ProjectModel> controllerRead,
+    List<ProjectModel> allProjects,
+  ) {
+    _buildUserOptions(allProjects);
+    return ListFilterCard(
+      activeCount: _activeFilterCount,
+      onClear: () => _clearFilters(controllerRead),
+      fields: [
+        FormDropdownSearch(
+          key: ValueKey('f_lead_${_filterEpoch}_${_leadItems.length}'),
+          label: 'Lead',
+          initialItem: _fLeadName,
+          items: _leadItems,
+          onChanged: (v) {
+            setState(() {
+              _fLeadName = v as String?;
+              _fLeadUid = v == null ? null : _leadOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey('f_creator_${_filterEpoch}_${_creatorItems.length}'),
+          label: 'Created By',
+          initialItem: _fCreatedByName,
+          items: _creatorItems,
+          onChanged: (v) {
+            setState(() {
+              _fCreatedByName = v as String?;
+              _fCreatedByUid = v == null ? null : _creatorOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        DateRangeFilterField(
+          label: 'Deadline Range',
+          range: _fDeadline,
+          onTap: () => _pickDeadlineRange(controllerRead),
+          onClear: () {
+            setState(() => _fDeadline = null);
+            _applyFilters(controllerRead);
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -158,6 +298,8 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
                         controllerRead,
                         state.projects.length,
                       ),
+                      const SizedBox(height: 14),
+                      _buildFilterBar(controllerRead, state.projects),
                       const SizedBox(height: 18),
                       controllerWatch.paginatedItems.isEmpty
                           ? NoData(

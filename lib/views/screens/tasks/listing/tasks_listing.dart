@@ -35,7 +35,16 @@ class TaskListView extends StatelessWidget {
         // Task No ascending by default (column 0).
         initialSortColumnIndex: 0,
         filterLogic: (task, query) {
-          final q = query.toLowerCase();
+          final q = query.trim().toLowerCase();
+          if (q.isEmpty) return true;
+          // Task No: "4", "#4" (also finds 14, 24...)
+          final numberQuery = q.startsWith('#') ? q.substring(1).trim() : q;
+          final number = task.taskNumber?.toString();
+          if (number != null &&
+              numberQuery.isNotEmpty &&
+              number.contains(numberQuery)) {
+            return true;
+          }
           return task.taskName.toLowerCase().contains(q) ||
               (task.tags.map((e) => e.toLowerCase()).contains(q));
         },
