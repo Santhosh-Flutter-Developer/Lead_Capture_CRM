@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '/constants/constants.dart';
@@ -9,6 +6,8 @@ import '/services/services.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/theme/theme.dart';
+import 'task_comment_editor.dart';
+import 'task_time_tracking.dart';
 
 class TaskViewColors {
   static const Color primary = Color(0xFF2563EB);
@@ -43,40 +42,11 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   String _cid = '';
   Stream<List<TaskCommentModel>>? _commentsStream;
   Stream<List<TaskHistoryModel>>? _historyStream;
+  Stream<List<TaskTimeLogModel>>? _timeLogsStream;
   bool _isSending = false;
   bool isParticipant = false;
   bool _isActionLoading = false;
   int _statusFieldNonce = 0; // forces the status dropdown to rebuild/reset
-
-  Timer? _liveTimer;
-  Duration get _taskDuration {
-    if (_taskModel.startedTime == null) return Duration.zero;
-
-    final end = _taskModel.completedTime ?? DateTime.now();
-    return end.difference(_taskModel.startedTime!);
-  }
-
-  List<FlSpot> _buildLiveSpots(int totalMinutes) {
-    final spots = <FlSpot>[];
-
-    for (int i = 0; i <= totalMinutes; i += 30) {
-      spots.add(FlSpot(i / 60, i.toDouble()));
-    }
-
-    // Live running task → add current moment
-    if (_taskModel.completedTime == null) {
-      final nowMinutes = DateTime.now()
-          .difference(_taskModel.startedTime!)
-          .inMinutes
-          .toDouble();
-
-      spots.add(FlSpot(nowMinutes / 60, nowMinutes));
-    }
-
-    return spots;
-  }
-
-  double get _totalHours => _taskDuration.inMinutes / 60;
 
   @override
   void initState() {
@@ -99,14 +69,13 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
             cid: _cid,
             taskId: widget.uid,
           );
+          _timeLogsStream = TaskService.streamTimeLogs(
+            cid: _cid,
+            taskId: widget.uid,
+          );
         });
       }
     });
-    // _liveTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-    //   if (!mounted) return;
-    //   if (!(_taskModel.hasStarted && !_taskModel.completed)) return;
-    //   setState(() {});
-    // });
   }
 
   void _onTabChanged() {
@@ -117,7 +86,6 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _liveTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _commentController.dispose();
@@ -134,9 +102,11 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
       await TaskService.addComment(taskId: taskId, comment: text);
       _commentController.clear();
     } catch (e) {
-      FlushBar.show(context, 'Failed to add comment', isSuccess: false);
+      if (mounted) {
+        FlushBar.show(context, 'Failed to add comment', isSuccess: false);
+      }
     }
-    setState(() => _isSending = false);
+    if (mounted) setState(() => _isSending = false);
   }
 
   /// Changes the task status from the dropdown.
@@ -349,7 +319,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                                     padding: const EdgeInsets.all(24),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [_buildMainContent()],
+                                      children: [_buildMainContent(isWide)],
                                     ),
                                   ),
                                 ),
@@ -384,12 +354,18 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMainContent() {
+  Widget _buildMainContent(bool isWide) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTaskHeader(),
         const SizedBox(height: 24),
+        // On narrow screens there is no side panel, so the status control
+        // lives here, right under the title.
+        if (!isWide && isParticipant) ...[
+          _buildActionButtons(),
+          const SizedBox(height: 24),
+        ],
         _buildInfoGrid(),
         const SizedBox(height: 32),
         _buildSectionLabel("TASK DESCRIPTION"),
@@ -423,6 +399,9 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
           _buildAttachmentsGrid(),
           const SizedBox(height: 32),
         ],
+        // Narrow screens: people (assigned / collaborators / observers) are
+        // shown inline because the side panel is hidden.
+        if (!isWide) ...[_buildPeopleCard(), const SizedBox(height: 32)],
         _buildModernTabs(),
       ],
     );
@@ -548,29 +527,43 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   Widget _buildInfoGrid() {
     final daysLeft =
         _taskModel.deadline?.difference(DateTime.now()).inDays ?? 0;
-    return Row(
-      children: [
-        _infoBox(
-          Iconsax.calendar_1,
-          "Deadline",
-          _taskModel.deadline?.formatDate ?? "No date",
-          daysLeft < 0
-              ? Theme.of(context).colorScheme.error
-              : Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(width: 16),
-        _infoBox(
-          Iconsax.timer_1,
-          "Reminder",
-          _taskModel.reminder?.listingDateTime ?? "Disabled",
-          Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      ],
+    final deadline = _infoBox(
+      Iconsax.calendar_1,
+      "Deadline",
+      _taskModel.deadline?.formatDate ?? "No date",
+      daysLeft < 0
+          ? Theme.of(context).colorScheme.error
+          : Theme.of(context).colorScheme.primary,
+    );
+    final reminder = _infoBox(
+      Iconsax.timer_1,
+      "Reminder",
+      _taskModel.reminder?.listingDateTime ?? "Disabled",
+      Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Side by side only when there's room; otherwise the values were cut
+        // off ("30-09-2...").
+        if (c.maxWidth < 520) {
+          return Column(
+            children: [deadline, const SizedBox(height: 12), reminder],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: deadline),
+            const SizedBox(width: 16),
+            Expanded(child: reminder),
+          ],
+        );
+      },
     );
   }
 
   Widget _infoBox(IconData icon, String label, String val, Color accent) {
-    return Expanded(
+    return SizedBox(
+      width: double.infinity,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -720,7 +713,10 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               ),
             ),
           ),
-          child: TabBar(
+          child: LayoutBuilder(
+            builder: (context, c) => TabBar(
+            isScrollable: c.maxWidth < 520,
+            tabAlignment: c.maxWidth < 520 ? TabAlignment.start : null,
             controller: _tabController,
             labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Theme.of(
@@ -738,16 +734,17 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
               Tab(text: "Time Tracking"),
             ],
           ),
+          ),
         ),
         const SizedBox(height: 20),
-        IndexedStack(
-          index: _tabController.index,
-          children: [
-            _buildCommentsTab(),
-            _buildHistoryTab(),
-            _buildTimeTrackingTab(),
-          ],
-        ),
+        // Only the visible tab is built: an IndexedStack sized every tab to
+        // the tallest one (blank space) and kept the live timer running
+        // while hidden.
+        switch (_tabController.index) {
+          0 => _buildCommentsTab(),
+          1 => _buildHistoryTab(),
+          _ => _buildTimeTrackingTab(),
+        },
       ],
     );
   }
@@ -845,14 +842,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  comment.comment,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
+                TaskCommentText(data: comment.comment),
               ],
             ),
           ),
@@ -862,41 +852,10 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildCommentInput() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _commentController,
-            decoration: InputDecoration(
-              hintText: "Add a progress update...",
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        _isSending
-            ? const CircularProgressIndicator()
-            : IconButton(
-                onPressed: () => _addComment(_taskModel.uid!),
-                icon: Icon(
-                  Iconsax.send_1,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-      ],
+    return TaskCommentEditor(
+      controller: _commentController,
+      isSending: _isSending,
+      onSend: () => _addComment(_taskModel.uid!),
     );
   }
 
@@ -989,305 +948,56 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTimeInfoRow() {
-    return Row(
-      children: [
-        _timeTile(
-          "Started",
-          _taskModel.startedTime?.listingDateTime ?? "--",
-          Iconsax.play,
-        ),
-        const SizedBox(width: 16),
-        _timeTile(
-          "Completed",
-          _taskModel.completedTime?.listingDateTime ?? "In progress",
-          Iconsax.tick_circle,
-        ),
-      ],
-    );
-  }
-
-  Widget _timeTile(String label, String value, IconData icon) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: TaskViewColors.primary),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: TaskViewColors.textSecondary,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTimeTrackingTab() {
-    if (_taskModel.startedTime == null) {
-      return _buildEmptyState(
-        Iconsax.timer_start,
-        "Task has not been started yet.",
-      );
-    }
-
-    final totalMinutes = (_taskModel.completedTime ?? DateTime.now())
-        .difference(_taskModel.startedTime!)
-        .inMinutes;
-
-    final spots = _buildLiveSpots(totalMinutes);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTimeInfoRow(),
-
-        const SizedBox(height: 16),
-
-        /// TOTAL TIME CARD
-        _buildTotalTimeCard(),
-
-        const SizedBox(height: 24),
-
-        /// CHART
-        SizedBox(height: 300, child: _buildTimeChart(spots, totalMinutes)),
-      ],
+    return TaskTimeTrackingPanel(
+      logsStream: _timeLogsStream,
+      status: _taskModel.currentStatus,
+      startedTime: _taskModel.startedTime,
+      completedTime: _taskModel.completedTime,
     );
   }
 
-  Widget _buildTotalTimeCard() {
+  /// Assigned to / Collaborators / Observers. Shared by the desktop side
+  /// panel and the mobile inline card.
+  List<Widget> _peopleSection() {
+    return [
+      _buildSectionLabel("ASSIGNED TO"),
+      const SizedBox(height: 16),
+      ..._taskModel.assignees.map(
+        (u) => _buildProfileTile(u, "Lead Execution"),
+      ),
+      const SizedBox(height: 32),
+      _buildSectionLabel("COLLABORATORS"),
+      const SizedBox(height: 16),
+      if (_taskModel.participants.isEmpty)
+        _buildEmptyStateSmall("No participants")
+      else
+        ..._taskModel.participants.map(
+          (u) => _buildProfileTile(u, "Participant"),
+        ),
+      const SizedBox(height: 32),
+      _buildSectionLabel("OBSERVERS"),
+      const SizedBox(height: 16),
+      if (_taskModel.observers.isEmpty)
+        _buildEmptyStateSmall("No observers")
+      else
+        ..._taskModel.observers.map((u) => _buildProfileTile(u, "Viewer")),
+    ];
+  }
+
+  Widget _buildPeopleCard() {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Iconsax.timer,
-              color: Theme.of(context).colorScheme.primary,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Total Time Spent",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: TaskViewColors.textSecondary,
-                ),
-              ),
-              Text(
-                "${_totalHours.toStringAsFixed(2)} hrs",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeChart(List<FlSpot> spots, int totalMinutes) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 20, 20, 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        child: LineChart(
-          key: ValueKey(spots.length),
-          LineChartData(
-            minX: 0,
-            maxX: (totalMinutes / 60).ceilToDouble(),
-            minY: 0,
-            maxY: totalMinutes.toDouble() + 10,
-
-            /// GRID
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: false,
-              horizontalInterval: 30,
-              getDrawingHorizontalLine: (value) => FlLine(
-                color: Colors.grey.withValues(alpha: 0.12),
-                strokeWidth: 1,
-              ),
-            ),
-
-            /// BORDER
-            borderData: FlBorderData(show: false),
-
-            /// AXIS TITLES
-            titlesData: FlTitlesData(
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: 1,
-                  getTitlesWidget: (v, _) {
-                    if (v % 1 != 0) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        "${v.toInt()}h",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: 30,
-                  reservedSize: 38,
-                  getTitlesWidget: (v, _) => Text(
-                    "${v.toInt()}m",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-            ),
-
-            /// LINE DATA
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: true,
-                color: Theme.of(context).colorScheme.primary,
-                barWidth: 3,
-                isStrokeCapRound: true,
-
-                dotData: FlDotData(
-                  show: true,
-                  checkToShowDot: (spot, barData) => spot == spots.last,
-                  getDotPainter: (spot, _, _, _) => FlDotCirclePainter(
-                    radius: _taskModel.completed ? 5 : 6,
-                    color: Theme.of(context).colorScheme.primary,
-                    strokeWidth: 3,
-                    strokeColor: Colors.white,
-                  ),
-                ),
-                belowBarData: BarAreaData(
-                  show: true,
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.25),
-                      Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.0),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ],
-
-            lineTouchData: LineTouchData(
-              handleBuiltInTouches: true,
-              touchTooltipData: LineTouchTooltipData(
-                tooltipBorderRadius: BorderRadius.circular(10),
-                tooltipPadding: const EdgeInsets.all(10),
-                getTooltipItems: (touchedSpots) {
-                  return touchedSpots.map((spot) {
-                    return LineTooltipItem(
-                      "Time: ${spot.x.toStringAsFixed(1)} hrs\n"
-                      "Elapsed: ${spot.y.toInt()} min",
-                      const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    );
-                  }).toList();
-                },
-              ),
-              getTouchedSpotIndicator: (barData, spotIndexes) {
-                return spotIndexes.map((index) {
-                  return TouchedSpotIndicatorData(
-                    FlLine(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.5),
-                      strokeWidth: 2,
-                    ),
-                    FlDotData(
-                      show: true,
-                      getDotPainter: (spot, _, _, _) => FlDotCirclePainter(
-                        radius: 5,
-                        color: Theme.of(context).colorScheme.primary,
-                        strokeWidth: 2,
-                        strokeColor: Colors.white,
-                      ),
-                    ),
-                  );
-                }).toList();
-              },
-            ),
-          ),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _peopleSection(),
       ),
     );
   }
@@ -1306,27 +1016,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
           controller: _vhScrollController,
           padding: const EdgeInsets.all(24),
           children: [
-            _buildSectionLabel("ASSIGNED TO"),
-            const SizedBox(height: 16),
-            ..._taskModel.assignees.map(
-              (u) => _buildProfileTile(u, "Lead Execution"),
-            ),
-            const SizedBox(height: 32),
-            _buildSectionLabel("COLLABORATORS"),
-            const SizedBox(height: 16),
-            if (_taskModel.participants.isEmpty)
-              _buildEmptyStateSmall("No participants")
-            else
-              ..._taskModel.participants.map(
-                (u) => _buildProfileTile(u, "Participant"),
-              ),
-            const SizedBox(height: 32),
-            _buildSectionLabel("OBSERVERS"),
-            const SizedBox(height: 16),
-            if (_taskModel.observers.isEmpty)
-              _buildEmptyStateSmall("No observers")
-            else
-              ..._taskModel.observers.map((u) => _buildProfileTile(u, "Viewer")),
+            ..._peopleSection(),
             const SizedBox(height: 40),
             if (isParticipant) _buildActionButtons(),
           ],

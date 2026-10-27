@@ -281,6 +281,31 @@ class TaskModel {
   }
 }
 
+/// One work session on a task: from start/resume until hold/complete.
+/// Written by TaskService into `tasks/{id}/taskTimeLogs`. [endTime] is null
+/// while the session is still open.
+class TaskTimeLogModel {
+  final String userId;
+  final DateTime startTime;
+  final DateTime? endTime;
+
+  const TaskTimeLogModel({
+    required this.userId,
+    required this.startTime,
+    this.endTime,
+  });
+
+  factory TaskTimeLogModel.fromMap(Map<String, dynamic> map) {
+    DateTime? ms(dynamic v) =>
+        v is num ? DateTime.fromMillisecondsSinceEpoch(v.toInt()) : null;
+    return TaskTimeLogModel(
+      userId: (map['userId'] as String?) ?? '',
+      startTime: ms(map['startTime']) ?? DateTime.now(),
+      endTime: ms(map['endTime']),
+    );
+  }
+}
+
 class TaskCommentModel {
   String userId;
   String comment;

@@ -32,27 +32,41 @@ class TaskListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => PaginatedDataController<TaskModel>(
-        initialSortColumnIndex: 1,
+        // Task No ascending by default (column 0).
+        initialSortColumnIndex: 0,
         filterLogic: (task, query) {
           final q = query.toLowerCase();
           return task.taskName.toLowerCase().contains(q) ||
               (task.tags.map((e) => e.toLowerCase()).contains(q));
         },
+        // Column indexes follow the DataTable columns:
+        // 0 Task No, 1 Name, 2 Active, 3 Deadline.
         sortLogic: (a, b, col, asc) {
           int compare;
           switch (col) {
-            case 0:
+            case 0: // Task No (tasks without a number go last)
+              compare = (a.taskNumber ?? 0x7fffffff).compareTo(
+                b.taskNumber ?? 0x7fffffff,
+              );
+              break;
+            case 1: // Name
               compare = a.taskName.toLowerCase().compareTo(
                 b.taskName.toLowerCase(),
               );
               break;
-            case 2:
-              compare = (a.deadline ?? DateTime.now()).compareTo(
-                (b.deadline ?? DateTime.now()),
+            case 3: // Deadline (tasks without a deadline go last)
+              compare = (a.deadline ?? DateTime(9999)).compareTo(
+                b.deadline ?? DateTime(9999),
               );
               break;
             default:
-              compare = (a.uid ?? '').compareTo(b.uid ?? '');
+              compare = 0;
+          }
+          // Stable, predictable order when the main key is equal.
+          if (compare == 0) {
+            compare = (a.taskNumber ?? 0x7fffffff).compareTo(
+              b.taskNumber ?? 0x7fffffff,
+            );
           }
           return asc ? compare : -compare;
         },

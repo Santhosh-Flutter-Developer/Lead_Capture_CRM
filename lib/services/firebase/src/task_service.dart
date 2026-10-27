@@ -527,6 +527,25 @@ class TaskService {
     }
   }
 
+  /// Work sessions (start/resume -> hold/complete) of a task, oldest first.
+  static Stream<List<TaskTimeLogModel>> streamTimeLogs({
+    required String cid,
+    required String taskId,
+  }) {
+    return firebase.users
+        .doc(cid)
+        .collection(Collections.tasks.name)
+        .doc(taskId)
+        .collection('taskTimeLogs')
+        .orderBy('startTime')
+        .snapshots()
+        .map(
+          (snap) =>
+              snap.docs.map((d) => TaskTimeLogModel.fromMap(d.data())).toList(),
+        )
+        .asBroadcastStream();
+  }
+
   static Stream<List<TaskHistoryModel>> streamTaskHistory({
     required String cid,
     required String taskId,
