@@ -136,6 +136,19 @@ extension TicketStatusX on TicketStatus {
   }
 }
 
+/// How each ticket status affects the time tracker:
+///  * In Progress                          -> timer runs
+///  * On Hold / Pending Customer Response  -> timer paused (waiting time isn't work)
+///  * Resolved / Closed                    -> timer stopped
+///  * Open / Assigned                      -> not started yet
+extension TicketStatusTimerX on TicketStatus {
+  bool get isTimerRunning => this == TicketStatus.inProgress;
+  bool get isTimerPaused =>
+      this == TicketStatus.onHold || this == TicketStatus.pendingCustomerResponse;
+  bool get isTimerStopped =>
+      this == TicketStatus.resolved || this == TicketStatus.closed;
+}
+
 /// Workflow status of a task.
 ///
 /// [pending] is the implicit initial state (task not started yet) and is never

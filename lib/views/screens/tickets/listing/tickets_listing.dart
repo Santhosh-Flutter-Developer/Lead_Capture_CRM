@@ -13,6 +13,9 @@ import 'bloc/tickets_bloc.dart';
 const String _pageTitle = "Tickets";
 const double _wideBreakpoint = 1000;
 
+/// Which ticket date the "Date Range" filter applies to.
+enum _DateBasis { created, deadline }
+
 class TicketsListing extends StatelessWidget {
   const TicketsListing({super.key});
 
@@ -32,30 +35,38 @@ class TicketListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => PaginatedDataController<CustomerTicketModel>(
-        initialSortColumnIndex: 1,
+        // Ticket No ascending by default (column 0).
+        initialSortColumnIndex: 0,
         filterLogic: (ticket, query) {
           final q = query.toLowerCase();
           return ticket.ticketTitle.toLowerCase().contains(q) ||
               ticket.clientName.toLowerCase().contains(q) ||
               ticket.ticketNumber?.toString().contains(q) == true;
         },
+        // Column indexes follow the DataTable columns:
+        // 0 Ticket No, 1 Title, 2 Status.
         sortLogic: (a, b, col, asc) {
+          int byNumber() => (a.ticketNumber ?? 0x7fffffff).compareTo(
+            b.ticketNumber ?? 0x7fffffff,
+          );
           int compare;
           switch (col) {
-            case 0:
-              compare = a.ticketNumber?.compareTo(b.ticketNumber ?? 0) ?? 0;
+            case 0: // Ticket No (tickets without a number go last)
+              compare = byNumber();
               break;
-            case 1:
+            case 1: // Title
               compare = a.ticketTitle.toLowerCase().compareTo(
                 b.ticketTitle.toLowerCase(),
               );
               break;
-            case 2:
+            case 2: // Status
               compare = a.status.index.compareTo(b.status.index);
               break;
             default:
-              compare = (a.uid ?? '').compareTo(b.uid ?? '');
+              compare = 0;
           }
+          // Stable, predictable order when the main key is equal.
+          if (compare == 0) compare = byNumber();
           return asc ? compare : -compare;
         },
         getItemId: (ticket) => ticket.uid ?? '',
@@ -80,6 +91,260 @@ class _TicketListingViewState extends State<TicketListingView> {
   bool _isAdmin = false;
   final ScrollController _hScrollController = ScrollController();
   final ScrollController _vScrollController = ScrollController();
+
+  // ---------------------------------------------------------------------
+  // Filters: Status, Priority, Assigned To, Created By, Project, Date range
+  // ---------------------------------------------------------------------
+  TicketStatus? _fStatus;
+  TicketPriority? _fPriority;
+  String? _fAssigneeUid;
+  String? _fAssigneeName;
+  String? _fCreatedByUid;
+  String? _fCreatedByName;
+  String? _fProjectUid;
+  String? _fProjectName;
+  DateTimeRange? _fDate;
+  _DateBasis _dateBasis = _DateBasis.created;
+  // Bumped by "Clear filters" so the dropdowns rebuild with no selection.
+  int _filterEpoch = 0;
+
+  // Rebuilt only when the ticket list itself changes, so the dropdowns keep
+  // their state across unrelated rebuilds.
+  List<CustomerTicketModel>? _optionsSource;
+  Map<String, String> _assigneeOpts = {}; // display name -> uid
+  Map<String, String> _creatorOpts = {};
+  Map<String, String> _projectOpts = {};
+  List<String> _assigneeItems = const [];
+  List<String> _creatorItems = const [];
+  List<String> _projectItems = const [];
+
+  static final Map<String, TicketStatus> _statusOpts = {
+    for (final s in TicketStatus.values) s.label: s,
+  };
+  static final List<String> _statusItems = _statusOpts.keys.toList();
+  static final Map<String, TicketPriority> _priorityOpts = {
+    for (final p in TicketPriority.values) p.label: p,
+  };
+  static final List<String> _priorityItems = _priorityOpts.keys.toList();
+
+  int get _activeFilterCount =>
+      (_fStatus != null ? 1 : 0) +
+      (_fPriority != null ? 1 : 0) +
+      (_fAssigneeUid != null ? 1 : 0) +
+      (_fCreatedByUid != null ? 1 : 0) +
+      (_fProjectUid != null ? 1 : 0) +
+      (_fDate != null ? 1 : 0);
+
+  bool get _hasActiveFilters => _activeFilterCount > 0;
+
+  /// Same rule the "Created By" column uses to decide who to show.
+  static List<String> _creatorUids(CustomerTicketModel t) =>
+      t.ticketCreatedBy.uid.isNotEmpty ? [t.ticketCreatedBy.uid] : t.createdBy;
+
+  bool _matchesFilters(CustomerTicketModel t) {
+    if (_fStatus != null && t.status != _fStatus) return false;
+    if (_fPriority != null && t.priorityLevel != _fPriority) return false;
+    if (_fAssigneeUid != null && !t.assignTo.contains(_fAssigneeUid)) {
+      return false;
+    }
+    if (_fCreatedByUid != null && !_creatorUids(t).contains(_fCreatedByUid)) {
+      return false;
+    }
+    if (_fProjectUid != null && t.project != _fProjectUid) return false;
+    final range = _fDate;
+    if (range != null) {
+      final d = _dateBasis == _DateBasis.created ? t.createdAt : t.deadline;
+      if (!dateInRange(d, range)) return false; // no deadline => not in range
+    }
+    return true;
+  }
+
+  void _buildOptions(List<CustomerTicketModel> tickets) {
+    if (identical(tickets, _optionsSource)) return;
+    _optionsSource = tickets;
+
+    final assignees = <String, String>{}; // uid -> name
+    final creators = <String, String>{};
+    final projects = <String, String>{};
+    for (final t in tickets) {
+      for (final uid in t.assignTo) {
+        final name = CacheService.getUserByUid(uid)?.name ?? '';
+        if (name.isNotEmpty) assignees[uid] = name;
+      }
+      for (final uid in _creatorUids(t)) {
+        final name = uid == t.ticketCreatedBy.uid
+            ? t.ticketCreatedBy.name
+            : (CacheService.getUserByUid(uid)?.name ?? '');
+        if (name.isNotEmpty) creators[uid] = name;
+      }
+      final pid = t.project;
+      if (pid != null && pid.isNotEmpty) {
+        final name = CacheService.getProjectByUid(pid)?.projectName ?? '';
+        if (name.isNotEmpty) projects[pid] = name;
+      }
+    }
+    _assigneeOpts = nameToUidOptions(assignees);
+    _creatorOpts = nameToUidOptions(creators);
+    _projectOpts = nameToUidOptions(projects);
+    _assigneeItems = _assigneeOpts.keys.toList();
+    _creatorItems = _creatorOpts.keys.toList();
+    _projectItems = _projectOpts.keys.toList();
+  }
+
+  /// Re-applies the filters. Selection is cleared because ticked rows may no
+  /// longer be visible (and must not be bulk-deleted unseen).
+  void _applyFilters(PaginatedDataController<CustomerTicketModel> c) {
+    _selectedTickets.clear();
+    c.clearSelection();
+    c.setFilter(_hasActiveFilters ? _matchesFilters : null);
+  }
+
+  void _clearFilters(PaginatedDataController<CustomerTicketModel> c) {
+    setState(() {
+      _fStatus = null;
+      _fPriority = null;
+      _fAssigneeUid = _fAssigneeName = null;
+      _fCreatedByUid = _fCreatedByName = null;
+      _fProjectUid = _fProjectName = null;
+      _fDate = null;
+      _filterEpoch++;
+    });
+    _applyFilters(c);
+  }
+
+  Future<void> _pickDateRange(
+    PaginatedDataController<CustomerTicketModel> c,
+  ) async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: _fDate,
+      helpText: _dateBasis == _DateBasis.created
+          ? 'Select created date range'
+          : 'Select deadline range',
+      saveText: 'Apply',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _fDate = picked);
+    _applyFilters(c);
+  }
+
+  Widget _buildFilterBar(
+    PaginatedDataController<CustomerTicketModel> controllerRead,
+    List<CustomerTicketModel> allTickets,
+  ) {
+    _buildOptions(allTickets);
+    return ListFilterCard(
+      activeCount: _activeFilterCount,
+      onClear: () => _clearFilters(controllerRead),
+      fields: [
+        FormDropdownSearch(
+          key: ValueKey('f_status_$_filterEpoch'),
+          label: 'Status',
+          initialItem: _fStatus?.label,
+          items: _statusItems,
+          onChanged: (v) {
+            setState(
+              () => _fStatus = v == null ? null : _statusOpts[v as String],
+            );
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey('f_priority_$_filterEpoch'),
+          label: 'Priority',
+          initialItem: _fPriority?.label,
+          items: _priorityItems,
+          onChanged: (v) {
+            setState(
+              () => _fPriority = v == null ? null : _priorityOpts[v as String],
+            );
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey('f_assignee_${_filterEpoch}_${_assigneeItems.length}'),
+          label: 'Assigned To',
+          initialItem: _fAssigneeName,
+          items: _assigneeItems,
+          onChanged: (v) {
+            setState(() {
+              _fAssigneeName = v as String?;
+              _fAssigneeUid = v == null ? null : _assigneeOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey('f_creator_${_filterEpoch}_${_creatorItems.length}'),
+          label: 'Created By',
+          initialItem: _fCreatedByName,
+          items: _creatorItems,
+          onChanged: (v) {
+            setState(() {
+              _fCreatedByName = v as String?;
+              _fCreatedByUid = v == null ? null : _creatorOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey('f_project_${_filterEpoch}_${_projectItems.length}'),
+          label: 'Project',
+          initialItem: _fProjectName,
+          items: _projectItems,
+          onChanged: (v) {
+            setState(() {
+              _fProjectName = v as String?;
+              _fProjectUid = v == null ? null : _projectOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        DateRangeFilterField(
+          label: 'Date Range',
+          range: _fDate,
+          onTap: () => _pickDateRange(controllerRead),
+          onClear: () {
+            setState(() => _fDate = null);
+            _applyFilters(controllerRead);
+          },
+          // Which date the range applies to (defaults to when it was raised).
+          labelTrailing: PopupMenuButton<_DateBasis>(
+            tooltip: 'Filter by',
+            initialValue: _dateBasis,
+            onSelected: (b) {
+              setState(() => _dateBasis = b);
+              if (_fDate != null) _applyFilters(controllerRead);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: _DateBasis.created, child: Text('Created date')),
+              PopupMenuItem(value: _DateBasis.deadline, child: Text('Deadline')),
+            ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _dateBasis == _DateBasis.created ? 'Created' : 'Deadline',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -175,6 +440,8 @@ class _TicketListingViewState extends State<TicketListingView> {
                           const SizedBox(height: 20),
                         ],
                         _buildToolbar(context, controllerRead),
+                        const SizedBox(height: 14),
+                        _buildFilterBar(controllerRead, state.tickets),
                         const SizedBox(height: 18),
                         if (controllerWatch.paginatedItems.isEmpty)
                           NoData(

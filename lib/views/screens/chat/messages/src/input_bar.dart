@@ -82,10 +82,127 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   void _removeFile(int index) {
+    final removed = _pickedFiles[index];
     setState(() {
       _pickedFiles.removeAt(index);
     });
+    AttachmentIntake.discard(removed); // temp copy made by paste / drop
   }
+
+  // ── Paste & drag-and-drop attachments ─────────────────────────────────
+  // Everything that arrives from the clipboard (screenshots, copied images,
+  // copied files) or from a drop becomes a PlatformFile in [_pickedFiles], so
+  // the existing preview strip and upload code handle it unchanged.
+
+  /// Updated in build(); false for read-only channels.
+  bool _canPost = true;
+
+  /// Asked by the drop zone before it accepts a drag.
+  bool get canAcceptAttachments => mounted && _canPost;
+
+  /// Called by the drop zone / paste handlers with what was read.
+  void receiveImport(AttachmentImport result) {
+    if (!mounted) return;
+    if (result.files.isNotEmpty) {
+      setState(() => _pickedFiles.addAll(result.files));
+      // Desktop / web: keep typing flow (Enter sends). Don't pop the
+      // keyboard on phones.
+      if (!kIsMobile) focusNode.requestFocus();
+    }
+    if (result.tooLarge > 0) {
+      FlushBar.show(
+        context,
+        result.tooLarge == 1
+            ? 'That file is too large to attach here (max 100 MB).'
+            : '${result.tooLarge} files are too large to attach here (max 100 MB).',
+        isSuccess: false,
+      );
+    }
+    if (result.failed > 0) {
+      FlushBar.show(
+        context,
+        result.failed == 1
+            ? 'Could not attach that item. Folders are not supported.'
+            : 'Could not attach ${result.failed} items. Folders are not supported.',
+        isSuccess: false,
+      );
+    }
+  }
+
+  /// Desktop / mobile: look at the system clipboard. Plain text is left to
+  /// the normal text paste; images and copied files become attachments.
+  Future<void> _pasteAttachmentsFromClipboard({bool explicit = false}) async {
+    try {
+      final result = await AttachmentIntake.fromSystemClipboard();
+      if (!mounted) return;
+      if (result.isEmpty) {
+        if (explicit) {
+          FlushBar.show(
+            context,
+            'No image or file found on the clipboard.',
+            isSuccess: false,
+          );
+        }
+        return;
+      }
+      receiveImport(result);
+    } catch (e) {
+      debugPrint('Paste attachment error: $e');
+      if (explicit && mounted) {
+        FlushBar.show(
+          context,
+          'Could not read the clipboard.',
+          isSuccess: false,
+        );
+      }
+    }
+  }
+
+  /// Web: browser paste event (needs no permission prompt, works in Firefox).
+  Future<void> _onWebPaste(ClipboardReadEvent event) async {
+    // Only react when the message box is the focused element; otherwise leave
+    // the browser's default paste alone (search boxes etc.).
+    if (!focusNode.hasFocus || !_canPost) return;
+    // Asking for the reader takes over the paste, so text is inserted by hand
+    // when there is nothing to attach.
+    final reader = await event.getClipboardReader();
+    final result = await AttachmentIntake.fromClipboardReader(reader);
+    if (!mounted) return;
+    if (!result.isEmpty) {
+      receiveImport(result);
+      return;
+    }
+    if (reader.canProvide(Formats.plainText)) {
+      final text = await reader.readValue(Formats.plainText);
+      if (text != null && mounted) _insertTextAtCursor(text);
+    }
+  }
+
+  void _insertTextAtCursor(String text) {
+    final v = _controller.value;
+    final sel = v.selection;
+    final start = sel.isValid ? sel.start : v.text.length;
+    final end = sel.isValid ? sel.end : v.text.length;
+    _controller.value = v.copyWith(
+      text: v.text.replaceRange(start, end, text),
+      selection: TextSelection.collapsed(offset: start + text.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  /// Android keyboards (Gboard clipboard chip, stickers, GIFs) insert images
+  /// straight into the text field.
+  Future<void> _onKeyboardContent(KeyboardInsertedContent content) async {
+    final data = content.data;
+    if (data == null || data.isEmpty) return;
+    final file = await AttachmentIntake.fromBytes(
+      data,
+      mimeType: content.mimeType,
+    );
+    if (file != null) receiveImport(AttachmentImport(files: [file]));
+  }
+
+  ClipboardEvents? _webClipboardEvents;
 
   MessageProvider? _messageProvider;
   bool _isReply = false;
@@ -119,6 +236,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
     super.initState();
     focusNode = FocusNode(
       onKeyEvent: (node, event) {
+        // Ctrl/Cmd+V: if the clipboard holds an image or files, attach them.
+        // Text paste still runs normally (we return `ignored` below). On web
+        // this is done by the paste-event listener instead.
+        if (!kIsWeb &&
+            event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyV &&
+            (HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed)) {
+          _pasteAttachmentsFromClipboard();
+        }
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.enter) {
           if (!HardwareKeyboard.instance.isShiftPressed) {
@@ -131,6 +258,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
     _loadUsers();
     _controller.addListener(_onTextChanged);
+
+    // Web: browser paste events (null on every other platform).
+    _webClipboardEvents = ClipboardEvents.instance;
+    _webClipboardEvents?.registerPasteEventListener(_onWebPaste);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _messageProvider = Provider.of<MessageProvider>(context, listen: false);
@@ -378,6 +509,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   void dispose() {
     _messageProvider?.removeListener(_onMessageProviderChange);
+    _webClipboardEvents?.unregisterPasteEventListener(_onWebPaste);
+    // Temp copies made by paste / drop that were never sent.
+    for (final f in _pickedFiles) {
+      AttachmentIntake.discard(f);
+    }
     _voice.dispose();
     _controller.dispose();
     focusNode.dispose();
@@ -570,6 +706,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final chatData = ChatData.of(context);
     final currentUser = chatData.currentUser;
     final canPost = widget.chat.canPostMessage(currentUser);
+    _canPost = canPost;
 
     if (!canPost) {
       return Container(
@@ -705,6 +842,31 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         
                         minLines: 1,
                         maxLines: 5,
+                        // Android keyboards inserting an image.
+                        contentInsertionConfiguration:
+                            ContentInsertionConfiguration(
+                              onContentInserted: _onKeyboardContent,
+                            ),
+                        // Long-press / right-click menu gets an extra
+                        // "Paste image / file" entry (the standard Paste only
+                        // handles text).
+                        contextMenuBuilder: (context, editableTextState) {
+                          final items = [
+                            ...editableTextState.contextMenuButtonItems,
+                            if (!kIsWeb)
+                              ContextMenuButtonItem(
+                                label: 'Paste image / file',
+                                onPressed: () {
+                                  editableTextState.hideToolbar();
+                                  _pasteAttachmentsFromClipboard(explicit: true);
+                                },
+                              ),
+                          ];
+                          return AdaptiveTextSelectionToolbar.buttonItems(
+                            anchors: editableTextState.contextMenuAnchors,
+                            buttonItems: items,
+                          );
+                        },
                         onChanged: (value) async {
                           setState(() {});
                           // if (value.isNotEmpty) {
@@ -853,6 +1015,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
       ChatService.sendNotification(chatId: uid, message: message, isChat: true);
     } catch (e) {
       debugPrint("Send message error: $e");
+    } finally {
+      // Temp copies made by paste / drop are no longer needed.
+      for (final f in pickedFiles) {
+        AttachmentIntake.discard(f);
+      }
     }
   }
 

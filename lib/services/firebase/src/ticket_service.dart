@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentReference;
 import '/constants/constants.dart';
 import '/services/services.dart';
 import '/models/models.dart';
@@ -45,6 +46,14 @@ class TicketService {
       await ticketDoc
           .collection(Collections.ticketHistory.name)
           .add(ticketHistoryModel.toMap());
+
+      // Created straight into "In Progress" => time tracking starts now.
+      await _syncTimeLog(
+        ticketRef: ticketDoc,
+        oldStatus: null,
+        newStatus: ticket.status,
+        userId: uid ?? '',
+      );
 
       // Who should be notified: an employee-created ticket notifies the
       // creator + every admin; an admin-created ticket notifies admins only.
@@ -102,11 +111,32 @@ class TicketService {
       var cid = await Spdb.getCid();
       var userId = await Spdb.getUid();
 
+      final ticketRef = firebase.users
+          .doc(cid)
+          .collection(Collections.customerTickets.name)
+          .doc(uid);
+
+      // Status before the edit, so the time tracker can follow the change.
+      final before = await ticketRef.get();
+      final oldStatus = before.exists
+          ? TicketStatus.values.firstWhere(
+              (e) => e.name == (before.data()?['status'] as String?),
+              orElse: () => TicketStatus.open,
+            )
+          : null;
+
       await CommonService.update(
         '${Collections.users.name}/$cid/${Collections.customerTickets.name}',
         uid,
         ticket.toUpdateMap(),
         activity: '${ticket.ticketTitle} has been updated',
+      );
+
+      await _syncTimeLog(
+        ticketRef: ticketRef,
+        oldStatus: oldStatus,
+        newStatus: ticket.status,
+        userId: userId ?? '',
       );
 
       TicketHistoryModel ticketHistoryModel = TicketHistoryModel(
@@ -258,6 +288,144 @@ class TicketService {
       await ErrorService.recordError(e, st);
       throw 'Error fetching tickets: $e';
     }
+  }
+
+  static const String _timeLogs = 'ticketTimeLogs';
+
+  /// Keeps the time tracker in step with a status change: a session opens
+  /// when the ticket enters In Progress and closes when it leaves it
+  /// (hold, pending customer response, resolved, closed).
+  static Future<void> _syncTimeLog({
+    required DocumentReference<Map<String, dynamic>> ticketRef,
+    required TicketStatus? oldStatus,
+    required TicketStatus newStatus,
+    required String userId,
+  }) async {
+    final wasRunning = oldStatus?.isTimerRunning ?? false;
+    final nowRunning = newStatus.isTimerRunning;
+    if (wasRunning == nowRunning) return;
+
+    final logs = ticketRef.collection(_timeLogs);
+    final open = await logs.where('endTime', isNull: true).limit(1).get();
+
+    if (nowRunning) {
+      if (open.docs.isEmpty) {
+        await logs.add({
+          'userId': userId,
+          'startTime': DateTime.now().millisecondsSinceEpoch,
+          'endTime': null,
+        });
+      }
+    } else if (open.docs.isNotEmpty) {
+      await open.docs.first.reference.update({
+        'endTime': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+  }
+
+  /// Changes only the status of a ticket (status dropdown in the ticket view).
+  /// Records history + time tracking and notifies everyone on the ticket.
+  static Future<void> updateTicketStatus({
+    required String ticketId,
+    required TicketStatus newStatus,
+  }) async {
+    try {
+      var cid = await Spdb.getCid();
+      var uid = await Spdb.getUid();
+      if (uid == null) throw 'User not logged in';
+
+      final ticketRef = firebase.users
+          .doc(cid)
+          .collection(Collections.customerTickets.name)
+          .doc(ticketId);
+
+      // Decide from the latest server state, not from what the screen shows.
+      final snap = await ticketRef.get();
+      final data = snap.data();
+      if (!snap.exists || data == null) throw 'Ticket not found';
+      final ticket = CustomerTicketModel.fromMap(snap.id, data);
+      final current = ticket.status;
+      if (current == newStatus) return;
+
+      await CommonService.update(
+        '${Collections.users.name}/$cid/${Collections.customerTickets.name}',
+        ticketId,
+        {
+          'status': newStatus.name,
+          'updatedAt': DateTime.now().millisecondsSinceEpoch,
+        },
+        activity: '${ticket.ticketTitle} status changed',
+      );
+
+      await _syncTimeLog(
+        ticketRef: ticketRef,
+        oldStatus: current,
+        newStatus: newStatus,
+        userId: uid,
+      );
+
+      await ticketRef
+          .collection(Collections.ticketHistory.name)
+          .add(
+            TicketHistoryModel(
+              userId: uid,
+              updateDisposition:
+                  'Status changed: ${current.label} → ${newStatus.label}',
+            ).toMap(),
+          );
+
+      // Notification problems must never undo a successful status change.
+      try {
+        final users = {
+          ...ticket.assignTo,
+          ...ticket.participants,
+          ...ticket.createdBy,
+          ...ticket.observers,
+        }.toList();
+        final fcmIds = <String>[];
+        for (final u in users) {
+          fcmIds.addAll(await AuthService.getUserFcmIds(uid: u));
+        }
+        final user = await Spdb.getUser();
+        PostNotificationService.sendNotification(
+          model: NotificationModel(
+            collectionId: cid ?? '',
+            title: 'Ticket : ${ticket.ticketTitle}',
+            body: '${user.name} changed status to ${newStatus.label}',
+            toFcms: fcmIds,
+            toUids: users,
+            senderId: uid,
+            type: NotificationType.ticket,
+            payload: {'ticketId': ticketId},
+          ),
+        );
+      } catch (e, st) {
+        await ErrorService.recordError(e, st);
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      throw e.toString();
+    }
+  }
+
+  /// Work sessions (In Progress -> hold/resolved/closed) of a ticket, oldest
+  /// first.
+  static Stream<List<TaskTimeLogModel>> streamTimeLogs({
+    required String cid,
+    required String ticketId,
+  }) {
+    return firebase.users
+        .doc(cid)
+        .collection(Collections.customerTickets.name)
+        .doc(ticketId)
+        .collection(_timeLogs)
+        .orderBy('startTime')
+        .snapshots()
+        .map(
+          (snap) =>
+              snap.docs.map((d) => TaskTimeLogModel.fromMap(d.data())).toList(),
+        )
+        .asBroadcastStream();
   }
 
   static Stream<List<TicketHistoryModel>> streamTicketHistory({

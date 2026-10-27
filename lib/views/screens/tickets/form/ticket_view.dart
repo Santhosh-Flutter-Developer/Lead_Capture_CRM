@@ -27,14 +27,17 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   String _cid = '';
   Stream<List<TicketCommentModel>>? _commentsStream;
   Stream<List<TicketHistoryModel>>? _historyStream;
+  Stream<List<TaskTimeLogModel>>? _timeLogsStream;
   bool _isSending = false;
   bool isParticipant = false;
+  bool _isActionLoading = false;
+  int _statusFieldNonce = 0; // forces the status dropdown to rebuild/reset
 
   @override
   void initState() {
     super.initState();
     _future = TicketService.getTicket(uid: widget.uid);
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_onTabChanged);
     Spdb.getUid().then((uid) {
       if (mounted) setState(() => currentUid = uid);
@@ -51,12 +54,15 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
             cid: _cid,
             ticketId: widget.uid,
           );
+          _timeLogsStream = TicketService.streamTimeLogs(
+            cid: _cid,
+            ticketId: widget.uid,
+          );
         });
       }
     });
   }
 
- 
 
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) {
@@ -82,9 +88,42 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
       await TicketService.addComment(ticketId: ticketId, comment: text);
       _commentController.clear();
     } catch (e) {
-      FlushBar.show(context, 'Failed to add comment', isSuccess: false);
+      if (mounted) {
+        FlushBar.show(context, 'Failed to add comment', isSuccess: false);
+      }
     }
-    setState(() => _isSending = false);
+    if (mounted) setState(() => _isSending = false);
+  }
+
+  Future<void> _changeStatus(TicketStatus target) async {
+    if (_ticketModel.uid == null) return;
+    if (target == _ticketModel.status) return;
+
+    setState(() => _isActionLoading = true);
+    try {
+      await TicketService.updateTicketStatus(
+        ticketId: _ticketModel.uid!,
+        newStatus: target,
+      );
+      if (!mounted) return;
+      setState(() => _ticketModel.status = target);
+      FlushBar.show(
+        context,
+        "Status updated to ${target.label}",
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      // Put the dropdown back to the real status.
+      setState(() => _statusFieldNonce++);
+      FlushBar.show(
+        context,
+        e.toString().replaceAll('Exception: ', ''),
+        isSuccess: false,
+      );
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
   }
 
   static const List<Color> _brandGradient = [
@@ -144,6 +183,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
         isParticipant =
             currentUid != null &&
             (_ticketModel.assignTo.contains(currentUid!) ||
+                _ticketModel.participants.contains(currentUid!) ||
                 _ticketModel.createdBy.contains(currentUid!));
 
         return Scaffold(
@@ -177,7 +217,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
                                     padding: const EdgeInsets.all(24),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [_buildMainContent()],
+                                      children: [_buildMainContent(isWide)],
                                     ),
                                   ),
                                 ),
@@ -212,12 +252,18 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMainContent() {
+  Widget _buildMainContent(bool isWide) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTicketHeader(),
         const SizedBox(height: 24),
+        // On narrow screens there is no side panel, so the status control
+        // lives here, right under the title.
+        if (!isWide && isParticipant) ...[
+          _buildStatusSection(),
+          const SizedBox(height: 24),
+        ],
         _buildInfoGrid(),
         const SizedBox(height: 32),
         _buildSectionLabel("TICKET DESCRIPTION"),
@@ -251,6 +297,9 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
           _buildAttachmentsGrid(),
           const SizedBox(height: 32),
         ],
+        // Narrow screens: people (assigned / participants / observers) are
+        // shown inline because the side panel is hidden.
+        if (!isWide) ...[_buildPeopleCard(), const SizedBox(height: 32)],
         _buildModernTabs(),
       ],
     );
@@ -533,7 +582,10 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
               ),
             ),
           ),
-          child: TabBar(
+          child: LayoutBuilder(
+            builder: (context, c) => TabBar(
+            isScrollable: c.maxWidth < 520,
+            tabAlignment: c.maxWidth < 520 ? TabAlignment.start : null,
             controller: _tabController,
             labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Theme.of(
@@ -548,14 +600,20 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
             tabs: const [
               Tab(text: "Comments"),
               Tab(text: "Activity History"),
+              Tab(text: "Time Tracking"),
             ],
+          ),
           ),
         ),
         const SizedBox(height: 20),
-        IndexedStack(
-          index: _tabController.index,
-          children: [_buildCommentsTab(), _buildHistoryTab()],
-        ),
+        // Only the visible tab is built: an IndexedStack sized every tab to
+        // the tallest one (blank space) and would keep the live timer running
+        // while hidden.
+        switch (_tabController.index) {
+          0 => _buildCommentsTab(),
+          1 => _buildHistoryTab(),
+          _ => _buildTimeTrackingTab(),
+        },
       ],
     );
   }
@@ -653,14 +711,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  comment.comment,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
+                RichCommentText(data: comment.comment),
               ],
             ),
           ),
@@ -670,41 +721,31 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
   }
 
   Widget _buildCommentInput() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _commentController,
-            decoration: InputDecoration(
-              hintText: "Add a progress update...",
-              filled: true,
-              fillColor: Theme.of(context).colorScheme.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        _isSending
-            ? const CircularProgressIndicator()
-            : IconButton(
-                onPressed: () => _addComment(_ticketModel.uid!),
-                icon: Icon(
-                  Iconsax.send_1,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-      ],
+    return RichCommentEditor(
+      controller: _commentController,
+      isSending: _isSending,
+      onSend: () => _addComment(_ticketModel.uid!),
+    );
+  }
+
+  Widget _buildTimeTrackingTab() {
+    final status = _ticketModel.status;
+    final TimeTrackingState state = status.isTimerRunning
+        ? TimeTrackingState.running
+        : status.isTimerPaused
+        ? TimeTrackingState.paused
+        : status.isTimerStopped
+        ? TimeTrackingState.stopped
+        : TimeTrackingState.notStarted;
+    return TimeTrackingPanel(
+      logsStream: _timeLogsStream,
+      state: state,
+      stoppedLabel: status == TicketStatus.closed ? 'Closed' : 'Resolved',
+      pausedNote: status == TicketStatus.pendingCustomerResponse
+          ? 'Timer is paused while waiting for the customer'
+          : 'Timer is paused while the ticket is on hold',
+      notStartedText: 'Ticket work has not started yet.',
+      trackingHint: 'Time is tracked while the ticket is In Progress.',
     );
   }
 
@@ -797,6 +838,112 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
     );
   }
 
+  /// Assigned to / Participants / Observers. Shared by the desktop side panel
+  /// and the mobile inline card.
+  List<Widget> _peopleSection() {
+    return [
+      _buildSectionLabel("ASSIGNED TO"),
+      const SizedBox(height: 16),
+      ..._ticketModel.assignTo.map(
+        (u) => _buildProfileTile(u, "Assigned To"),
+      ),
+      const SizedBox(height: 32),
+      _buildSectionLabel("PARTICIPANTS"),
+      const SizedBox(height: 16),
+      if (_ticketModel.participants.isEmpty)
+        _buildEmptyStateSmall("No participants")
+      else
+        ..._ticketModel.participants.map(
+          (u) => _buildProfileTile(u, "Participant"),
+        ),
+      const SizedBox(height: 32),
+      _buildSectionLabel("OBSERVERS"),
+      const SizedBox(height: 16),
+      if (_ticketModel.observers.isEmpty)
+        _buildEmptyStateSmall("No observers")
+      else
+        ..._ticketModel.observers.map(
+          (u) => _buildProfileTile(u, "Observer"),
+        ),
+    ];
+  }
+
+  Widget _buildPeopleCard() {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _peopleSection(),
+      ),
+    );
+  }
+
+  Widget _buildStatusSection() {
+    final current = _ticketModel.status;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSectionLabel("STATUS"),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<TicketStatus>(
+          key: ValueKey('ticket-status-$current-$_statusFieldNonce'),
+          initialValue: current,
+          isExpanded: true,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+          ),
+          items: TicketStatus.values.map((s) {
+            return DropdownMenuItem<TicketStatus>(
+              value: s,
+              child: Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(s),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      s.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: _isActionLoading
+              ? null
+              : (value) {
+                  if (value != null) _changeStatus(value);
+                },
+        ),
+        if (_isActionLoading) ...[
+          const SizedBox(height: 10),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+      ],
+    );
+  }
+
   Widget _buildSidePanel() {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
@@ -811,29 +958,11 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
           controller: _vhScrollController,
           padding: const EdgeInsets.all(24),
           children: [
-            _buildSectionLabel("ASSIGNED TO"),
-            const SizedBox(height: 16),
-            ..._ticketModel.assignTo.map(
-              (u) => _buildProfileTile(u, "Assigned To"),
-            ),
-            const SizedBox(height: 32),
-            _buildSectionLabel("PARTICIPANTS"),
-            const SizedBox(height: 16),
-            if (_ticketModel.participants.isEmpty)
-              _buildEmptyStateSmall("No participants")
-            else
-              ..._ticketModel.participants.map(
-                (u) => _buildProfileTile(u, "Participant"),
-              ),
-            const SizedBox(height: 32),
-            _buildSectionLabel("OBSERVERS"),
-            const SizedBox(height: 16),
-            if (_ticketModel.observers.isEmpty)
-              _buildEmptyStateSmall("No observers")
-            else
-              ..._ticketModel.observers.map(
-                (u) => _buildProfileTile(u, "Observer"),
-              ),
+            ..._peopleSection(),
+            if (isParticipant) ...[
+              const SizedBox(height: 40),
+              _buildStatusSection(),
+            ],
           ],
         ),
       ),

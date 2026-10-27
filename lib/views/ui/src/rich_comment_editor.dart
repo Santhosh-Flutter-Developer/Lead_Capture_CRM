@@ -4,11 +4,11 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Renders a task comment. Comments are stored as Markdown, so old plain-text
+/// Renders a task / ticket comment. Comments are stored as Markdown, so old plain-text
 /// comments keep working and formatted ones show bold / lists / links etc.
-class TaskCommentText extends StatelessWidget {
+class RichCommentText extends StatelessWidget {
   final String data;
-  const TaskCommentText({super.key, required this.data});
+  const RichCommentText({super.key, required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -62,12 +62,12 @@ class TaskCommentText extends StatelessWidget {
 /// [controller].
 ///
 /// Shortcuts: Ctrl/Cmd+B bold, Ctrl/Cmd+I italic, Ctrl/Cmd+Enter send.
-class TaskCommentEditor extends StatefulWidget {
+class RichCommentEditor extends StatefulWidget {
   final TextEditingController controller;
   final bool isSending;
   final VoidCallback onSend;
 
-  const TaskCommentEditor({
+  const RichCommentEditor({
     super.key,
     required this.controller,
     required this.isSending,
@@ -75,10 +75,10 @@ class TaskCommentEditor extends StatefulWidget {
   });
 
   @override
-  State<TaskCommentEditor> createState() => _TaskCommentEditorState();
+  State<RichCommentEditor> createState() => _RichCommentEditorState();
 }
 
-class _TaskCommentEditorState extends State<TaskCommentEditor> {
+class _RichCommentEditorState extends State<RichCommentEditor> {
   final FocusNode _focus = FocusNode();
   bool _preview = false;
 
@@ -311,7 +311,7 @@ class _TaskCommentEditorState extends State<TaskCommentEditor> {
             Container(
               constraints: const BoxConstraints(minHeight: 96),
               padding: const EdgeInsets.all(14),
-              child: TaskCommentText(data: _c.text),
+              child: RichCommentText(data: _c.text),
             )
           else
             CallbackShortcuts(

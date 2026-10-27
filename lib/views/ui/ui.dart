@@ -23,3 +23,5 @@ export 'src/pdf_preview_page.dart';
 export 'src/attachment_pill.dart';
 
 export 'src/list_filters.dart';
+export 'src/time_tracking_panel.dart';
+export 'src/rich_comment_editor.dart';

@@ -40,6 +40,10 @@ dependencies:
   equatable: ^2.0.7
   flutter_colorpicker: ^1.1.0
   file_picker: ^10.3.3
+  # Paste screenshots / images / files and drag & drop into chat
+  # (web, windows, android, ios).
+  super_clipboard: ^0.9.1
+  super_drag_and_drop: ^0.9.1
   path: ^1.9.1
   flutter_dotenv: ^6.0.0
   googleapis_auth: ^2.0.0
@@ -97,6 +101,13 @@ dependencies:
   image_cropper: ^12.2.1
   geolocator: ^13.0.1
   video_thumbnail: ^0.5.6
+
+# super_native_extensions 0.9.1 (used by super_clipboard / super_drag_and_drop)
+# caps device_info_plus at <12, but the app uses 12.x. It only reads the
+# Android SDK level in its drag-from-app code, which is the same in 12.x.
+# Remove this once a release with a wider constraint is on pub.dev.
+dependency_overrides:
+  device_info_plus: ^12.2.0
 
 dev_dependencies:
   flutter_test:

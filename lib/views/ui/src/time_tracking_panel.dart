@@ -2,37 +2,58 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import '/constants/constants.dart';
 import '/models/models.dart';
 import '/services/services.dart';
 import '/utils/utils.dart';
-import '/views/views.dart';
+import 'loading.dart';
 import '/theme/theme.dart';
 
-/// Time tracking tab of the task view.
-///
-/// Time is the sum of the real work sessions (`taskTimeLogs`): a session opens
-/// when the task is started/resumed and closes when it is put on hold or
-/// completed. So:
-///  * Running            -> the clock ticks every second.
-///  * On Hold            -> the clock is paused (hold time is not counted).
-///  * Completed          -> the clock is stopped for good.
-class TaskTimeTrackingPanel extends StatefulWidget {
-  final Stream<List<TaskTimeLogModel>>? logsStream;
-  final TaskStatus status;
-  final DateTime? startedTime;
-  final DateTime? completedTime;
+/// Where a tracked item (task / ticket) currently is, as far as the timer is
+/// concerned.
+enum TimeTrackingState { notStarted, running, paused, stopped }
 
-  const TaskTimeTrackingPanel({
+/// Time tracking tab, shared by tasks and tickets.
+///
+/// Time is the sum of the real work sessions (`...TimeLogs` records): a session
+/// opens when work starts/resumes and closes when it is paused or finished. So:
+///  * running  -> the clock ticks every second.
+///  * paused   -> the clock is frozen (paused time is not counted).
+///  * stopped  -> the clock is stopped (completed / resolved).
+class TimeTrackingPanel extends StatefulWidget {
+  final Stream<List<TaskTimeLogModel>>? logsStream;
+  final TimeTrackingState state;
+
+  /// Only used for old items that have no session records.
+  final DateTime? startedTime;
+
+  /// When the item was completed/resolved. Falls back to the end of the last
+  /// session when null.
+  final DateTime? stoppedTime;
+
+  /// "Completed" (tasks) / "Resolved" (tickets).
+  final String stoppedLabel;
+
+  /// Shown under the clock while paused.
+  final String pausedNote;
+
+  /// Empty-state texts.
+  final String notStartedText;
+  final String trackingHint;
+
+  const TimeTrackingPanel({
     super.key,
     required this.logsStream,
-    required this.status,
-    required this.startedTime,
-    required this.completedTime,
+    required this.state,
+    this.startedTime,
+    this.stoppedTime,
+    this.stoppedLabel = 'Completed',
+    this.pausedNote = 'Timer is paused',
+    this.notStartedText = 'Not started yet.',
+    this.trackingHint = 'Time is tracked once work has started.',
   });
 
   @override
-  State<TaskTimeTrackingPanel> createState() => _TaskTimeTrackingPanelState();
+  State<TimeTrackingPanel> createState() => _TimeTrackingPanelState();
 }
 
 class _Session {
@@ -44,7 +65,7 @@ class _Session {
   Duration get duration => end.difference(start);
 }
 
-class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
+class _TimeTrackingPanelState extends State<TimeTrackingPanel> {
   static const int _collapsedSessions = 5;
 
   Timer? _ticker;
@@ -54,9 +75,7 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
   DateTime? _pausedAt;
   bool _showAllSessions = false;
 
-  bool get _running =>
-      widget.status == TaskStatus.started ||
-      widget.status == TaskStatus.inProgress;
+  bool get _running => widget.state == TimeTrackingState.running;
 
   @override
   void initState() {
@@ -65,11 +84,9 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
   }
 
   @override
-  void didUpdateWidget(covariant TaskTimeTrackingPanel old) {
+  void didUpdateWidget(covariant TimeTrackingPanel old) {
     super.didUpdateWidget(old);
-    final wasRunning =
-        old.status == TaskStatus.started ||
-        old.status == TaskStatus.inProgress;
+    final wasRunning = old.state == TimeTrackingState.running;
     if (wasRunning && !_running) _pausedAt = DateTime.now();
     if (_running) _pausedAt = null;
     _syncTicker();
@@ -102,7 +119,7 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
       if (_running) return _now;
       // Not running but the session is still open => it ended when the task
       // was completed / paused; never keep counting.
-      return widget.completedTime ?? _pausedAt ?? start;
+      return widget.stoppedTime ?? _pausedAt ?? start;
     }
 
     _Session make(DateTime start, DateTime? end, String uid) {
@@ -116,7 +133,7 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
       // Older tasks that have no logs: fall back to started/completed times.
       final s = widget.startedTime;
       if (s == null) return const [];
-      return [make(s, widget.completedTime, '')];
+      return [make(s, widget.stoppedTime, '')];
     }
     final sorted = [...logs]..sort((a, b) => a.startTime.compareTo(b.startTime));
     return [for (final l in sorted) make(l.startTime, l.endTime, l.userId)];
@@ -180,22 +197,25 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
         final sessions = _buildSessions(snap.data ?? const []);
         if (sessions.isEmpty) return _empty(context);
 
+        final stopped = widget.state == TimeTrackingState.stopped;
+
         final active = sessions.fold<Duration>(
           Duration.zero,
           (sum, s) => sum + s.duration,
         );
         final first = sessions.first.start;
         final lastEnd = sessions.last.end;
-        final wallEnd = widget.completedTime ?? (_running ? _now : lastEnd);
+        final stoppedAt = stopped ? (widget.stoppedTime ?? lastEnd) : null;
+        final wallEnd = stoppedAt ?? (_running ? _now : lastEnd);
         var paused = wallEnd.difference(first) - active;
         if (paused.isNegative) paused = Duration.zero;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _hero(context, active, first),
+            _hero(context, active, stoppedAt),
             const SizedBox(height: 16),
-            _statTiles(context, first, sessions.length, paused),
+            _statTiles(context, first, stoppedAt, sessions.length, paused),
             const SizedBox(height: 28),
             _label(context, 'WORK SESSIONS'),
             const SizedBox(height: 12),
@@ -219,12 +239,15 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
           Icon(Iconsax.timer_start, size: 40, color: scheme.outlineVariant),
           const SizedBox(height: 12),
           Text(
-            'Task has not been started yet.',
+            widget.state == TimeTrackingState.notStarted
+                ? widget.notStartedText
+                : 'No time has been recorded yet.',
             style: TextStyle(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
           Text(
-            'Time is tracked once the task is started.',
+            widget.trackingHint,
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
         ],
@@ -242,25 +265,25 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
     ),
   );
 
-  Widget _hero(BuildContext context, Duration active, DateTime first) {
+  Widget _hero(BuildContext context, Duration active, DateTime? stoppedAt) {
     final Color color;
     final IconData icon;
     final String badge;
     final String note;
-    switch (widget.status) {
-      case TaskStatus.completed:
+    switch (widget.state) {
+      case TimeTrackingState.stopped:
         color = AppColors.success;
         icon = Iconsax.tick_circle;
-        badge = 'COMPLETED';
-        note = widget.completedTime == null
+        badge = widget.stoppedLabel.toUpperCase();
+        note = stoppedAt == null
             ? 'Timer stopped'
-            : 'Timer stopped - completed ${widget.completedTime!.listingDateTime}';
+            : 'Timer stopped - ${widget.stoppedLabel.toLowerCase()} ${stoppedAt.listingDateTime}';
         break;
-      case TaskStatus.onHold:
+      case TimeTrackingState.paused:
         color = AppColors.warning;
         icon = Iconsax.pause_circle;
         badge = 'PAUSED';
-        note = 'Timer is paused while the task is on hold';
+        note = widget.pausedNote;
         break;
       default:
         color = AppColors.primary;
@@ -377,6 +400,7 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
   Widget _statTiles(
     BuildContext context,
     DateTime first,
+    DateTime? stoppedAt,
     int count,
     Duration paused,
   ) {
@@ -385,8 +409,8 @@ class _TaskTimeTrackingPanelState extends State<TaskTimeTrackingPanel> {
       _tile(
         context,
         Iconsax.tick_circle,
-        'Completed',
-        widget.completedTime?.listingDateTime ?? '--',
+        widget.stoppedLabel,
+        stoppedAt?.listingDateTime ?? '--',
       ),
       _tile(context, Iconsax.layer, 'Work sessions', '$count'),
       _tile(context, Iconsax.pause, 'Time on hold', _short(paused)),

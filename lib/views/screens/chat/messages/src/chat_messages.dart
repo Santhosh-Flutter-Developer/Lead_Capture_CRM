@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show File; // used in non-web branches only
+import 'dart:io' show File, Directory; // used in non-web branches only
 import 'package:flutter/foundation.dart';
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -13,6 +13,21 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 // import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+// Clipboard (paste screenshots / images / files) and drag & drop. Only the
+// names we use are imported, so nothing clashes with the app's own classes.
+import 'package:super_clipboard/super_clipboard.dart'
+    show
+        ClipboardReadEvent,
+        ClipboardReader,
+        ClipboardEvents,
+        DataReader,
+        DataReaderFile,
+        FileFormat,
+        Formats,
+        SystemClipboard;
+import 'package:super_drag_and_drop/super_drag_and_drop.dart'
+    show DropOperation, DropRegion;
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -33,6 +48,7 @@ part 'group_viewed_by_indicator.dart';
 part 'reaction_users_viewer.dart';
 part 'voice_message.dart';
 part 'input_bar.dart';
+part 'attachment_intake.dart';
 part 'chat_options.dart';
 part 'chat_top_bar.dart';
 part 'pinned_messages_bar.dart';
@@ -70,6 +86,11 @@ class _ChatMessagesState extends State<ChatMessages> {
   final ScrollController _scrollController = ScrollController();
   List<MessagesModel> _latestChats = [];
   late final ChatScrollRegistry _scrollRegistry;
+
+  // Lets the drop zone (which covers the whole conversation) hand dropped
+  // files to the input bar.
+  final GlobalKey<_ChatInputBarState> _inputKey =
+      GlobalKey<_ChatInputBarState>();
 
   @override
   void initState() {
@@ -172,7 +193,10 @@ class _ChatMessagesState extends State<ChatMessages> {
                 },
               ),
         body: SafeArea(
-          child: Container(
+          child: ChatDropZone(
+            canAccept: () => _inputKey.currentState?.canAcceptAttachments ?? false,
+            onImported: (r) => _inputKey.currentState?.receiveImport(r),
+            child: Container(
             // WhatsApp-style wallpaper base tone: a warm tan in light mode,
             // a deep slate in dark mode, matching the reference rather
             // than the app's neutral scaffold color.
@@ -231,12 +255,13 @@ class _ChatMessagesState extends State<ChatMessages> {
                         latestOutgoingMessage: latestOutgoingMessage,
                       ),
                     ),
-                    ChatInputBar(chat: widget.chat),
+                    ChatInputBar(key: _inputKey, chat: widget.chat),
                   ],
                 );
               },
                 ),
             ),
+          ),
           ),
         ),
       );
@@ -537,7 +562,7 @@ DateTime _parseDateKey(String key) {
   }
 }
 
-class ThreadSheet extends StatelessWidget {
+class ThreadSheet extends StatefulWidget {
   final MessagesModel parentMessage;
   final ChatModel chat;
 
@@ -562,11 +587,24 @@ class ThreadSheet extends StatelessWidget {
   }
 
   @override
+  State<ThreadSheet> createState() => _ThreadSheetState();
+}
+
+class _ThreadSheetState extends State<ThreadSheet> {
+  final GlobalKey<_ChatInputBarState> _inputKey =
+      GlobalKey<_ChatInputBarState>();
+
+  @override
   Widget build(BuildContext context) {
+    final parentMessage = widget.parentMessage;
+    final chat = widget.chat;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
+    return ChatDropZone(
+      canAccept: () => _inputKey.currentState?.canAcceptAttachments ?? false,
+      onImported: (r) => _inputKey.currentState?.receiveImport(r),
+      child: Container(
       height: screenHeight * 0.85,
       margin: EdgeInsets.only(top: 24, bottom: keyboardHeight),
       decoration: BoxDecoration(
@@ -690,9 +728,14 @@ class ThreadSheet extends StatelessWidget {
             ),
             const Divider(),
 
-            ChatInputBar(chat: chat, threadId: parentMessage.uid),
+            ChatInputBar(
+              key: _inputKey,
+              chat: chat,
+              threadId: parentMessage.uid,
+            ),
           ],
         ),
+      ),
       ),
     );
   }

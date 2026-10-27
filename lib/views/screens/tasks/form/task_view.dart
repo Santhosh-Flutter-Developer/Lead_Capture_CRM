@@ -6,8 +6,6 @@ import '/services/services.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
 import '/theme/theme.dart';
-import 'task_comment_editor.dart';
-import 'task_time_tracking.dart';
 
 class TaskViewColors {
   static const Color primary = Color(0xFF2563EB);
@@ -842,7 +840,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
                   ],
                 ),
                 const SizedBox(height: 6),
-                TaskCommentText(data: comment.comment),
+                RichCommentText(data: comment.comment),
               ],
             ),
           ),
@@ -852,7 +850,7 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildCommentInput() {
-    return TaskCommentEditor(
+    return RichCommentEditor(
       controller: _commentController,
       isSending: _isSending,
       onSend: () => _addComment(_taskModel.uid!),
@@ -949,11 +947,31 @@ class _TaskViewState extends State<TaskView> with TickerProviderStateMixin {
   }
 
   Widget _buildTimeTrackingTab() {
-    return TaskTimeTrackingPanel(
+    final TimeTrackingState state;
+    switch (_taskModel.currentStatus) {
+      case TaskStatus.pending:
+        state = TimeTrackingState.notStarted;
+        break;
+      case TaskStatus.started:
+      case TaskStatus.inProgress:
+        state = TimeTrackingState.running;
+        break;
+      case TaskStatus.onHold:
+        state = TimeTrackingState.paused;
+        break;
+      case TaskStatus.completed:
+        state = TimeTrackingState.stopped;
+        break;
+    }
+    return TimeTrackingPanel(
       logsStream: _timeLogsStream,
-      status: _taskModel.currentStatus,
+      state: state,
       startedTime: _taskModel.startedTime,
-      completedTime: _taskModel.completedTime,
+      stoppedTime: _taskModel.completedTime,
+      stoppedLabel: 'Completed',
+      pausedNote: 'Timer is paused while the task is on hold',
+      notStartedText: 'Task has not been started yet.',
+      trackingHint: 'Time is tracked once the task is started.',
     );
   }
 

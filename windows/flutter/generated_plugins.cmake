@@ -11,10 +11,12 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_storage
   flutter_window_close
   geolocator_windows
+  irondash_engine_context
   local_notifier
   permission_handler_windows
   record_windows
   screen_retriever_windows
+  super_native_extensions
   syncfusion_pdfviewer_windows
   tray_manager
   url_launcher_windows

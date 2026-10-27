@@ -6,10 +6,12 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_linux
   file_selector_linux
   flutter_window_close
+  irondash_engine_context
   local_notifier
   open_file_linux
   record_linux
   screen_retriever_linux
+  super_native_extensions
   syncfusion_pdfviewer_linux
   tray_manager
   url_launcher_linux

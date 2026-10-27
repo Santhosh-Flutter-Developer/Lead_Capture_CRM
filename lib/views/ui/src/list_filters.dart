@@ -110,12 +110,17 @@ class DateRangeFilterField extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onClear;
 
+  /// Optional widget shown at the right end of the label row (e.g. a "which
+  /// date?" selector).
+  final Widget? labelTrailing;
+
   const DateRangeFilterField({
     super.key,
     required this.label,
     required this.range,
     required this.onTap,
     required this.onClear,
+    this.labelTrailing,
   });
 
   @override
@@ -135,12 +140,19 @@ class DateRangeFilterField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: textTheme.bodySmall?.copyWith(
-            color: scheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (labelTrailing != null) labelTrailing!,
+          ],
         ),
         const SizedBox(height: 8),
         InkWell(
