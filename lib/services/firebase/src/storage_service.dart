@@ -80,6 +80,71 @@ class StorageService {
     }
   }
 
+  // ── PROGRESS UPLOADS (used by chat) ──────────────────────────────────────
+  /// Streams a [File] to Storage (no full read into memory) and reports
+  /// progress as a 0.0 – 1.0 fraction. Native only.
+  static Future<String> uploadFileWithProgress({
+    required File file,
+    required StorageFolder folder,
+    void Function(double progress)? onProgress,
+    String? collectionId,
+  }) async {
+    final cid = collectionId ?? await Spdb.getCid() ?? '';
+    final ext = file.path.contains('.') ? file.path.split('.').last : 'bin';
+    final ref = storage.child("$cid/${folder.name}/${const Uuid().v1()}.$ext");
+    try {
+      final task = ref.putFile(
+        file,
+        SettableMetadata(contentType: _mimeFromExt(ext)),
+      );
+      return await _finishUpload(task, onProgress);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      dp.debugPrint("uploadFileWithProgress error: $e, $st");
+      throw e.toString();
+    }
+  }
+
+  /// Same as [uploadFileWithProgress] but for raw bytes (web / no path).
+  static Future<String> uploadBytesWithProgress({
+    required Uint8List bytes,
+    required String fileName,
+    required StorageFolder folder,
+    void Function(double progress)? onProgress,
+    String? collectionId,
+  }) async {
+    final cid = collectionId ?? await Spdb.getCid() ?? '';
+    final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
+    final ref = storage.child("$cid/${folder.name}/${const Uuid().v1()}.$ext");
+    try {
+      final task = ref.putData(
+        bytes,
+        SettableMetadata(contentType: _mimeFromExt(ext)),
+      );
+      return await _finishUpload(task, onProgress);
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      dp.debugPrint("uploadBytesWithProgress error: $e, $st");
+      throw e.toString();
+    }
+  }
+
+  static Future<String> _finishUpload(
+    UploadTask task,
+    void Function(double progress)? onProgress,
+  ) async {
+    final sub = task.snapshotEvents.listen((s) {
+      if (s.totalBytes > 0) onProgress?.call(s.bytesTransferred / s.totalBytes);
+    });
+    try {
+      final snap = await task;
+      onProgress?.call(1.0);
+      return await snap.ref.getDownloadURL();
+    } finally {
+      await sub.cancel();
+    }
+  }
+
   // ── NATIVE: upload image from File ───────────────────────────────────────
   static Future<String> uploadImage({
     required File file,

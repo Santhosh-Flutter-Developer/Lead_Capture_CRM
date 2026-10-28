@@ -445,21 +445,33 @@ class ChatService {
     String? replyFor,
     List<MentionModel>? mentions,
     String? threadId,
+    // Pre-generated message id, so the UI can show the message instantly and
+    // swap it for the real one without a duplicate.
+    String? messageId,
+    // Original send time (the moment the user tapped send, not upload end).
+    DateTime? timestamp,
+    // When already known by the caller we skip an extra Firestore read.
+    List<String>? participants,
   }) async {
     try {
       var cid = await Spdb.getCid();
       var senderId = await Spdb.getUid();
 
-      var chatDoc = await firebase.users
-          .doc(cid)
-          .collection(Collections.chats.name)
-          .doc(chatId)
-          .get();
-
       List<String> receivers = [];
-      if (chatDoc.exists) {
-        receivers = List<String>.from(chatDoc.data()?['participants'] ?? []);
+      if (participants != null && participants.isNotEmpty) {
+        receivers = List<String>.from(participants);
         receivers.remove(senderId);
+      } else {
+        var chatDoc = await firebase.users
+            .doc(cid)
+            .collection(Collections.chats.name)
+            .doc(chatId)
+            .get();
+
+        if (chatDoc.exists) {
+          receivers = List<String>.from(chatDoc.data()?['participants'] ?? []);
+          receivers.remove(senderId);
+        }
       }
 
       final files = attachments ?? [];
@@ -489,11 +501,13 @@ class ChatService {
         attachments: attachments ?? [],
         mentions: mentions ?? [],
         threadId: threadId,
+        timestamp: timestamp,
       );
 
       final docRef = await CommonService.add(
         '${Collections.users.name}/$cid/${Collections.chats.name}/$chatId/${Collections.messages.name}',
         chat.toMap(),
+        docId: messageId,
       );
 
       final updateData = <String, dynamic>{

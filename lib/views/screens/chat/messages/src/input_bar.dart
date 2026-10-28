@@ -984,37 +984,38 @@ class _ChatInputBarState extends State<ChatInputBar> {
       setState(() {});
     }
 
+    if (!(isEditing && editingMessageId.isNotEmpty)) {
+      // New message: show it in the chat immediately (local previews + upload
+      // progress). Uploading and saving continue in the background, and the
+      // store also cleans up paste / drop temp copies when it is done.
+      PendingMessageStore.instance.send(
+        chatId: uid,
+        message: message,
+        files: pickedFiles,
+        participants: widget.chat.participants,
+        threadId: widget.threadId,
+        replyFor: replyId,
+        mentions: updatedMentions,
+      );
+      return;
+    }
+
+    // Editing an existing message keeps the original (awaited) flow.
     try {
       List<FileModel> attachments = [];
-
-      // Upload only if files exist
       if (pickedFiles.isNotEmpty) {
         attachments = await _uploadFiles(pickedFiles);
       }
 
-      if (isEditing && editingMessageId.isNotEmpty) {
-        await ChatService.editChatMessage(
-          uid: uid,
-          chatId: editingMessageId,
-          message: message,
-          attachments: attachments,
-        );
-        // Edited existing message: no new-message notification.
-        return;
-      } else {
-        await ChatService.sendChatMessage(
-          chatId: uid,
-          message: message,
-          attachments: attachments,
-          replyFor: replyId,
-          mentions: updatedMentions,
-          threadId: widget.threadId,
-        );
-      }
-
-      ChatService.sendNotification(chatId: uid, message: message, isChat: true);
+      await ChatService.editChatMessage(
+        uid: uid,
+        chatId: editingMessageId,
+        message: message,
+        attachments: attachments,
+      );
+      // Edited existing message: no new-message notification.
     } catch (e) {
-      debugPrint("Send message error: $e");
+      debugPrint("Edit message error: $e");
     } finally {
       // Temp copies made by paste / drop are no longer needed.
       for (final f in pickedFiles) {
@@ -1028,41 +1029,52 @@ class _ChatInputBarState extends State<ChatInputBar> {
   final audioExtensions = ['mp3', 'wav', 'aac'];
   final docExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
 
-  Padding _pickedFilesView() {
+  /// Attachments waiting to be sent. Wraps onto new rows (no horizontal
+  /// scrolling); only scrolls vertically once there are a lot of files.
+  Widget _pickedFilesView() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: SizedBox(
-        height: 110,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 176),
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(_pickedFiles.length, (index) {
-              final pf = _pickedFiles[index];
-              final ext = pf.name.split('.').last.toLowerCase();
-              return Stack(
-                children: [
-                  _buildFilePreview(pf, ext),
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: GestureDetector(
-                      onTap: () => _removeFile(index),
-                      child: CircleAvatar(
-                        radius: 12,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.shadow.withValues(alpha: 0.5),
-                        child: Icon(
-                          Icons.close,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onInverseSurface,
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(_pickedFiles.length, (index) {
+                final pf = _pickedFiles[index];
+                final ext = pf.name.split('.').last.toLowerCase();
+                return SizedBox(
+                  width: 76,
+                  height: 76,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildFilePreview(pf, ext),
+                      Positioned(
+                        top: 3,
+                        right: 3,
+                        child: GestureDetector(
+                          onTap: () => _removeFile(index),
+                          child: CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.shadow.withValues(alpha: 0.6),
+                            child: Icon(
+                              Icons.close,
+                              size: 13,
+                              color: Theme.of(context).colorScheme.onInverseSurface,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              );
-            }),
+                );
+              }),
+            ),
           ),
         ),
       ),
@@ -1070,112 +1082,81 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   Widget _buildFilePreview(PlatformFile pf, String ext) {
-    const size = 100.0;
-
-    if (["jpg", "jpeg", "png", "gif", "webp"].contains(ext)) {
-      ImageProvider imageProvider;
-      if (kIsWeb && pf.bytes != null) {
-        imageProvider = MemoryImage(pf.bytes!);
-      } else {
-        imageProvider = FileImage(File(pf.path!));
+    if (_kImageExt.contains(ext)) {
+      // NOTE: PlatformFile.path throws on web, so check kIsWeb first.
+      ImageProvider? provider;
+      if (!kIsWeb && pf.path != null) {
+        provider = FileImage(File(pf.path!));
+      } else if (pf.bytes != null) {
+        provider = MemoryImage(pf.bytes!);
       }
-      return Container(
-        width: size,
-        height: size,
-        margin: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
+      if (provider != null) {
+        return ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-        ),
-      );
+          child: Image(
+            image: ResizeImage(provider, width: 240),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) =>
+                _iconPreview(Colors.black45, Icons.image_outlined, ext, pf.name),
+          ),
+        );
+      }
     }
 
-    if (["mp4", "mov", "avi", "mkv"].contains(ext)) {
-      return Container(
-        width: size,
-        height: size,
-        margin: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.black,
-        ),
-        child: const Icon(Icons.videocam, color: Colors.white),
-      );
+    if (_kVideoExt.contains(ext)) {
+      return _iconPreview(Colors.black87, Icons.videocam, ext, pf.name);
     }
-
-    if (["mp3", "aac", "wav", "m4a"].contains(ext)) {
-      return Container(
-        width: size,
-        height: size,
-        margin: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        ),
-        child: const Icon(Icons.audiotrack, color: Colors.white),
-      );
+    if (_kAudioExt.contains(ext)) {
+      return _iconPreview(Colors.teal, Icons.audiotrack, ext, pf.name);
     }
-
     if (ext == "pdf") {
-      return Container(
-        width: size,
-        height: size,
-        margin: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: Theme.of(context).colorScheme.errorContainer,
-        ),
-        child: const Icon(Icons.picture_as_pdf, size: 40, color: Colors.white),
-      );
+      return _iconPreview(Colors.red.shade400, Icons.picture_as_pdf, ext, pf.name);
     }
-
     if (["doc", "docx"].contains(ext)) {
-      return _iconPreview(size, Colors.blue, Icons.description, ext);
+      return _iconPreview(Colors.blue, Icons.description, ext, pf.name);
     }
-
     if (["xls", "xlsx"].contains(ext)) {
-      return _iconPreview(size, Colors.green, Icons.table_chart, ext);
+      return _iconPreview(Colors.green, Icons.table_chart, ext, pf.name);
     }
-
     if (["ppt", "pptx"].contains(ext)) {
-      return _iconPreview(size, Colors.deepOrange, Icons.slideshow, ext);
+      return _iconPreview(Colors.deepOrange, Icons.slideshow, ext, pf.name);
     }
-
     if (["zip", "rar", "7z"].contains(ext)) {
-      return _iconPreview(size, Colors.grey, Icons.archive, ext);
+      return _iconPreview(Colors.grey, Icons.archive, ext, pf.name);
     }
-
     if (["txt", "csv", "json"].contains(ext)) {
-      return _iconPreview(size, Colors.brown, Icons.notes, ext);
+      return _iconPreview(Colors.brown, Icons.notes, ext, pf.name);
     }
-
-    return _iconPreview(size, Colors.black45, Icons.insert_drive_file, ext);
+    return _iconPreview(Colors.black45, Icons.insert_drive_file, ext, pf.name);
   }
 
-  Widget _iconPreview(double size, Color color, IconData icon, String ext) {
+  Widget _iconPreview(Color color, IconData icon, String ext, String name) {
     return Container(
-      width: size,
-      height: size,
-      margin: const EdgeInsets.all(4),
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         color: color,
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 32),
-            const SizedBox(height: 4),
-            Text(
-              ext.toUpperCase(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: 26),
+          const SizedBox(height: 2),
+          Text(
+            ext.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        ),
+          ),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white70, fontSize: 9),
+          ),
+        ],
       ),
     );
   }

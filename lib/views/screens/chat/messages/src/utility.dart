@@ -94,125 +94,124 @@ class AttachmentPreview extends StatelessWidget {
     this.isSender = false,
   });
 
+  static bool _isImage(FileModel e) =>
+      e.mimeType.toLowerCase().startsWith('image/') ||
+      _kImageExt.contains(e.extension.toLowerCase());
+
+  static bool _isVideo(FileModel e) =>
+      e.mimeType.toLowerCase().startsWith('video/') ||
+      _kVideoExt.contains(e.extension.toLowerCase());
+
+  static bool _isAudio(FileModel e) =>
+      e.mimeType.toLowerCase().startsWith('audio/') ||
+      _kAudioExt.contains(e.extension.toLowerCase());
+
+  /// Images / videos are laid out WhatsApp-style in a grid (1, 2, 3, or 2x2
+  /// with a "+N" overlay) so nothing needs horizontal scrolling. Voice, audio
+  /// and documents are stacked below, one per row.
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 300),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: attachments.map((e) {
-            final mime = e.mimeType.toLowerCase();
-            final ext = e.extension.toLowerCase();
+    final width = _chatMediaWidth(context);
+    final media = attachments.where((e) => _isImage(e) || _isVideo(e)).toList();
+    final others = attachments
+        .where((e) => !(_isImage(e) || _isVideo(e)))
+        .toList();
+    final images = media.where(_isImage).toList();
 
-            final imageExtensions = [
-              "png",
-              "jpg",
-              "jpeg",
-              "webp",
-              "bmp",
-              "gif",
-              "tiff",
-            ];
-            final videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
-            final audioExtensions = ['mp3', 'wav', 'aac', 'm4a'];
-
-            if (mime.startsWith('image/') || imageExtensions.contains(ext)) {
-              return _buildImage(e, context);
-            } else if (mime.startsWith('video/') ||
-                videoExtensions.contains(ext)) {
-              return _buildVideo(e, context);
-            } else if (mime.startsWith('audio/') ||
-                audioExtensions.contains(ext)) {
-              if (e.isVoice) {
-                return VoiceMessagePlayer(
-                  key: ValueKey(e.url),
-                  file: e,
-                  isSender: isSender,
-                );
-              }
-              return _buildAudio(e, context);
-            } else {
-              return _buildDocument(e, context);
-            }
-          }).toList(),
-        ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (media.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: MediaGridLayout(
+              count: media.length,
+              width: width,
+              tileBuilder: (context, i) =>
+                  _buildMediaTile(media[i], images, context),
+            ),
+          ),
+        for (final e in others)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _isAudio(e)
+                ? (e.isVoice
+                      ? VoiceMessagePlayer(
+                          key: ValueKey(e.url),
+                          file: e,
+                          isSender: isSender,
+                        )
+                      : _buildAudio(e, context, width))
+                : _buildDocument(e, context, width),
+          ),
+      ],
     );
   }
 
-  Widget _buildImage(FileModel e, BuildContext context) {
+  Widget _buildMediaTile(
+    FileModel e,
+    List<FileModel> images,
+    BuildContext context,
+  ) {
+    if (_isVideo(e)) {
+      return GestureDetector(
+        onTap: () => Navigate.route(context, VideoPlay(file: e)),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF3A3A3A), Color(0xFF111111)],
+            ),
+          ),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return GestureDetector(
       onTap: () {
-        final images = attachments
-            .where((a) => a.mimeType.contains('image'))
-            .toList();
-
+        final index = images.indexOf(e);
         Navigate.route(
           context,
-          GalleryScreen(images: images, initialIndex: images.indexOf(e)),
+          GalleryScreen(images: images, initialIndex: index < 0 ? 0 : index),
         );
       },
-      child: Container(
-        width: 100,
-        height: 100,
-        margin: const EdgeInsets.all(4),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(imageUrl: e.url, fit: BoxFit.cover),
+      child: CachedNetworkImage(
+        imageUrl: e.url,
+        fit: BoxFit.cover,
+        memCacheWidth: 600,
+        placeholder: (context, url) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: const Icon(Icons.broken_image_outlined),
         ),
       ),
     );
   }
 
-  Widget _buildVideo(FileModel e, BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigate.route(context, VideoPlay(file: e)),
-      child: Container(
-        width: 140,
-        height: 100,
-        margin: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF3A3A3A), Color(0xFF111111)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.22),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAudio(FileModel e, BuildContext context) {
+  Widget _buildAudio(FileModel e, BuildContext context, double width) {
     return GestureDetector(
       onTap: () => Navigate.route(context, AudioPlay(file: e)),
       child: Container(
-        width: 220,
+        width: width,
         height: 60,
-        margin: const EdgeInsets.all(4),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: AppColors.success.withValues(alpha: 0.12),
@@ -259,12 +258,11 @@ class AttachmentPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildDocument(FileModel e, BuildContext context) {
+  Widget _buildDocument(FileModel e, BuildContext context, double width) {
     return GestureDetector(
       onTap: () => previewAttachment(context, e),
       child: Container(
-        width: 220,
-        margin: const EdgeInsets.all(4),
+        width: width,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,

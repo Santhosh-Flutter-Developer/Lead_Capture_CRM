@@ -31,6 +31,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart'
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:video_player/video_player.dart';
@@ -53,6 +54,7 @@ part 'chat_options.dart';
 part 'chat_top_bar.dart';
 part 'pinned_messages_bar.dart';
 part 'utility.dart';
+part 'pending_message.dart';
 
 /// The main screen for displaying chat messages.
 ///
@@ -297,11 +299,29 @@ class BuildSliverChat extends StatefulWidget {
 
 class _BuildSliverChatState extends State<BuildSliverChat> {
   bool _showGoToBottomButton = false;
+  int _pendingCount = PendingMessageStore.instance.length;
 
   @override
   void initState() {
     widget.scrollController.addListener(_scrollListener);
+    PendingMessageStore.instance.addListener(_onPendingChanged);
     super.initState();
+  }
+
+  /// When the user sends something new, jump to the bottom so it is visible.
+  void _onPendingChanged() {
+    final count = PendingMessageStore.instance.length;
+    if (count > _pendingCount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !widget.scrollController.hasClients) return;
+        widget.scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+    _pendingCount = count;
   }
 
   @override
@@ -331,6 +351,7 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
 
   @override
   void dispose() {
+    PendingMessageStore.instance.removeListener(_onPendingChanged);
     widget.scrollController.removeListener(_scrollListener);
     super.dispose();
   }
@@ -374,6 +395,14 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild whenever a pending (uploading) message is added / updated / done.
+    return ListenableBuilder(
+      listenable: PendingMessageStore.instance,
+      builder: (context, _) => _buildList(context),
+    );
+  }
+
+  Widget _buildList(BuildContext context) {
     final chatData = ChatData.of(context);
     final uid = chatData.uid;
     final currentUser = chatData.currentUser;
@@ -477,6 +506,26 @@ class _BuildSliverChatState extends State<BuildSliverChat> {
           ),
         ),
       );
+    }
+
+    // Messages that are still uploading / sending go at the very bottom.
+    // Skip any that Firestore already echoed back (same pre-generated id).
+    if (widget.searchQuery.isEmpty) {
+      final sentIds = widget.chats.map((m) => m.uid).toSet();
+      final pending = PendingMessageStore.instance
+          .forChat(uid)
+          .where((p) => !sentIds.contains(p.id))
+          .toList();
+      if (pending.isNotEmpty) {
+        slivers.add(
+          SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final p = pending[index];
+              return PendingChatBubble(key: ValueKey(p.id), message: p);
+            }, childCount: pending.length),
+          ),
+        );
+      }
     }
 
     return Stack(
@@ -692,34 +741,54 @@ class _ThreadSheetState extends State<ThreadSheet> {
                     return Center(child: Text("Error: ${snapshot.error}"));
                   }
                   final replies = snapshot.data ?? [];
-                  if (replies.isEmpty) {
-                    return Center(
-                      child: Text(
-                        "No replies yet. Be the first to reply!",
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    );
-                  }
 
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    itemCount: replies.length,
-                    itemBuilder: (context, index) {
-                      final reply = replies[index];
-                      final isSender = reply.senderId == parentMessage.senderId;
-                      return ChatBubble(
-                        chatUid: chat.uid ?? '',
-                        message: reply,
-                        isSender: isSender,
+                  return ListenableBuilder(
+                    listenable: PendingMessageStore.instance,
+                    builder: (context, _) {
+                      final sentIds = replies.map((r) => r.uid).toSet();
+                      final pending = PendingMessageStore.instance
+                          .forChat(chat.uid ?? '', threadId: parentMessage.uid)
+                          .where((p) => !sentIds.contains(p.id))
+                          .toList();
+
+                      if (replies.isEmpty && pending.isEmpty) {
+                        return Center(
+                          child: Text(
+                            "No replies yet. Be the first to reply!",
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        itemCount: pending.length + replies.length,
+                        itemBuilder: (context, index) {
+                          if (index < pending.length) {
+                            final p = pending[index];
+                            return PendingChatBubble(
+                              key: ValueKey(p.id),
+                              message: p,
+                            );
+                          }
+                          final reply = replies[index - pending.length];
+                          final isSender =
+                              reply.senderId == parentMessage.senderId;
+                          return ChatBubble(
+                            chatUid: chat.uid ?? '',
+                            message: reply,
+                            isSender: isSender,
+                          );
+                        },
                       );
                     },
                   );
