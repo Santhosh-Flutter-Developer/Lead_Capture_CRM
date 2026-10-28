@@ -32,6 +32,8 @@ class _ProjectCreateState extends State<ProjectCreate> {
 
   List<EmployeeModel> _employeesList = [];
   List<ClientModel> _clientList = [];
+  List<DealModel> _dealList = [];
+  String? _selectedProjectName;
   String? _selectedClient;
   String? _selectedProjectOwner;
   String? _selectedTeamLead;
@@ -56,8 +58,10 @@ class _ProjectCreateState extends State<ProjectCreate> {
     try {
       _clientList.clear();
       _employeesList.clear();
+      _dealList.clear();
       _employeesList = await EmployeeService.getAllEmployees();
       _clientList = await ClientService.getAllClients();
+      _dealList = await DealService.getAllDeals();
       setState(() {});
     } catch (e, st) {
       await ErrorService.recordError(e, st);
@@ -87,6 +91,59 @@ class _ProjectCreateState extends State<ProjectCreate> {
     _tagsController.dispose();
     _vScrollController.dispose();
     super.dispose();
+  }
+
+  /// Project name stored on a deal (falls back to the legacy dealName).
+  String _dealProjectName(DealModel deal) =>
+      (deal.projectName ?? '').trim().isNotEmpty
+      ? deal.projectName!.trim()
+      : deal.dealName.trim();
+
+  /// Dropdown labels built from the created Deals' project names.
+  /// If two deals share a project name, the company/client name is
+  /// appended so every label stays unique.
+  Map<String, DealModel> get _dealOptions {
+    final Map<String, int> counts = {};
+    for (final d in _dealList) {
+      final name = _dealProjectName(d);
+      if (name.isEmpty) continue;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+
+    final Map<String, DealModel> options = {};
+    for (final d in _dealList) {
+      final name = _dealProjectName(d);
+      if (name.isEmpty) continue;
+      var label = name;
+      if ((counts[name] ?? 0) > 1) {
+        final owner = (d.companyName ?? '').trim().isNotEmpty
+            ? d.companyName!.trim()
+            : (d.clientName ?? '').trim();
+        if (owner.isNotEmpty) label = '$name - $owner';
+      }
+      options[label] = d;
+    }
+    return options;
+  }
+
+  void _onProjectSelected(dynamic value) {
+    if (value == null) {
+      // Cleared: reset the name and the auto-filled description.
+      _selectedProjectName = null;
+      _projectNameController.clear();
+      _projectDescriptionController.clear();
+      setState(() {});
+      return;
+    }
+
+    final deal = _dealOptions[value as String];
+    if (deal == null) return;
+
+    _selectedProjectName = _dealProjectName(deal);
+    _projectNameController.text = _selectedProjectName!;
+    // Auto-fetch the description saved on the Deal.
+    _projectDescriptionController.text = deal.projectDescription ?? '';
+    setState(() {});
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -416,15 +473,15 @@ class _ProjectCreateState extends State<ProjectCreate> {
       children: [
         SizedBox(
           width: itemWidth,
-          child: FormFields(
+          child: FormDropdownSearch(
+            key: ValueKey('project_name_${_dealList.length}'),
             label: 'Project Name',
-            controller: _projectNameController,
-            hintText: 'Enter Project Name',
             isRequired: true,
-            prefixIcon: const Icon(Iconsax.briefcase, size: 18),
-            valid: (input) => input == null || input.isEmpty
+            items: _dealOptions.keys.toList(),
+            validator: (input) => input == null || input.toString().isEmpty
                 ? 'Project Name is required'
                 : null,
+            onChanged: _onProjectSelected,
           ),
         ),
         SizedBox(
