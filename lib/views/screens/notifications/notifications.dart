@@ -63,7 +63,12 @@ _TypeMeta _typeMeta(NotificationType? type) {
 }
 
 class NotificationsListing extends StatefulWidget {
-  const NotificationsListing({super.key});
+  /// `true` (default): standalone page with its own AppBar + back button
+  /// (used by the mobile flow, unchanged).
+  /// `false`: embedded inside the desktop shell, which already provides the
+  /// side menu and top header, so no AppBar is drawn here.
+  final bool showAppbar;
+  const NotificationsListing({super.key, this.showAppbar = true});
 
   @override
   State<NotificationsListing> createState() => _NotificationsListingState();
@@ -79,6 +84,11 @@ class _NotificationsListingState extends State<NotificationsListing> {
   NotificationModel? _selectedNotification;
   bool _isAdmin = false;
   final ScrollController _vScrollController = ScrollController();
+
+  // Width at which the list + detail split view is used. When embedded in the
+  // desktop shell the sidebar and right rail already take ~350px, so the
+  // split view switches on earlier.
+  double get _splitBreakpoint => widget.showAppbar ? 1100 : 800;
 
   static const List<Color> _brandGradient = [
     Color(0xFF0052D4),
@@ -392,7 +402,9 @@ class _NotificationsListingState extends State<NotificationsListing> {
       create: (context) => NotificationsBloc()..add(StreamNotifications()),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
+        appBar: !widget.showAppbar
+            ? null
+            : AppBar(
           backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 0,
           leading: Back(color: Theme.of(context).colorScheme.onSurface),
@@ -429,7 +441,7 @@ class _NotificationsListingState extends State<NotificationsListing> {
             if (state is NotificationsLoading) {
               return LayoutBuilder(
                 builder: (context, constraints) {
-                  final bool isDesktop = constraints.maxWidth > 1100;
+                  final bool isDesktop = constraints.maxWidth > _splitBreakpoint;
                   return _buildSkeletonLoading(isDesktop);
                 },
               );
@@ -442,7 +454,7 @@ class _NotificationsListingState extends State<NotificationsListing> {
             if (state is NotificationsLoaded) {
               return LayoutBuilder(
                 builder: (context, constraints) {
-                  final bool isDesktop = constraints.maxWidth > 1100;
+                  final bool isDesktop = constraints.maxWidth > _splitBreakpoint;
                   final notifications = state.notification;
                   return isDesktop
                       ? _buildDesktopLayout(notifications)

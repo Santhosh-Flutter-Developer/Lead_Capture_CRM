@@ -12,7 +12,12 @@ import '/utils/utils.dart';
 class Header extends StatefulWidget {
   final String selectedMenu;
 
-  const Header({super.key, required this.selectedMenu});
+  /// When provided (desktop shell), tapping the bell opens the Notification
+  /// Center INSIDE the shell (side menu + header stay visible) instead of
+  /// pushing a full-screen route.
+  final ValueChanged<String>? onNavigate;
+
+  const Header({super.key, required this.selectedMenu, this.onNavigate});
 
   @override
   State<Header> createState() => _HeaderState();
@@ -282,7 +287,13 @@ class _HeaderState extends State<Header> {
           icon: Iconsax.notification,
           color: AppColors.danger,
           tooltip: 'Notifications',
-          onTap: () => Navigate.route(context, NotificationsListing()),
+          onTap: () {
+            if (widget.onNavigate != null) {
+              widget.onNavigate!('Notifications');
+            } else {
+              Navigate.route(context, NotificationsListing());
+            }
+          },
           isDark: isDark,
         ),
         StreamBuilder<int>(

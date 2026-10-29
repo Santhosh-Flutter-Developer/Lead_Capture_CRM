@@ -194,6 +194,8 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
         );
       case 'Calendar':
         return const CalendarEventScreen();
+      case 'Notifications':
+        return const NotificationsListing(showAppbar: false);
       case 'Developer Area':
         return const Developer(showAppbar: false);
       case 'Settings':
@@ -310,7 +312,10 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
                   Expanded(
                     child: Column(
                       children: [
-                        Header(selectedMenu: _selectedMenu),
+                        Header(
+                          selectedMenu: _selectedMenu,
+                          onNavigate: _onMenuItemSelected,
+                        ),
                         Expanded(
                           // No Scrollbar here: this wraps whichever screen
                           // `_buildMainContent()` returns, and each of those
