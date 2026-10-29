@@ -8,7 +8,8 @@ import '/constants/constants.dart';
 class CustomerTicketModel {
   final String? uid;
   final int? ticketNumber;
-  final String clientName;
+  final String? masterClientId; // Master Client (ClientModel.uid)
+  final String clientName; // Master Client display label
   final String? clientCompanyName;
   final TicketModeOfContact modeOfContact;
   final String ticketTitle;
@@ -34,6 +35,7 @@ class CustomerTicketModel {
   CustomerTicketModel({
     String? uid,
     this.ticketNumber,
+    this.masterClientId,
     required this.clientName,
     this.clientCompanyName,
     required this.modeOfContact,
@@ -72,6 +74,7 @@ class CustomerTicketModel {
   CustomerTicketModel copyWith({
     String? uid,
     int? ticketNumber,
+    String? masterClientId,
     String? clientName,
     String? clientCompanyName,
     TicketModeOfContact? modeOfContact,
@@ -98,6 +101,7 @@ class CustomerTicketModel {
     return CustomerTicketModel(
       uid: uid ?? this.uid,
       ticketNumber: ticketNumber ?? this.ticketNumber,
+      masterClientId: masterClientId ?? this.masterClientId,
       clientName: clientName ?? this.clientName,
       clientCompanyName: clientCompanyName ?? this.clientCompanyName,
       modeOfContact: modeOfContact ?? this.modeOfContact,
@@ -127,7 +131,8 @@ class CustomerTicketModel {
     return CustomerTicketModel(
       uid: uid,
       ticketNumber: map['ticketNumber'] as int?,
-      clientName: map['clientName'] as String,
+      masterClientId: map['masterClientId'] as String?,
+      clientName: (map['clientName'] as String?) ?? '',
       clientCompanyName: map['clientCompanyName'] as String?,
       modeOfContact: TicketModeOfContact.values.firstWhere(
         (e) => e.name == (map['modeOfContact'] as String?),
@@ -190,6 +195,7 @@ class CustomerTicketModel {
     return {
       'uid': uid,
       'ticketNumber': ticketNumber,
+      'masterClientId': masterClientId,
       'clientName': clientName,
       'clientCompanyName': clientCompanyName,
       'modeOfContact': modeOfContact.name,
@@ -217,6 +223,7 @@ class CustomerTicketModel {
 
   Map<String, dynamic> toUpdateMap() {
     return {
+      'masterClientId': masterClientId,
       'clientName': clientName,
       'clientCompanyName': clientCompanyName,
       'modeOfContact': modeOfContact.name,
@@ -251,7 +258,7 @@ class CustomerTicketModel {
 
   @override
   String toString() {
-    return 'CustomerTicketModel(uid: $uid, ticketNumber: $ticketNumber, clientName: $clientName, clientCompanyName: $clientCompanyName, modeOfContact: $modeOfContact, ticketTitle: $ticketTitle, ticketDescription: $ticketDescription, assignTo: $assignTo, participants: $participants, observers: $observers, createdBy: $createdBy, priorityLevel: $priorityLevel, deadline: $deadline, reminder: $reminder, category: $category, status: $status,project: $project, task: $task, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'CustomerTicketModel(uid: $uid, ticketNumber: $ticketNumber, masterClientId: $masterClientId, clientName: $clientName, clientCompanyName: $clientCompanyName, modeOfContact: $modeOfContact, ticketTitle: $ticketTitle, ticketDescription: $ticketDescription, assignTo: $assignTo, participants: $participants, observers: $observers, createdBy: $createdBy, priorityLevel: $priorityLevel, deadline: $deadline, reminder: $reminder, category: $category, status: $status,project: $project, task: $task, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -260,6 +267,7 @@ class CustomerTicketModel {
 
     return other.uid == uid &&
         other.ticketNumber == ticketNumber &&
+        other.masterClientId == masterClientId &&
         other.clientName == clientName &&
         other.clientCompanyName == clientCompanyName &&
         other.modeOfContact == modeOfContact &&
@@ -288,6 +296,7 @@ class CustomerTicketModel {
   int get hashCode {
     return uid.hashCode ^
         ticketNumber.hashCode ^
+        masterClientId.hashCode ^
         clientName.hashCode ^
         clientCompanyName.hashCode ^
         modeOfContact.hashCode ^

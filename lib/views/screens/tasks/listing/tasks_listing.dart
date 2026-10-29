@@ -49,7 +49,7 @@ class TaskListView extends StatelessWidget {
               (task.tags.map((e) => e.toLowerCase()).contains(q));
         },
         // Column indexes follow the DataTable columns:
-        // 0 Task No, 1 Name, 2 Active, 3 Deadline.
+        // 0 Task No, 1 Name, 2 Project, 3 Project Lead, 4 Active, 5 Deadline.
         sortLogic: (a, b, col, asc) {
           int compare;
           switch (col) {
@@ -63,7 +63,7 @@ class TaskListView extends StatelessWidget {
                 b.taskName.toLowerCase(),
               );
               break;
-            case 3: // Deadline (tasks without a deadline go last)
+            case 5: // Deadline (tasks without a deadline go last)
               compare = (a.deadline ?? DateTime(9999)).compareTo(
                 b.deadline ?? DateTime(9999),
               );
@@ -112,6 +112,10 @@ class _TaskListingViewState extends State<TaskListingView> {
   String? _fCreatedByUid;
   String? _fCreatedByName;
   DateTimeRange? _fDeadline;
+  String? _fProjectUid;
+  String? _fProjectName;
+  String? _fLeadUid;
+  String? _fLeadName;
   // Bumped by "Clear filters" so the dropdowns rebuild with no selection.
   int _filterEpoch = 0;
 
@@ -122,6 +126,15 @@ class _TaskListingViewState extends State<TaskListingView> {
   Map<String, String> _creatorOpts = {}; // display name -> uid
   List<String> _assigneeItems = const [];
   List<String> _creatorItems = const [];
+  Map<String, String> _projectOpts = {}; // display name -> uid
+  Map<String, String> _leadOpts = {}; // display name -> uid
+  List<String> _projectItems = const [];
+  List<String> _leadItems = const [];
+
+  // Lookups used by the Project column and the Project / Lead filters.
+  Map<String, String> _projectNames = {}; // project uid -> name
+  Map<String, String> _legacyLeadNames = {}; // old CRM lead uid -> name
+  Map<String, String> _projectLeads = {}; // project uid -> Project Lead uid
 
   static final Map<String, TaskStatus> _statusOpts = {
     for (final s in TaskStatus.values) s.label: s,
@@ -132,6 +145,8 @@ class _TaskListingViewState extends State<TaskListingView> {
       (_fStatus != null ? 1 : 0) +
       (_fAssigneeUid != null ? 1 : 0) +
       (_fCreatedByUid != null ? 1 : 0) +
+      (_fProjectUid != null ? 1 : 0) +
+      (_fLeadUid != null ? 1 : 0) +
       (_fDeadline != null ? 1 : 0);
 
   bool get _hasActiveFilters => _activeFilterCount > 0;
@@ -148,6 +163,8 @@ class _TaskListingViewState extends State<TaskListingView> {
     if (_fCreatedByUid != null && !_creatorUids(t).contains(_fCreatedByUid)) {
       return false;
     }
+    if (_fProjectUid != null && t.project != _fProjectUid) return false;
+    if (_fLeadUid != null && _taskLeadUid(t) != _fLeadUid) return false;
     final range = _fDeadline;
     if (range != null) {
       final d = t.deadline;
@@ -188,11 +205,55 @@ class _TaskListingViewState extends State<TaskListingView> {
         if (name.isNotEmpty) creators[uid] = name;
       }
     }
+    final projects = <String, String>{}; // uid -> name
+    final leads = <String, String>{};
+    for (final t in tasks) {
+      final pid = t.project;
+      if (pid != null && pid.isNotEmpty) {
+        final name = _projectNames[pid] ?? '';
+        if (name.isNotEmpty) projects[pid] = name;
+      }
+      final lid = _taskLeadUid(t);
+      if (lid.isNotEmpty) {
+        final name = _leadName(lid);
+        if (name.isNotEmpty) leads[lid] = name;
+      }
+    }
+    // Like the Projects page: every Project Lead is selectable.
+    for (final lid in _projectLeads.values) {
+      if (lid.isEmpty) continue;
+      final name = _leadName(lid);
+      if (name.isNotEmpty) leads[lid] = name;
+    }
+    _projectOpts = _nameToUid(projects);
+    _leadOpts = _nameToUid(leads);
+    _projectItems = _projectOpts.keys.toList();
+    _leadItems = _leadOpts.keys.toList();
+
     _assigneeOpts = _nameToUid(assignees);
     _creatorOpts = _nameToUid(creators);
     _assigneeItems = _assigneeOpts.keys.toList();
     _creatorItems = _creatorOpts.keys.toList();
   }
+
+  /// Lead = Project Lead (an employee/user). Older tasks may still hold a
+  /// CRM lead id, so fall back to that name.
+  String _leadName(String uid) =>
+      CacheService.getUserByUid(uid)?.name ?? _legacyLeadNames[uid] ?? '';
+
+  /// Project Lead of a task = the lead of its project. Falls back to the
+  /// lead saved on the task itself (older tasks without a project).
+  String _taskLeadUid(TaskModel t) {
+    final pid = t.project;
+    if (pid != null && pid.isNotEmpty) {
+      final owner = _projectLeads[pid] ?? '';
+      if (owner.isNotEmpty) return owner;
+    }
+    return t.lead ?? '';
+  }
+
+  String _projectName(String? uid) =>
+      uid == null || uid.isEmpty ? '' : (_projectNames[uid] ?? '');
 
   /// uid->name  ==>  name->uid, sorted A-Z. Two people with the same name get
   /// a "(2)" suffix so picking one can never silently match the other.
@@ -225,6 +286,8 @@ class _TaskListingViewState extends State<TaskListingView> {
       _fStatus = null;
       _fAssigneeUid = _fAssigneeName = null;
       _fCreatedByUid = _fCreatedByName = null;
+      _fProjectUid = _fProjectName = null;
+      _fLeadUid = _fLeadName = null;
       _fDeadline = null;
       _filterEpoch++;
     });
@@ -257,6 +320,33 @@ class _TaskListingViewState extends State<TaskListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+    _loadLookups();
+  }
+
+  /// Project names (Project column / filter) and legacy lead names.
+  Future<void> _loadLookups() async {
+    try {
+      final projects = await ProjectService.getAllProjects();
+      final leads = await LeadService.getAllLeads();
+      if (!mounted) return;
+      setState(() {
+        _projectNames = {
+          for (final p in projects)
+            if ((p.uid ?? '').isNotEmpty) p.uid!: p.projectName,
+        };
+        _projectLeads = {
+          for (final p in projects)
+            if ((p.uid ?? '').isNotEmpty) p.uid!: p.projectOwner,
+        };
+        _legacyLeadNames = {
+          for (final l in leads)
+            if ((l.uid ?? '').isNotEmpty) l.uid!: l.leadName,
+        };
+        _optionsSource = null; // rebuild filter options with the names
+      });
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
   }
 
   @override
@@ -580,6 +670,32 @@ class _TaskListingViewState extends State<TaskListingView> {
           _applyFilters(controllerRead);
         },
       ),
+      FormDropdownSearch(
+        key: ValueKey('f_project_${_filterEpoch}_${_projectOpts.length}'),
+        label: 'Project',
+        initialItem: _fProjectName,
+        items: _projectItems,
+        onChanged: (v) {
+          setState(() {
+            _fProjectName = v as String?;
+            _fProjectUid = v == null ? null : _projectOpts[v];
+          });
+          _applyFilters(controllerRead);
+        },
+      ),
+      FormDropdownSearch(
+        key: ValueKey('f_lead_${_filterEpoch}_${_leadOpts.length}'),
+        label: 'Project Lead',
+        initialItem: _fLeadName,
+        items: _leadItems,
+        onChanged: (v) {
+          setState(() {
+            _fLeadName = v as String?;
+            _fLeadUid = v == null ? null : _leadOpts[v];
+          });
+          _applyFilters(controllerRead);
+        },
+      ),
       _DeadlineRangeField(
         range: _fDeadline,
         onTap: () => _pickDeadlineRange(controllerRead),
@@ -847,6 +963,8 @@ class _TaskListingViewState extends State<TaskListingView> {
                             label: const Text("Name"),
                             onSort: controllerRead.setSort,
                           ),
+                          const DataColumn(label: Text("Project")),
+                          const DataColumn(label: Text("Project Lead")),
                           const DataColumn(label: Text("Active")),
                           DataColumn(
                             label: const Text("Deadline"),
@@ -987,6 +1105,34 @@ class _TaskListingViewState extends State<TaskListingView> {
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          task.uid ?? '',
+        ),
+        dataCell(
+          SizedBox(
+            width: 140,
+            child: Text(
+              _projectName(task.project).isEmpty
+                  ? '-'
+                  : _projectName(task.project),
+              softWrap: true,
+              maxLines: null,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          task.uid ?? '',
+        ),
+        dataCell(
+          SizedBox(
+            width: 140,
+            child: Text(
+              _leadName(_taskLeadUid(task)).isEmpty
+                  ? '-'
+                  : _leadName(_taskLeadUid(task)),
+              softWrap: true,
+              maxLines: null,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           task.uid ?? '',
         ),

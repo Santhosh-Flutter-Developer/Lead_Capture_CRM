@@ -71,10 +71,12 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   final ScrollController _vScrollController = ScrollController();
 
   // ---------------------------------------------------------------------
-  // Filters: Lead, Created By, Deadline range
+  // Filters: Project Lead, Master Client, Created By, Deadline range
   // ---------------------------------------------------------------------
   String? _fLeadUid;
   String? _fLeadName;
+  String? _fMasterUid;
+  String? _fMasterName;
   String? _fCreatedByUid;
   String? _fCreatedByName;
   DateTimeRange? _fDeadline;
@@ -86,11 +88,32 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   List<ProjectModel>? _optionsSource;
   Map<String, String> _leadOpts = {}; // display name -> uid
   Map<String, String> _creatorOpts = {}; // display name -> uid
+  Map<String, String> _masterOpts = {}; // display name -> uid
+  List<String> _masterItems = const [];
   List<String> _leadItems = const [];
+
+  // Master Client lookups (uid -> name) and the deal links used when an
+  // older project has no master client saved on it.
+  Map<String, String> _masterNames = {};
+  Map<String, String> _dealClientById = {}; // deal uid -> master client uid
+  Map<String, String> _dealClientByName = {}; // project name -> master client uid
+
+  /// Master Client of a project: saved on the project, else from its deal.
+  String _masterClientUid(ProjectModel p) {
+    final own = (p.clientId ?? '').trim();
+    if (own.isNotEmpty) return own;
+    final byDeal = _dealClientById[p.dealId ?? ''] ?? '';
+    if (byDeal.isNotEmpty) return byDeal;
+    return _dealClientByName[p.projectName.trim().toLowerCase()] ?? '';
+  }
+
+  String _masterClientName(ProjectModel p) =>
+      _masterNames[_masterClientUid(p)] ?? '';
   List<String> _creatorItems = const [];
 
   int get _activeFilterCount =>
       (_fLeadUid != null ? 1 : 0) +
+      (_fMasterUid != null ? 1 : 0) +
       (_fCreatedByUid != null ? 1 : 0) +
       (_fDeadline != null ? 1 : 0);
 
@@ -99,6 +122,9 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   bool _matchesFilters(ProjectModel p) {
     // "Lead" column shows projectOwner, so that is what we filter on.
     if (_fLeadUid != null && p.projectOwner != _fLeadUid) return false;
+    if (_fMasterUid != null && _masterClientUid(p) != _fMasterUid) {
+      return false;
+    }
     if (_fCreatedByUid != null && p.createdBy.uid != _fCreatedByUid) {
       return false;
     }
@@ -113,7 +139,11 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
 
     final leads = <String, String>{}; // uid -> name
     final creators = <String, String>{};
+    final masters = <String, String>{};
     for (final p in projects) {
+      final mid = _masterClientUid(p);
+      final mname = _masterNames[mid] ?? '';
+      if (mid.isNotEmpty && mname.isNotEmpty) masters[mid] = mname;
       final lead = CacheService.getUserByUid(p.projectOwner)?.name ?? '';
       if (p.projectOwner.isNotEmpty && lead.isNotEmpty) {
         leads[p.projectOwner] = lead;
@@ -123,7 +153,9 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
       }
     }
     _leadOpts = nameToUidOptions(leads);
+    _masterOpts = nameToUidOptions(masters);
     _creatorOpts = nameToUidOptions(creators);
+    _masterItems = _masterOpts.keys.toList();
     _leadItems = _leadOpts.keys.toList();
     _creatorItems = _creatorOpts.keys.toList();
   }
@@ -139,6 +171,7 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   void _clearFilters(PaginatedDataController<ProjectModel> c) {
     setState(() {
       _fLeadUid = _fLeadName = null;
+      _fMasterUid = _fMasterName = null;
       _fCreatedByUid = _fCreatedByName = null;
       _fDeadline = null;
       _filterEpoch++;
@@ -173,13 +206,26 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
       fields: [
         FormDropdownSearch(
           key: ValueKey('f_lead_${_filterEpoch}_${_leadItems.length}'),
-          label: 'Lead',
+          label: 'Project Lead',
           initialItem: _fLeadName,
           items: _leadItems,
           onChanged: (v) {
             setState(() {
               _fLeadName = v as String?;
               _fLeadUid = v == null ? null : _leadOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey('f_master_${_filterEpoch}_${_masterItems.length}'),
+          label: 'Master Client',
+          initialItem: _fMasterName,
+          items: _masterItems,
+          onChanged: (v) {
+            setState(() {
+              _fMasterName = v as String?;
+              _fMasterUid = v == null ? null : _masterOpts[v];
             });
             _applyFilters(controllerRead);
           },
@@ -214,6 +260,39 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
   void initState() {
     super.initState();
     _loadPermissions();
+    _loadMasterClients();
+  }
+
+  Future<void> _loadMasterClients() async {
+    try {
+      final clients = await ClientService.getMasterClients();
+      final deals = await DealService.getAllDeals();
+      if (!mounted) return;
+      setState(() {
+        _masterNames = {
+          for (final c in clients)
+            if ((c.uid ?? '').isNotEmpty) c.uid!: c.displayName,
+        };
+        _dealClientById = {
+          for (final d in deals)
+            if ((d.uid ?? '').isNotEmpty && (d.clientId ?? '').isNotEmpty)
+              d.uid!: d.clientId!,
+        };
+        _dealClientByName = {
+          for (final d in deals)
+            if ((d.clientId ?? '').isNotEmpty)
+              (((d.projectName ?? '').trim().isNotEmpty
+                          ? d.projectName!
+                          : d.dealName)
+                      .trim()
+                      .toLowerCase()):
+                  d.clientId!,
+        };
+        _optionsSource = null; // rebuild filter options with the names
+      });
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+    }
   }
 
   @override
@@ -696,7 +775,8 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
                             label: const Text("Project Code"),
                             onSort: controllerRead.setSort,
                           ),
-                          const DataColumn(label: Text("Lead")),
+                          const DataColumn(label: Text("Master Client")),
+                          const DataColumn(label: Text("Project Lead")),
                           const DataColumn(label: Text("Deadline")),
                           const DataColumn(label: Text("Created By")),
                           const DataColumn(label: Text("Action")),
@@ -800,6 +880,23 @@ class _ProjectsListingViewState extends State<ProjectsListingView> {
                       fontWeight: FontWeight.w600,
                       color: Theme.of(context).colorScheme.primary,
                     ),
+                  ),
+                )
+              : Text(
+                  "—",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+        ),
+        DataCell(
+          _masterClientName(project).isNotEmpty
+              ? ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Text(
+                    _masterClientName(project),
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 )
               : Text(

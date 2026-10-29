@@ -98,6 +98,15 @@ class _TaskEditState extends State<TaskEdit> {
       _taskList.clear();
       _taskList = await TaskService.getAllTasks();
 
+      // Older tasks have no saved lead: show the project's lead instead.
+      if ((_selectedLead ?? '').isEmpty && (_selectedProject ?? '').isNotEmpty) {
+        final owner = _projectList
+            .where((e) => e.uid == _selectedProject)
+            .map((e) => e.projectOwner)
+            .firstOrNull;
+        if (owner != null && owner.isNotEmpty) _selectedLead = owner;
+      }
+
       _initialAssignees.clear();
       for (var i in _selectedAssignees) {
         var employee = await EmployeeService.getEmployee(uid: i);
@@ -328,59 +337,7 @@ class _TaskEditState extends State<TaskEdit> {
                   _buildSectionCard(
                     title: "Context",
                     icon: Iconsax.hierarchy,
-                    child: Column(
-                      children: [
-                        _buildDropdownField(
-                          "Project",
-                          _projectList.map((e) => e.projectName).toList(),
-                          initialItem: _selectedProject != null
-                              ? _projectList
-                                    .where((e) => e.uid == _selectedProject)
-                                    .map((e) => e.projectName)
-                                    .firstOrNull
-                              : null,
-                          (val) {
-                            _selectedProject = _projectList
-                                .firstWhere((e) => e.projectName == val)
-                                .uid;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _buildDropdownField(
-                          "Subtask of",
-                          _taskList.map((e) => e.taskName).toList(),
-                          initialItem: _selectedSubTaskOf != null
-                              ? _taskList
-                                    .where((e) => e.uid == _selectedSubTaskOf)
-                                    .map((e) => e.taskName)
-                                    .firstOrNull
-                              : null,
-                          (val) {
-                            _selectedSubTaskOf = _taskList
-                                .firstWhere((e) => e.taskName == val)
-                                .uid;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _buildDropdownField(
-                          "Lead",
-                          _leadList.map((e) => e.leadName).toList(),
-                          initialItem: _selectedLead != null
-                              ? _leadList
-                                    .where((e) => e.uid == _selectedLead)
-                                    .map((e) => e.leadName)
-                                    .firstOrNull
-                              : null,
-                          (val) {
-                            _selectedLead = _leadList
-                                .firstWhere((e) => e.leadName == val)
-                                .uid;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTagsField(),
-                      ],
-                    ),
+                    child: _buildContextFields(),
                   ),
                 ],
               ),
@@ -432,6 +389,12 @@ class _TaskEditState extends State<TaskEdit> {
               title: "Assignments",
               icon: Iconsax.user_add,
               child: _buildAssignmentGrid(),
+            ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              title: "Context",
+              icon: Iconsax.hierarchy,
+              child: _buildContextFields(),
             ),
             const SizedBox(height: 16),
             _buildAttachmentSection(),
@@ -500,6 +463,17 @@ class _TaskEditState extends State<TaskEdit> {
   }
 
   Widget _buildTaskNameField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _requiredLabel('Task Title'),
+        const SizedBox(height: 4),
+        _buildTaskNameInput(),
+      ],
+    );
+  }
+
+  Widget _buildTaskNameInput() {
     return TextFormField(
       controller: _taskName,
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -527,7 +501,7 @@ class _TaskEditState extends State<TaskEdit> {
       ),
       validator: (v) => Validation.commonValidation(
         input: v,
-        label: 'Task Name',
+        label: 'Task Title',
         isReq: true,
       ),
     );
@@ -600,10 +574,11 @@ class _TaskEditState extends State<TaskEdit> {
   Widget _buildAssignmentGrid() {
     return Column(
       children: [
-        UsersListDropdown(
+        _requiredUsersDropdown(
           label: 'Assign To',
           initialValues: _initialAssignees,
-          onChangedList: (list) {
+          selected: _selectedAssignees,
+          onChanged: (list) {
             _selectedAssignees.clear();
             _selectedAssignees.addAll(list.map((e) => e.uid!));
           },
@@ -627,14 +602,169 @@ class _TaskEditState extends State<TaskEdit> {
           },
         ),
         const SizedBox(height: 12),
-        UsersListDropdown(
+        _requiredUsersDropdown(
           label: 'Created By',
           initialValues: _initialCreatedBy,
-          onChangedList: (list) {
+          selected: _selectedCreatedBy,
+          onChanged: (list) {
             _selectedCreatedBy.clear();
             _selectedCreatedBy.addAll(list.map((e) => e.uid!));
           },
         ),
+      ],
+    );
+  }
+
+  /// Small field label with a red "*" for required fields.
+  Widget _requiredLabel(String label) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          ' *',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.danger,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Required multi-select users dropdown (red "*" + inline error when
+  /// nothing is selected). [selected] is the list the form submits.
+  Widget _requiredUsersDropdown({
+    required String label,
+    required List<String> selected,
+    required void Function(List<dynamic>) onChanged,
+    List<dynamic> initialValues = const [],
+  }) {
+    return FormField<List<String>>(
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (_) => selected.isEmpty ? '$label is required' : null,
+      builder: (field) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            UsersListDropdown(
+              label: label,
+              isRequired: true,
+              initialValues: initialValues,
+              onChangedList: (list) {
+                onChanged(list);
+                field.didChange(List<String>.from(selected));
+              },
+            ),
+            if (field.hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  field.errorText!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.danger),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- CONTEXT (Project / Subtask / Lead / Tags) ---
+
+  /// Name shown for the saved lead. New tasks store the Project Lead
+  /// (an employee); older tasks may hold a CRM lead, so fall back to that.
+  String? _leadLabel(String? uid) {
+    if (uid == null || uid.isEmpty) return null;
+    final emp = _employeeList.where((e) => e.uid == uid).firstOrNull;
+    if (emp != null) return emp.name;
+    return _leadList.where((e) => e.uid == uid).firstOrNull?.leadName;
+  }
+
+  List<String> get _leadItems {
+    final items = _employeeList.map((e) => e.name).toList();
+    final current = _leadLabel(_selectedLead);
+    if (current != null && !items.contains(current)) items.insert(0, current);
+    return items;
+  }
+
+  String? _leadUidFromLabel(String label) {
+    final emp = _employeeList.where((e) => e.name == label).firstOrNull;
+    if (emp != null) return emp.uid;
+    return _leadList.where((e) => e.leadName == label).firstOrNull?.uid;
+  }
+
+  /// Picking a project auto-fills its Project Lead into the Lead field.
+  void _onProjectChanged(dynamic val) {
+    if (val == null) {
+      setState(() {
+        _selectedProject = null;
+        _selectedLead = null;
+      });
+      return;
+    }
+    final project = _projectList.firstWhere((e) => e.projectName == val);
+    setState(() {
+      _selectedProject = project.uid;
+      _selectedLead = project.projectOwner.isNotEmpty
+          ? project.projectOwner
+          : null;
+    });
+  }
+
+  Widget _buildContextFields() {
+    return Column(
+      children: [
+        _buildDropdownField(
+          "Project",
+          _projectList.map((e) => e.projectName).toList(),
+          _onProjectChanged,
+          isRequired: true,
+          validator: (_) => (_selectedProject == null || _selectedProject!.isEmpty)
+              ? 'Project is required'
+              : null,
+          initialItem: _selectedProject != null
+              ? _projectList
+                    .where((e) => e.uid == _selectedProject)
+                    .map((e) => e.projectName)
+                    .firstOrNull
+              : null,
+        ),
+        const SizedBox(height: 16),
+        _buildDropdownField(
+          "Subtask of",
+          _taskList.map((e) => e.taskName).toList(),
+          (val) {
+            _selectedSubTaskOf = val == null
+                ? null
+                : _taskList.firstWhere((e) => e.taskName == val).uid;
+          },
+          initialItem: _selectedSubTaskOf != null
+              ? _taskList
+                    .where((e) => e.uid == _selectedSubTaskOf)
+                    .map((e) => e.taskName)
+                    .firstOrNull
+              : null,
+        ),
+        const SizedBox(height: 16),
+        _buildDropdownField(
+          "Project Lead",
+          _leadItems,
+          (val) {
+            _selectedLead = val == null ? null : _leadUidFromLabel(val);
+          },
+          initialItem: _leadLabel(_selectedLead),
+          fieldKey: ValueKey('lead_${_selectedLead ?? ''}'),
+        ),
+        const SizedBox(height: 16),
+        _buildTagsField(),
       ],
     );
   }
@@ -712,21 +842,38 @@ class _TaskEditState extends State<TaskEdit> {
     String label,
     List<String> items,
     Function(dynamic) onChanged, {
+    bool isRequired = false,
+    String? Function(dynamic)? validator,
     String? initialItem,
+    Key? fieldKey,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            if (isRequired)
+              Text(
+                ' *',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.danger,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         FormDropdownSearch(
+          key: fieldKey,
           items: items,
           onChanged: onChanged,
+          validator: validator,
           initialItem: initialItem,
         ),
       ],

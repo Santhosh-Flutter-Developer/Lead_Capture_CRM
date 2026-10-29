@@ -6,6 +6,8 @@ import '/models/models.dart';
 import '/services/services.dart';
 import '/utils/utils.dart';
 import '/views/views.dart';
+import '/views/screens/project_updations/project_updation_form.dart'
+    show masterClientLabel;
 import '/theme/theme.dart';
 
 class TicketEdit extends StatefulWidget {
@@ -24,8 +26,6 @@ class _TicketEditState extends State<TicketEdit> {
   TicketModeOfContact _modeOfContact = TicketModeOfContact.phone;
   final TextEditingController _ticketTitle = TextEditingController();
   final TextEditingController _ticketDescription = TextEditingController();
-  final TextEditingController _clientName = TextEditingController();
-  final TextEditingController _clientCompanyName = TextEditingController();
   final TextEditingController _deadline = TextEditingController();
   final TextEditingController _reminder = TextEditingController();
   final ScrollController _vScrollController = ScrollController();
@@ -34,8 +34,7 @@ class _TicketEditState extends State<TicketEdit> {
   List<EmployeeModel> _employeeList = [];
   List<ProjectModel> _projectList = [];
   List<TaskModel> _taskList = [];
-  List<ClientModel> _clientList = [];
-  List<CompanyModel> _companyList = [];
+  List<ClientModel> _masterClients = [];
   List<String> _selectedAssignTo = [];
   final List<dynamic> _initialAssignTo = [];
   List<String> _selectedCreatedBy = [];
@@ -47,9 +46,10 @@ class _TicketEditState extends State<TicketEdit> {
 
   String? _selectedProject;
   String? _selectedTask;
-  String? _selectedClient;
-  String? _selectedClientUid;
-  String? _selectedCompany;
+  ClientModel? _selectedMasterClient;
+  // Bumped to rebuild the Project / Task dropdowns when their source changes.
+  int _contextEpoch = 0;
+  int _taskEpoch = 0;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -82,8 +82,6 @@ class _TicketEditState extends State<TicketEdit> {
       _modeOfContact = _ticketModel!.modeOfContact;
       _ticketTitle.text = _ticketModel!.ticketTitle;
       _ticketDescription.text = _ticketModel!.ticketDescription;
-      _clientName.text = _ticketModel!.clientName;
-      _clientCompanyName.text = _ticketModel!.clientCompanyName ?? '';
       _deadline.text = _ticketModel!.deadline?.listingDateTime ?? '';
       _selectedDeadline = _ticketModel!.deadline;
       _reminder.text = _ticketModel!.reminder?.listingDateTime ?? '';
@@ -95,8 +93,6 @@ class _TicketEditState extends State<TicketEdit> {
       _existingAttachments = List<FileModel>.from(_ticketModel!.attachments);
       _selectedProject = _ticketModel!.project;
       _selectedTask = _ticketModel!.task;
-      _selectedClient = _ticketModel!.clientName;
-      _selectedCompany = _ticketModel!.clientCompanyName;
 
       _employeeList.clear();
       _employeeList = await EmployeeService.getAllEmployees();
@@ -104,25 +100,31 @@ class _TicketEditState extends State<TicketEdit> {
       _projectList = await ProjectService.getAllProjects();
       _taskList.clear();
       _taskList = await TaskService.getAllTasks();
-      _clientList.clear();
-      _clientList = await ClientService.getAllClients();
-      _companyList.clear();
-      _companyList = await CompanyService.getAllCompanies();
+      _masterClients = await ClientService.getMasterClients();
 
-      // Set client UID from client list after loading
-      if (_selectedClient != null) {
-        final matchingClient = _clientList.firstWhere(
-          (e) => (e.clientName ?? '') == _selectedClient,
-          orElse: () => _clientList.isNotEmpty
-              ? _clientList.first
-              : ClientModel(
-                  uid: '',
-                  clientName: '',
-                  createdBy: UserDataModel.fromEmptyMap(),
-                  isCompany: false,
-                ),
-        );
-        _selectedClientUid = matchingClient.uid;
+      // Pre-select the ticket's Master Client. Older tickets (saved before
+      // Master Clients existed) are matched by company name instead.
+      final savedId = _ticketModel!.masterClientId;
+      final savedCompany = (_ticketModel!.clientCompanyName ?? '')
+          .trim()
+          .toLowerCase();
+      _selectedMasterClient = _masterClients
+          .where((c) => savedId != null && savedId.isNotEmpty
+              ? c.uid == savedId
+              : savedCompany.isNotEmpty &&
+                    (c.companyName ?? '').trim().toLowerCase() == savedCompany)
+          .firstOrNull;
+
+      // Drop a saved project / task that no longer belongs to that client so
+      // the form never holds a hidden value.
+      final validProjects = _clientProjects.map((p) => p.uid).toSet();
+      if (_selectedProject != null && !validProjects.contains(_selectedProject)) {
+        _selectedProject = null;
+        _selectedTask = null;
+      }
+      if (_selectedTask != null &&
+          !_clientTasks.any((t) => t.uid == _selectedTask)) {
+        _selectedTask = null;
       }
 
       _initialAssignTo.clear();
@@ -304,15 +306,14 @@ class _TicketEditState extends State<TicketEdit> {
                     icon: Iconsax.document_text,
                     child: Column(
                       children: [
-                        _buildClientDropdown(),
-                        const SizedBox(height: 16),
-                        _buildCompanyDropdown(),
-                        const SizedBox(height: 16),
+                        _buildMasterClientDropdown(),
+ const SizedBox(height: 16),
                         _buildModeOfContactSelector(),
                         const SizedBox(height: 16),
                         FormFields(
                           controller: _ticketTitle,
                           label: "Ticket Title",
+                          isRequired: true,
                           hintText: "Enter ticket title",
                           valid: (v) => Validation.commonValidation(
                             input: v,
@@ -358,49 +359,9 @@ class _TicketEditState extends State<TicketEdit> {
                     icon: Iconsax.hierarchy,
                     child: Column(
                       children: [
-                        _buildDropdownField(
-                          "Project",
-                          _selectedClientUid != null
-                              ? _projectList
-                                    .where((p) => p.client == _selectedClientUid)
-                                    .map((e) => e.projectName)
-                                    .toList()
-                              : _projectList.map((e) => e.projectName).toList(),
-                          initialItem: _selectedProject != null
-                              ? _projectList
-                                    .where((e) => e.uid == _selectedProject)
-                                    .map((e) => e.projectName)
-                                    .firstOrNull
-                              : null,
-                          (val) {
-                            var filteredProjects = _selectedClientUid != null
-                                ? _projectList
-                                      .where(
-                                        (p) => p.client == _selectedClientUid,
-                                      )
-                                      .toList()
-                                : _projectList;
-                            _selectedProject = filteredProjects
-                                .firstWhere((e) => e.projectName == val)
-                                .uid;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _buildDropdownField(
-                          "Task",
-                          _taskList.map((e) => e.taskName).toList(),
-                          initialItem: _selectedTask != null
-                              ? _taskList
-                                    .where((e) => e.uid == _selectedTask)
-                                    .map((e) => e.taskName)
-                                    .firstOrNull
-                              : null,
-                          (val) {
-                            _selectedTask = _taskList
-                                .firstWhere((e) => e.taskName == val)
-                                .uid;
-                          },
-                        ),
+                        _buildProjectField(),
+ const SizedBox(height: 16),
+ _buildTaskField(),
                       ],
                     ),
                   ),
@@ -449,15 +410,14 @@ class _TicketEditState extends State<TicketEdit> {
               icon: Iconsax.document_text,
               child: Column(
                 children: [
-                  _buildClientDropdown(),
-                  const SizedBox(height: 16),
-                  _buildCompanyDropdown(),
-                  const SizedBox(height: 16),
+                  _buildMasterClientDropdown(),
+ const SizedBox(height: 16),
                   _buildModeOfContactSelector(),
                   const SizedBox(height: 16),
                   FormFields(
                     controller: _ticketTitle,
                     label: "Ticket Title",
+                    isRequired: true,
                     hintText: "Enter ticket title",
                     valid: (v) => Validation.commonValidation(
                       input: v,
@@ -476,47 +436,9 @@ class _TicketEditState extends State<TicketEdit> {
               icon: Iconsax.hierarchy,
               child: Column(
                 children: [
-                  _buildDropdownField(
-                    "Project",
-                    _selectedClientUid != null
-                        ? _projectList
-                              .where((p) => p.client == _selectedClientUid)
-                              .map((e) => e.projectName)
-                              .toList()
-                        : _projectList.map((e) => e.projectName).toList(),
-                    initialItem: _selectedProject != null
-                        ? _projectList
-                              .where((e) => e.uid == _selectedProject)
-                              .map((e) => e.projectName)
-                              .firstOrNull
-                        : null,
-                    (val) {
-                      var filteredProjects = _selectedClientUid != null
-                          ? _projectList
-                                .where((p) => p.client == _selectedClientUid)
-                                .toList()
-                          : _projectList;
-                      _selectedProject = filteredProjects
-                          .firstWhere((e) => e.projectName == val)
-                          .uid;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDropdownField(
-                    "Task",
-                    _taskList.map((e) => e.taskName).toList(),
-                    initialItem: _selectedTask != null
-                        ? _taskList
-                              .where((e) => e.uid == _selectedTask)
-                              .map((e) => e.taskName)
-                              .firstOrNull
-                        : null,
-                    (val) {
-                      _selectedTask = _taskList
-                          .firstWhere((e) => e.taskName == val)
-                          .uid;
-                    },
-                  ),
+                  _buildProjectField(),
+ const SizedBox(height: 16),
+ _buildTaskField(),
                 ],
               ),
             ),
@@ -771,13 +693,10 @@ class _TicketEditState extends State<TicketEdit> {
   Widget _buildAssignmentGrid() {
     return Column(
       children: [
-        UsersListDropdown(
+        _requiredUsersField(
           label: 'Assign To',
+          selected: _selectedAssignTo,
           initialValues: _initialAssignTo,
-          onChangedList: (list) {
-            _selectedAssignTo.clear();
-            _selectedAssignTo.addAll(list.map((e) => e.uid!));
-          },
         ),
         const SizedBox(height: 12),
         UsersListDropdown(
@@ -798,117 +717,167 @@ class _TicketEditState extends State<TicketEdit> {
           },
         ),
         const SizedBox(height: 12),
-        UsersListDropdown(
+        _requiredUsersField(
           label: 'Created By',
+          selected: _selectedCreatedBy,
           initialValues: _initialCreatedBy,
-          onChangedList: (list) {
-            _selectedCreatedBy.clear();
-            _selectedCreatedBy.addAll(list.map((e) => e.uid!));
-          },
         ),
       ],
     );
   }
 
-  Widget _buildDropdownField(
-    String label,
-    List<String> items,
-    Function(dynamic) onChanged, {
-    String? initialItem,
+  // --- MASTER CLIENT / PROJECT / TASK (cascading) ---
+
+  /// Projects that belong to the selected Master Client.
+  List<ProjectModel> get _clientProjects {
+    final id = _selectedMasterClient?.uid;
+    if (id == null || id.isEmpty) return [];
+    return _projectList
+        .where((p) => p.client == id || p.clientId == id)
+        .toList();
+  }
+
+  /// Tasks of the selected Master Client's projects. Narrowed to the chosen
+  /// project once one is selected.
+  List<TaskModel> get _clientTasks {
+    final projectIds = _selectedProject != null
+        ? {_selectedProject}
+        : _clientProjects.map((p) => p.uid).toSet();
+    if (projectIds.isEmpty) return [];
+    return _taskList.where((t) => projectIds.contains(t.project)).toList();
+  }
+
+  /// label -> uid, adding a counter when two labels collide.
+  Map<String, String> _uniqueOptions(
+    Iterable<MapEntry<String, String>> entries,
+  ) {
+    final result = <String, String>{};
+    for (final e in entries) {
+      if (e.value.isEmpty) continue;
+      var label = e.key;
+      var n = 2;
+      while (result.containsKey(label)) {
+        label = '${e.key} ($n)';
+        n++;
+      }
+      result[label] = e.value;
+    }
+    return result;
+  }
+
+  Map<String, String> get _projectOptions => _uniqueOptions(
+    _clientProjects.map((p) => MapEntry(p.projectName, p.uid ?? '')),
+  );
+
+  Map<String, String> get _taskOptions => _uniqueOptions(
+    _clientTasks.map((t) => MapEntry(t.taskName, t.uid ?? '')),
+  );
+
+  Map<String, ClientModel> get _masterClientOptions => {
+    for (final c in _masterClients) masterClientLabel(c): c,
+  };
+
+  Widget _buildMasterClientDropdown() {
+    final options = _masterClientOptions;
+    return FormDropdownSearch(
+      key: ValueKey('master_client_${_masterClients.length}'),
+      label: 'Master Clients',
+      isRequired: true,
+      initialItem: _selectedMasterClient == null
+          ? null
+          : masterClientLabel(_selectedMasterClient!),
+      items: options.keys.toList(),
+      validator: (_) =>
+          _selectedMasterClient == null ? '* Master Client is required' : null,
+      onChanged: (val) {
+        setState(() {
+          _selectedMasterClient = val == null ? null : options[val as String];
+          // Projects and tasks depend on the Master Client, so reset them.
+          _selectedProject = null;
+          _selectedTask = null;
+          _contextEpoch++;
+        });
+      },
+    );
+  }
+
+  Widget _buildProjectField() {
+    final options = _projectOptions;
+    final selectedLabel = _selectedProject == null
+        ? null
+        : options.entries
+              .where((e) => e.value == _selectedProject)
+              .map((e) => e.key)
+              .firstOrNull;
+    return FormDropdownSearch(
+      key: ValueKey('project_${_contextEpoch}_${options.length}'),
+      label: 'Project',
+      isRequired: true,
+      initialItem: selectedLabel,
+      items: options.keys.toList(),
+      validator: (_) => _selectedProject == null ? '* Project is required' : null,
+      onChanged: (val) {
+        setState(() {
+          _selectedProject = val == null ? null : options[val as String];
+          _selectedTask = null;
+          _taskEpoch++;
+        });
+      },
+    );
+  }
+
+  Widget _buildTaskField() {
+    final options = _taskOptions;
+    final selectedLabel = _selectedTask == null
+        ? null
+        : options.entries
+              .where((e) => e.value == _selectedTask)
+              .map((e) => e.key)
+              .firstOrNull;
+    return FormDropdownSearch(
+      key: ValueKey('task_${_contextEpoch}_${_taskEpoch}_${options.length}'),
+      label: 'Task',
+      initialItem: selectedLabel,
+      items: options.keys.toList(),
+      onChanged: (val) {
+        _selectedTask = val == null ? null : options[val as String];
+      },
+    );
+  }
+
+  /// A required multi-select user dropdown (red * + inline error message).
+  Widget _requiredUsersField({
+    required String label,
+    required List<String> selected,
+    List<dynamic> initialValues = const [],
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        FormDropdownSearch(
-          items: items,
-          onChanged: onChanged,
-          initialItem: initialItem,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildClientDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Client Name",
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        FormDropdownSearch(
-          items: _clientList
-              .map((e) => e.clientName)
-              .where((name) => name != null && name.isNotEmpty)
-              .toList(),
-          initialItem: _selectedClient,
-          onChanged: (val) {
-            setState(() {
-              _selectedClient = val;
-              // Auto-populate company when client is selected
-              final selectedClientModel = _clientList.firstWhere(
-                (e) => (e.clientName ?? '') == val,
-                orElse: () => _clientList.isNotEmpty
-                    ? _clientList.first
-                    : ClientModel(
-                        uid: '',
-                        clientName: '',
-                        createdBy: UserDataModel.fromEmptyMap(),
-                        isCompany: false,
-                      ),
-              );
-              _selectedClientUid = selectedClientModel.uid;
-              if (selectedClientModel.companyName != null &&
-                  selectedClientModel.companyName!.isNotEmpty) {
-                _selectedCompany = selectedClientModel.companyName;
-                _clientCompanyName.text = selectedClientModel.companyName!;
-              }
-              _clientName.text = val;
-              // Reset project selection when client changes
-              _selectedProject = null;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCompanyDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Client Company Name",
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        FormDropdownSearch(
-          items: _clientList
-              .map((e) => e.companyName)
-              .where((name) => name != null && name.isNotEmpty)
-              .toSet()
-              .toList(),
-          initialItem: _selectedCompany,
-          onChanged: (val) {
-            setState(() {
-              _selectedCompany = val;
-              _clientCompanyName.text = val;
-            });
-          },
-        ),
-      ],
+    return FormField<bool>(
+      validator: (_) => selected.isEmpty ? '* $label is required' : null,
+      builder: (field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          UsersListDropdown(
+            label: label,
+            isRequired: true,
+            initialValues: initialValues,
+            onChangedList: (list) {
+              selected.clear();
+              selected.addAll(list.map((e) => e.uid! as String));
+              if (field.hasError) field.validate();
+            },
+          ),
+          if (field.hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                field.errorText!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.danger),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -1197,8 +1166,9 @@ class _TicketEditState extends State<TicketEdit> {
         final ticket = CustomerTicketModel(
           uid: widget.uid,
           ticketNumber: _ticketModel!.ticketNumber,
-          clientName: _clientName.text,
-          clientCompanyName: _clientCompanyName.text,
+          masterClientId: _selectedMasterClient!.uid,
+          clientName: masterClientLabel(_selectedMasterClient!),
+          clientCompanyName: _selectedMasterClient!.companyName,
           modeOfContact: _modeOfContact,
           ticketTitle: _ticketTitle.text,
           ticketDescription: _ticketDescription.text,

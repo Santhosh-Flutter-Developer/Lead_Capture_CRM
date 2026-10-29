@@ -5,6 +5,8 @@ import '/models/models.dart';
 import '/services/services.dart';
 import '/theme/theme.dart';
 import '/utils/utils.dart';
+import '/views/screens/project_updations/project_updation_form.dart'
+    show masterClientLabel;
 
 class ProjectEdit extends StatefulWidget {
   final String uid;
@@ -31,11 +33,14 @@ class _ProjectEditState extends State<ProjectEdit> {
   DateTime? _selectedDeadlineDate;
 
   List<EmployeeModel> _employeesList = [];
-  List<ClientModel> _clientList = [];
+  List<ClientModel> _masterClients = [];
+  final TextEditingController _masterClientController =
+      TextEditingController();
   List<DealModel> _dealList = [];
+  List<ProjectModel> _existingProjects = [];
+  String? _selectedDealId;
   String? _selectedProjectNameLabel;
-  String? _selectedClient;
-  ClientModel? _selectedClientModel;
+  String? _selectedMasterClient;
   String? _selectedProjectOwner;
   EmployeeModel? _selectedProjectOwnerModel;
   EmployeeModel? _selectedTeamLeadModel;
@@ -61,14 +66,16 @@ class _ProjectEditState extends State<ProjectEdit> {
 
   Future<void> _init() async {
     try {
-      _clientList.clear();
+      _masterClients.clear();
       _employeesList.clear();
       _employeesList = await EmployeeService.getAllEmployees();
-      _clientList = await ClientService.getAllClients();
+      _masterClients = await ClientService.getMasterClients();
       _dealList = await DealService.getAllDeals();
+      _existingProjects = await ProjectService.getAllProjects();
 
       _projectModel = await ProjectService.getProject(uid: widget.uid);
       _projectNameController.text = _projectModel.projectName;
+      _selectedDealId = _projectModel.dealId;
       _projectDescriptionController.text = _projectModel.projectDescription;
       _selectedProjectNameLabel = _initialProjectLabel(
         _projectModel.projectName,
@@ -89,12 +96,18 @@ class _ProjectEditState extends State<ProjectEdit> {
       _selectedDeadlineDate = _projectModel.deadline;
       _tagsController.text = _projectModel.tags ?? '';
 
-      _selectedClient = _projectModel.client;
-      if (_projectModel.client != null && _projectModel.client!.isNotEmpty) {
-        _selectedClientModel = await ClientService.getClient(
-          uid: _projectModel.client!,
-        );
+      // Master Client: saved on the project, else taken from its deal.
+      var masterId = _projectModel.clientId;
+      String? masterFallback;
+      if ((masterId ?? '').isEmpty) {
+        final deal = _dealOptions[_selectedProjectNameLabel ?? '']
+            ?? _dealList
+                .where((d) => _dealProjectName(d) == _projectModel.projectName)
+                .firstOrNull;
+        masterId = deal?.clientId;
+        masterFallback = deal?.companyName ?? deal?.clientName;
       }
+      _setMasterClient(masterId, fallbackName: masterFallback);
       _selectedProjectOwner = _projectModel.projectOwner;
       _selectedProjectOwnerModel = await EmployeeService.getEmployee(
         uid: _projectModel.projectOwner,
@@ -132,6 +145,7 @@ class _ProjectEditState extends State<ProjectEdit> {
 
   @override
   void dispose() {
+    _masterClientController.dispose();
     _projectNameController.dispose();
     _projectDescriptionController.dispose();
     _projectCodeController.dispose();
@@ -150,19 +164,41 @@ class _ProjectEditState extends State<ProjectEdit> {
       ? deal.projectName!.trim()
       : deal.dealName.trim();
 
+  String _normName(String? v) => (v ?? '').trim().toLowerCase();
+
+  /// Projects that already exist (this project itself is ignored in Edit).
+  Iterable<ProjectModel> get _otherProjects => _existingProjects.where(
+    (p) => p.uid != widget.uid,
+  );
+
+  /// A deal is "already created" when a project is linked to it, or a
+  /// project with the same name exists.
+  bool _isDealUsed(DealModel d) {
+    final name = _normName(_dealProjectName(d));
+    return _otherProjects.any(
+      (p) =>
+          ((p.dealId ?? '').isNotEmpty && p.dealId == d.uid) ||
+          _normName(p.projectName) == name,
+    );
+  }
+
+  /// Deals that still have no project created.
+  List<DealModel> get _availableDeals =>
+      _dealList.where((d) => !_isDealUsed(d)).toList();
+
   /// Dropdown labels built from the created Deals' project names.
   /// If two deals share a project name, the company/client name is
   /// appended so every label stays unique.
   Map<String, DealModel> get _dealOptions {
     final Map<String, int> counts = {};
-    for (final d in _dealList) {
+    for (final d in _availableDeals) {
       final name = _dealProjectName(d);
       if (name.isEmpty) continue;
       counts[name] = (counts[name] ?? 0) + 1;
     }
 
     final Map<String, DealModel> options = {};
-    for (final d in _dealList) {
+    for (final d in _availableDeals) {
       final name = _dealProjectName(d);
       if (name.isEmpty) continue;
       var label = name;
@@ -206,6 +242,8 @@ class _ProjectEditState extends State<ProjectEdit> {
       _selectedProjectNameLabel = null;
       _projectNameController.clear();
       _projectDescriptionController.clear();
+      _selectedDealId = null;
+      _setMasterClient(null);
       setState(() {});
       return;
     }
@@ -223,7 +261,28 @@ class _ProjectEditState extends State<ProjectEdit> {
     _projectNameController.text = _dealProjectName(deal);
     // Auto-fetch the description saved on the Deal.
     _projectDescriptionController.text = deal.projectDescription ?? '';
+    _selectedDealId = deal.uid;
+    // Auto-select the Master Client of this deal.
+    _setMasterClient(
+      deal.clientId,
+      fallbackName: deal.companyName ?? deal.clientName,
+    );
     setState(() {});
+  }
+
+  /// Master Client is read-only: it is taken from the selected deal.
+  void _setMasterClient(String? uid, {String? fallbackName}) {
+    final id = (uid ?? '').trim();
+    if (id.isEmpty) {
+      _selectedMasterClient = null;
+      _masterClientController.clear();
+      return;
+    }
+    final c = _masterClients.where((e) => e.uid == id).firstOrNull;
+    _selectedMasterClient = id;
+    _masterClientController.text = c != null
+        ? masterClientLabel(c)
+        : (fallbackName ?? '');
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -647,30 +706,13 @@ class _ProjectEditState extends State<ProjectEdit> {
         ),
         SizedBox(
           width: itemWidth,
-          child: FormDropdownSearch(
-            label: 'Client',
-            initialItem: _selectedClientModel?.isCompany == true
-                ? _selectedClientModel?.companyName
-                : _selectedClientModel?.clientName,
-            items: _clientList
-                .map(
-                  (e) => e.isCompany
-                      ? (e.companyName ?? '')
-                      : (e.clientName ?? ''),
-                )
-                .where((e) => e.isNotEmpty)
-                .toList(),
-            onChanged: (value) async {
-              var clientModel = _clientList.firstWhere(
-                (element) =>
-                    (element.isCompany
-                        ? element.companyName
-                        : element.clientName) ==
-                    value,
-              );
-              _selectedClient = clientModel.uid;
-              setState(() {});
-            },
+          child: FormFields(
+            key: ValueKey('master_client_${_masterClientController.text}'),
+            label: 'Master Client',
+            controller: _masterClientController,
+            hintText: 'Auto-selected from Project Name',
+            readOnly: true,
+            prefixIcon: const Icon(Iconsax.building, size: 18),
           ),
         ),
         SizedBox(
@@ -797,13 +839,32 @@ class _ProjectEditState extends State<ProjectEdit> {
       try {
         futureLoading(context);
 
+        final nameTaken = _otherProjects.any(
+          (p) =>
+              _normName(p.projectName) ==
+              _normName(_projectNameController.text),
+        );
+        if (nameTaken) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          FlushBar.show(
+            context,
+            'A project with this name already exists',
+            isSuccess: false,
+          );
+          return;
+        }
+
         ProjectModel projectModel = ProjectModel(
           projectName: _projectNameController.text.trim(),
           projectDescription: _projectDescriptionController.text.trim(),
           projectOwner: _selectedProjectOwner ?? '',
           teamLead: _selectedTeamLead ?? '',
           members: _selectedProjectMembers,
-          client: _selectedClient,
+          client: _projectModel.client,
+          clientId: _selectedMasterClient,
+          dealId: _selectedDealId ?? _projectModel.dealId,
           projectCode: _projectCodeController.text.trim(),
           category: _categoryController.text.trim(),
           startDate: _selectedStartDate,

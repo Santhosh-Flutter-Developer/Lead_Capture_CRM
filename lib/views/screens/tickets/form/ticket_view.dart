@@ -414,7 +414,7 @@ class _TicketViewState extends State<TicketView> with TickerProviderStateMixin {
       spacing: 16,
       runSpacing: 16,
       children: [
-        _infoBox(Iconsax.user, "Client Name", _ticketModel.clientName),
+        _infoBox(Iconsax.user, "Master Client", _ticketModel.clientName),
         if (_ticketModel.clientCompanyName != null)
           _infoBox(
             Iconsax.building,

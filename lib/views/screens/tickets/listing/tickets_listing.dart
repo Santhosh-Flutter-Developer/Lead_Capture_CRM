@@ -93,7 +93,7 @@ class _TicketListingViewState extends State<TicketListingView> {
   final ScrollController _vScrollController = ScrollController();
 
   // ---------------------------------------------------------------------
-  // Filters: Status, Priority, Assigned To, Created By, Project, Date range
+  // Filters: Status, Priority, Assigned To, Created By, Master Client, Project, Date range
   // ---------------------------------------------------------------------
   TicketStatus? _fStatus;
   TicketPriority? _fPriority;
@@ -101,6 +101,8 @@ class _TicketListingViewState extends State<TicketListingView> {
   String? _fAssigneeName;
   String? _fCreatedByUid;
   String? _fCreatedByName;
+  String? _fMasterClientId;
+  String? _fMasterClientName;
   String? _fProjectUid;
   String? _fProjectName;
   DateTimeRange? _fDate;
@@ -108,14 +110,58 @@ class _TicketListingViewState extends State<TicketListingView> {
   // Bumped by "Clear filters" so the dropdowns rebuild with no selection.
   int _filterEpoch = 0;
 
+  // Project / task names. The local cache only refreshes on a periodic sync,
+  // so a project or task created moments ago is missing from it. These maps
+  // are filled straight from Firestore when that happens.
+  final Map<String, String> _projectNames = {};
+  final Map<String, String> _taskNames = {};
+  bool _namesLoading = false;
+  List<CustomerTicketModel>? _namesCheckedFor;
+
+  String? _projectNameOf(String uid) =>
+      _projectNames[uid] ?? CacheService.getProjectByUid(uid)?.projectName;
+
+  String? _taskNameOf(String uid) =>
+      _taskNames[uid] ?? CacheService.getTaskByUid(uid)?.taskName;
+
+  Future<void> _refreshNames() async {
+    if (_namesLoading) return;
+    _namesLoading = true;
+    try {
+      final projects = await ProjectService.getAllProjects();
+      final tasks = await TaskService.getAllTasks();
+      _projectNames
+        ..clear()
+        ..addAll({
+          for (final p in projects)
+            if (p.uid != null) p.uid!: p.projectName,
+        });
+      _taskNames
+        ..clear()
+        ..addAll({
+          for (final t in tasks)
+            if (t.uid != null) t.uid!: t.taskName,
+        });
+      if (!mounted) return;
+      // Forces the filter options to be rebuilt with the fresh names.
+      setState(() => _optionsSource = null);
+    } catch (_) {
+      // Names simply stay as "-" if this fails.
+    } finally {
+      _namesLoading = false;
+    }
+  }
+
   // Rebuilt only when the ticket list itself changes, so the dropdowns keep
   // their state across unrelated rebuilds.
   List<CustomerTicketModel>? _optionsSource;
   Map<String, String> _assigneeOpts = {}; // display name -> uid
   Map<String, String> _creatorOpts = {};
+  Map<String, String> _masterClientOpts = {};
   Map<String, String> _projectOpts = {};
   List<String> _assigneeItems = const [];
   List<String> _creatorItems = const [];
+  List<String> _masterClientItems = const [];
   List<String> _projectItems = const [];
 
   static final Map<String, TicketStatus> _statusOpts = {
@@ -132,6 +178,7 @@ class _TicketListingViewState extends State<TicketListingView> {
       (_fPriority != null ? 1 : 0) +
       (_fAssigneeUid != null ? 1 : 0) +
       (_fCreatedByUid != null ? 1 : 0) +
+      (_fMasterClientId != null ? 1 : 0) +
       (_fProjectUid != null ? 1 : 0) +
       (_fDate != null ? 1 : 0);
 
@@ -150,6 +197,9 @@ class _TicketListingViewState extends State<TicketListingView> {
     if (_fCreatedByUid != null && !_creatorUids(t).contains(_fCreatedByUid)) {
       return false;
     }
+    if (_fMasterClientId != null && t.masterClientId != _fMasterClientId) {
+      return false;
+    }
     if (_fProjectUid != null && t.project != _fProjectUid) return false;
     final range = _fDate;
     if (range != null) {
@@ -166,7 +216,12 @@ class _TicketListingViewState extends State<TicketListingView> {
     final assignees = <String, String>{}; // uid -> name
     final creators = <String, String>{};
     final projects = <String, String>{};
+    final masterClients = <String, String>{}; // id -> label
     for (final t in tickets) {
+      final mid = t.masterClientId;
+      if (mid != null && mid.isNotEmpty && t.clientName.trim().isNotEmpty) {
+        masterClients[mid] = t.clientName.trim();
+      }
       for (final uid in t.assignTo) {
         final name = CacheService.getUserByUid(uid)?.name ?? '';
         if (name.isNotEmpty) assignees[uid] = name;
@@ -179,16 +234,32 @@ class _TicketListingViewState extends State<TicketListingView> {
       }
       final pid = t.project;
       if (pid != null && pid.isNotEmpty) {
-        final name = CacheService.getProjectByUid(pid)?.projectName ?? '';
+        final name = _projectNameOf(pid) ?? '';
         if (name.isNotEmpty) projects[pid] = name;
       }
     }
     _assigneeOpts = nameToUidOptions(assignees);
     _creatorOpts = nameToUidOptions(creators);
+    _masterClientOpts = nameToUidOptions(masterClients);
     _projectOpts = nameToUidOptions(projects);
     _assigneeItems = _assigneeOpts.keys.toList();
     _creatorItems = _creatorOpts.keys.toList();
+    _masterClientItems = _masterClientOpts.keys.toList();
     _projectItems = _projectOpts.keys.toList();
+
+    // A ticket points at a project/task that isn't cached yet: load names once
+    // for this ticket list, then rebuild.
+    final missing = tickets.any(
+      (t) =>
+          ((t.project ?? '').isNotEmpty && _projectNameOf(t.project!) == null) ||
+          ((t.task ?? '').isNotEmpty && _taskNameOf(t.task!) == null),
+    );
+    if (missing && !identical(tickets, _namesCheckedFor)) {
+      _namesCheckedFor = tickets;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshNames();
+      });
+    }
   }
 
   /// Re-applies the filters. Selection is cleared because ticked rows may no
@@ -205,6 +276,7 @@ class _TicketListingViewState extends State<TicketListingView> {
       _fPriority = null;
       _fAssigneeUid = _fAssigneeName = null;
       _fCreatedByUid = _fCreatedByName = null;
+      _fMasterClientId = _fMasterClientName = null;
       _fProjectUid = _fProjectName = null;
       _fDate = null;
       _filterEpoch++;
@@ -285,6 +357,21 @@ class _TicketListingViewState extends State<TicketListingView> {
             setState(() {
               _fCreatedByName = v as String?;
               _fCreatedByUid = v == null ? null : _creatorOpts[v];
+            });
+            _applyFilters(controllerRead);
+          },
+        ),
+        FormDropdownSearch(
+          key: ValueKey(
+            'f_master_client_${_filterEpoch}_${_masterClientItems.length}',
+          ),
+          label: 'Master Client',
+          initialItem: _fMasterClientName,
+          items: _masterClientItems,
+          onChanged: (v) {
+            setState(() {
+              _fMasterClientName = v as String?;
+              _fMasterClientId = v == null ? null : _masterClientOpts[v];
             });
             _applyFilters(controllerRead);
           },
@@ -786,7 +873,7 @@ class _TicketListingViewState extends State<TicketListingView> {
                             label: const Text("Status"),
                             onSort: controllerRead.setSort,
                           ),
-                          const DataColumn(label: Text("Client Name")),
+                          const DataColumn(label: Text("Master Client")),
                           const DataColumn(label: Text("Priority")),
                           const DataColumn(label: Text("Category")),
                           const DataColumn(label: Text("Project")),
@@ -956,8 +1043,7 @@ class _TicketListingViewState extends State<TicketListingView> {
         dataCell(
           Text(
             ticket.project != null
-                ? CacheService.getProjectByUid(ticket.project!)?.projectName ??
-                      '-'
+                ? _projectNameOf(ticket.project!) ?? '-'
                 : '-',
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -965,9 +1051,7 @@ class _TicketListingViewState extends State<TicketListingView> {
         ),
         dataCell(
           Text(
-            ticket.task != null
-                ? CacheService.getTaskByUid(ticket.task!)?.taskName ?? '-'
-                : '-',
+            ticket.task != null ? _taskNameOf(ticket.task!) ?? '-' : '-',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           ticket.uid ?? '',
