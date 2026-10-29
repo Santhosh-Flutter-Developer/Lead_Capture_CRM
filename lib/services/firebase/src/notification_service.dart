@@ -18,7 +18,9 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:leadcapture/firebase_options.dart';
@@ -149,41 +151,26 @@ class NotificationService {
         message.data['body'] ??
         'You have a new message';
 
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.notifications, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(body),
-                ],
-              ),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 8),
-        behavior: SnackBarBehavior.floating,
-        // Tapping "Open" goes to the exact chat / event (the tab is already
-        // in front, so no service-worker click is involved here).
-        action: const ['chat', 'eventStarted', 'eventReminder'].contains(
-              message.data['type'],
-            )
-            ? SnackBarAction(
-                label: 'Open',
-                textColor: Colors.white,
-                onPressed: () => _handleBackgroundMessage(message.data),
-              )
-            : null,
-      ),
+    // Small top-edge toast (auto hides) instead of the old bottom SnackBar.
+    final type = message.data['type'];
+    final bool openable = const [
+      'chat',
+      'eventStarted',
+      'eventReminder',
+    ].contains(type);
+
+    InAppToast.show(
+      ctx,
+      overlay: navigatorKey.currentState?.overlay,
+      title: title.toString(),
+      body: body.toString(),
+      icon: type == 'chat'
+          ? Iconsax.message
+          : (type == 'eventStarted' || type == 'eventReminder')
+              ? Iconsax.calendar_1
+              : Iconsax.notification_bing,
+      // Tapping the toast goes to the exact chat / event.
+      onTap: openable ? () => _handleBackgroundMessage(message.data) : null,
     );
   }
 
@@ -741,21 +728,75 @@ Future<void> restoreNotification(NotificationModel item) async {
   }
 }
 
+/// Live count of UNREAD notifications for the logged-in user.
+///
+/// A notification is unread when:
+///   • the user is a recipient (`toUids` contains uid),
+///   • the user did not send it themselves, and
+///   • the user's uid is not yet in its `readBy` list.
+///
+/// The filtering is done client-side so that old documents (which have no
+/// `readBy` field) still work, and so no extra Firestore index is needed.
 Stream<int> getNotificationCount() async* {
   try {
     final firebase = FirebaseConfig();
     final cid = await Spdb.getCid();
     final uid = await Spdb.getUid();
+    if (uid == null || uid.isEmpty) {
+      yield 0;
+      return;
+    }
     yield* firebase.users
         .doc(cid)
         .collection(Collections.notifications.name)
         .where('toUids', arrayContains: uid)
-        .where('senderId', isNotEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+        .map((snapshot) {
+          return snapshot.docs.where((doc) {
+            final data = doc.data();
+            if (data['senderId'] == uid) return false;
+            final readBy = data['readBy'] is List
+                ? List<String>.from(data['readBy'])
+                : const <String>[];
+            return !readBy.contains(uid);
+          }).length;
+        });
   } catch (e, st) {
     ErrorService.recordError(e, st);
     rethrow;
+  }
+}
+
+/// Marks the given notifications as read for the logged-in user.
+/// Uses `arrayUnion`, so it is safe for notifications shared by many users
+/// (each user only adds their own uid) and is idempotent.
+Future<void> markNotificationsAsRead(List<String> notificationIds) async {
+  if (notificationIds.isEmpty) return;
+  try {
+    final firebase = FirebaseConfig();
+    final cid = await Spdb.getCid();
+    final uid = await Spdb.getUid();
+    if (uid == null || uid.isEmpty) return;
+
+    final col = firebase.users
+        .doc(cid)
+        .collection(Collections.notifications.name);
+
+    // Firestore batches are limited to 500 writes.
+    for (var i = 0; i < notificationIds.length; i += 450) {
+      final chunk = notificationIds.sublist(
+        i,
+        i + 450 > notificationIds.length ? notificationIds.length : i + 450,
+      );
+      final batch = FirebaseFirestore.instance.batch();
+      for (final id in chunk) {
+        batch.update(col.doc(id), {
+          'readBy': FieldValue.arrayUnion([uid]),
+        });
+      }
+      await batch.commit();
+    }
+  } catch (e, st) {
+    await ErrorService.recordError(e, st);
   }
 }

@@ -29,11 +29,32 @@ class _ChatBubbleState extends State<ChatBubble>
 
   // Overlay & Hover Logic
   final OverlayPortalController _overlayController = OverlayPortalController();
-  final LayerLink _layerLink = LayerLink();
+  final LayerLink _layerLink = LayerLink(); // whole row (mobile long-press menu)
+  final LayerLink _bubbleLink = LayerLink(); // the bubble itself (desktop chips)
+  final LayerLink _chipLink = LayerLink(); // the small reaction chip
   Timer? _hoverTimer;
   bool _isMenuHovered = false;
   bool _isBubbleHovered = false;
   bool _isPopupOpen = false;
+
+  // Desktop / web (Bitrix style) hover state
+  bool _chipHovered = false;
+  bool _pickerHovered = false;
+  bool _actionsHovered = false;
+  bool _pickerVisible = false;
+  // Picker placement, decided from the free space around the chip so it is
+  // never cut off by the screen edge.
+  bool _pickerExtendsRight = true;
+  bool _pickerBelow = false;
+  final GlobalKey _chipKey = GlobalKey();
+  static const double _pickerWidth = 260;
+  static const double _pickerHeight = 48;
+
+  /// Only ONE bubble may show its hover controls at a time. This is what
+  /// stops the "emoji bar shows on every message" bug: if a hover-exit is
+  /// ever missed (fast mouse, scrolling, overlay disposed under the
+  /// pointer), the stale bubble is hidden as soon as another one is hovered.
+  static _ChatBubbleState? _activeBubble;
 
   late bool _isPinned;
   late MessagesModel _msg;
@@ -77,6 +98,7 @@ class _ChatBubbleState extends State<ChatBubble>
   @override
   void dispose() {
     _hoverTimer?.cancel();
+    if (_activeBubble == this) _activeBubble = null;
     super.dispose();
   }
 
@@ -112,19 +134,173 @@ class _ChatBubbleState extends State<ChatBubble>
     _startHideTimer();
   }
 
+  // Desktop chips: reaction chip -> opens the emoji picker on hover.
+  void _setChipHover(bool v) {
+    _chipHovered = v;
+    if (v) {
+      _hoverTimer?.cancel();
+      if (!_pickerVisible && mounted) {
+        _decidePickerPlacement();
+        setState(() => _pickerVisible = true);
+      }
+    } else {
+      _startHideTimer();
+    }
+  }
+
+  void _decidePickerPlacement() {
+    final box = _chipKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    final screenW = MediaQuery.of(context).size.width;
+    const margin = 8.0;
+
+    final canRight = rect.left + _pickerWidth <= screenW - margin;
+    final canLeft = rect.right - _pickerWidth >= margin;
+
+    // Prefer the natural side (sender chip is on the left of the bubble,
+    // incoming chip on the right), but flip when there is no room.
+    final preferRight = widget.isSender;
+    if (preferRight) {
+      _pickerExtendsRight = canRight || !canLeft;
+    } else {
+      _pickerExtendsRight = !canLeft && canRight;
+    }
+
+    // Not enough room above (e.g. first message under the header): open below.
+    _pickerBelow = rect.top < _pickerHeight + 12;
+  }
+
+  void _setPickerHover(bool v) {
+    _pickerHovered = v;
+    if (v) {
+      _hoverTimer?.cancel();
+    } else {
+      _startHideTimer();
+    }
+  }
+
+  void _setActionsHover(bool v) {
+    _actionsHovered = v;
+    if (v) {
+      _hoverTimer?.cancel();
+    } else {
+      _startHideTimer();
+    }
+  }
+
   void _showMenu() {
     _hoverTimer?.cancel();
+    if (!kIsMobile) {
+      final prev = _activeBubble;
+      if (prev != null && prev != this) prev._forceHide();
+      _activeBubble = this;
+    }
     if (!_overlayController.isShowing) {
       _overlayController.show();
     }
   }
 
+  /// Hides every hover control immediately and clears all hover flags
+  /// (a disposed overlay never fires onExit, so flags must be reset here).
+  void _forceHide() {
+    _hoverTimer?.cancel();
+    _isBubbleHovered = false;
+    _isMenuHovered = false;
+    _chipHovered = false;
+    _pickerHovered = false;
+    _actionsHovered = false;
+    _isPopupOpen = false;
+    if (_overlayController.isShowing) _overlayController.hide();
+    if (_activeBubble == this) _activeBubble = null;
+    if (mounted && _pickerVisible) {
+      setState(() => _pickerVisible = false);
+    } else {
+      _pickerVisible = false;
+    }
+  }
+
   void _startHideTimer() {
     _hoverTimer?.cancel();
-    _hoverTimer = Timer(const Duration(milliseconds: 150), () {
-      // FIX: Don't hide if the popup menu is currently open
-      if (!_isBubbleHovered && !_isMenuHovered && !_isPopupOpen && mounted) {
-        _overlayController.hide();
+    _hoverTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      final anyHover =
+          _isBubbleHovered ||
+          _isMenuHovered ||
+          _chipHovered ||
+          _pickerHovered ||
+          _actionsHovered;
+      // Don't hide while the "..." popup menu is open.
+      if (!anyHover && !_isPopupOpen) {
+        _forceHide();
+        return;
+      }
+      // Picker is only visible while the chip / picker is hovered.
+      final wantPicker = _chipHovered || _pickerHovered;
+      if (wantPicker != _pickerVisible) {
+        setState(() => _pickerVisible = wantPicker);
+      }
+    });
+  }
+
+  Map<String, VoidCallback> _buildActions(MessageProvider messageProvider) {
+    return {
+      "reply": () {
+        _forceHide();
+        messageProvider.replyMessage(_msg);
+      },
+      "copy": () {
+        _forceHide();
+        Clipboard.setData(ClipboardData(text: _msg.message));
+      },
+      if (_isPinned) "unpin": _pinMessage else "pin": _pinMessage,
+      if (widget.isSender)
+        "edit": () {
+          _forceHide();
+          messageProvider.editMessage(_msg);
+        },
+      if (widget.isSender) "delete": _handleDeleteMessage,
+    };
+  }
+
+  /// Opens the "..." actions popup next to the small chip (desktop).
+  void _openActionsMenu(BuildContext chipContext, MessageProvider provider) {
+    final actions = _buildActions(provider);
+    final RenderBox button = chipContext.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(chipContext).context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    _isPopupOpen = true;
+    showMenu<String>(
+      context: chipContext,
+      position: position,
+      items: [
+        for (final i in actions.keys)
+          PopupMenuItem(
+            value: i,
+            child: Text(
+              i.capitalizeFirst,
+              style: Theme.of(chipContext).textTheme.bodyLarge,
+            ),
+          ),
+      ],
+    ).then((value) {
+      _isPopupOpen = false;
+      if (!mounted) return;
+      if (value != null) {
+        actions[value]!();
+      } else {
+        _startHideTimer();
       }
     });
   }
@@ -168,10 +344,7 @@ class _ChatBubbleState extends State<ChatBubble>
     final uid = await Spdb.getUid();
     if (uid == null) return;
 
-    if (mounted) {
-      _isMenuHovered = false;
-      _overlayController.hide();
-    }
+    if (mounted) _forceHide();
 
     await ChatService.toggleReaction(
       chatId: widget.chatUid,
@@ -188,7 +361,7 @@ class _ChatBubbleState extends State<ChatBubble>
   }
 
   void _pinMessage() async {
-    _overlayController.hide();
+    _forceHide();
     await ChatService.togglePin(
       chatId: widget.chatUid,
       messageId: _msg.uid!,
@@ -207,7 +380,7 @@ class _ChatBubbleState extends State<ChatBubble>
   }
 
   void _handleDeleteMessage() async {
-    _overlayController.hide();
+    _forceHide();
     final confirm = await showDialog(
       barrierDismissible: false,
       context: context,
@@ -258,6 +431,141 @@ class _ChatBubbleState extends State<ChatBubble>
     if (mounted) setState(() => _msg = updated);
   }
 
+  // ------------------------------------------------------------------
+  // Desktop / web overlay (Bitrix style)
+  //   • hover the bubble     -> small 👍 chip on the bubble's bottom edge
+  //                             + small "..." chip beside the bubble
+  //   • hover the 👍 chip    -> emoji picker pops up above it
+  //   • click an emoji / chip-> react
+  // ------------------------------------------------------------------
+  Widget _buildDesktopOverlay(MessageProvider messageProvider) {
+    final isSender = widget.isSender;
+    final theme = Theme.of(context);
+
+    BoxDecoration chipDecoration() => BoxDecoration(
+      color: theme.cardTheme.color ?? theme.colorScheme.surface,
+      shape: BoxShape.circle,
+      border: Border.all(color: theme.colorScheme.outlineVariant),
+      boxShadow: [
+        BoxShadow(
+          color: theme.colorScheme.shadow.withValues(alpha: 0.18),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+
+    return Stack(
+      children: [
+        // 1) "..." actions chip, beside the bubble (top corner)
+        CompositedTransformFollower(
+          link: _bubbleLink,
+          showWhenUnlinked: false,
+          targetAnchor: isSender ? Alignment.topLeft : Alignment.topRight,
+          followerAnchor: isSender ? Alignment.topRight : Alignment.topLeft,
+          offset: Offset(isSender ? -6 : 6, 0),
+          child: Align(
+            alignment: isSender ? Alignment.topRight : Alignment.topLeft,
+            child: MouseRegion(
+              onEnter: (_) => _setActionsHover(true),
+              onExit: (_) => _setActionsHover(false),
+              child: Builder(
+                builder: (chipContext) => GestureDetector(
+                  onTap: () => _openActionsMenu(chipContext, messageProvider),
+                  child: Tooltip(
+                    message: 'More',
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: chipDecoration(),
+                      child: Icon(
+                        Icons.more_horiz,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 2) small 👍 reaction chip on the bubble's bottom edge.
+        //    Placed on the side opposite to the existing reaction chips.
+        CompositedTransformFollower(
+          link: _bubbleLink,
+          showWhenUnlinked: false,
+          targetAnchor: isSender ? Alignment.bottomLeft : Alignment.bottomRight,
+          followerAnchor: isSender
+              ? Alignment.bottomLeft
+              : Alignment.bottomRight,
+          offset: Offset(isSender ? 10 : -10, 13),
+          child: Align(
+            alignment: isSender ? Alignment.bottomLeft : Alignment.bottomRight,
+            child: CompositedTransformTarget(
+              link: _chipLink,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) => _setChipHover(true),
+                onExit: (_) => _setChipHover(false),
+                child: GestureDetector(
+                  onTap: () => _addReaction("👍"),
+                  child: Container(
+                    key: _chipKey,
+                    width: 26,
+                    height: 26,
+                    decoration: chipDecoration(),
+                    child: const Icon(
+                      Icons.thumb_up_alt_rounded,
+                      size: 14,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 3) emoji picker, only while the chip / picker is hovered.
+        //    Side (left/right) and vertical position are chosen from the
+        //    free space so it never goes behind the screen edge.
+        if (_pickerVisible)
+          CompositedTransformFollower(
+            link: _chipLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment(
+              _pickerExtendsRight ? -1 : 1,
+              _pickerBelow ? 1 : -1,
+            ),
+            followerAnchor: Alignment(
+              _pickerExtendsRight ? -1 : 1,
+              _pickerBelow ? -1 : 1,
+            ),
+            offset: Offset(0, _pickerBelow ? 4 : -4),
+            child: Align(
+              alignment: Alignment(
+                _pickerExtendsRight ? -1 : 1,
+                _pickerBelow ? -1 : 1,
+              ),
+              child: MouseRegion(
+                onEnter: (_) => _setPickerHover(true),
+                onExit: (_) => _setPickerHover(false),
+                child: _EmojiPickerBar(
+                  alignment: Alignment(
+                    _pickerExtendsRight ? -1 : 1,
+                    _pickerBelow ? -1 : 1,
+                  ),
+                  onSelected: _addReaction,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final messageProvider = Provider.of<MessageProvider>(
@@ -272,6 +580,10 @@ class _ChatBubbleState extends State<ChatBubble>
         child: OverlayPortal(
           controller: _overlayController,
           overlayChildBuilder: (BuildContext context) {
+            // Desktop / web: Bitrix style chips + picker.
+            if (!kIsMobile) return _buildDesktopOverlay(messageProvider);
+
+            // Mobile (long press): the original full menu.
             return CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
@@ -294,68 +606,45 @@ class _ChatBubbleState extends State<ChatBubble>
                     onReaction: _addReaction,
                     onMenuStateChanged: (isOpen) {
                       _isPopupOpen = isOpen;
-                      // If closing, check if we need to hide the overlay
-                      if (!isOpen) {
-                        _startHideTimer();
-                      }
+                      if (!isOpen) _startHideTimer();
                     },
-                    actions: {
-                      "reply": () {
-                        _overlayController.hide();
-                        messageProvider.replyMessage(_msg);
-                      },
-                      "copy": () {
-                        _overlayController.hide();
-                        Clipboard.setData(ClipboardData(text: _msg.message));
-                      },
-                        if (_isPinned) "unpin": _pinMessage else "pin": _pinMessage,
-                      if (widget.isSender)
-                        "edit": () {
-                          _overlayController.hide();
-                          messageProvider.editMessage(_msg);
-                        },
-
-                      if (widget.isSender) "delete": _handleDeleteMessage,
-                    },
+                    actions: _buildActions(messageProvider),
                   ),
                 ),
               ),
             );
           },
-          child: MouseRegion(
-            onEnter: (_) {
-              if (!kIsMobile) _onEnterBubble();
+          child: GestureDetector(
+            onDoubleTap: _onDoubleTap,
+            onLongPress: () {
+              if (kIsMobile) {
+                _onEnterMenu();
+              }
             },
-            onExit: (_) {
-              if (!kIsMobile) _onExitBubble();
+            onLongPressCancel: () {
+              if (kIsMobile) {
+                _onExitMenu();
+              }
             },
-            child: GestureDetector(
-              onDoubleTap: _onDoubleTap,
-              onLongPress: () {
-                if (kIsMobile) {
-                  _onEnterMenu();
-                }
-              },
-              onLongPressCancel: () {
-                if (kIsMobile) {
-                  _onExitMenu();
-                }
-              },
-              child: _ChatBubbleCore(
-                slideOffset: _slideOffset,
-                showSlideIcon: _showSlideIcon,
-                isSender: widget.isSender,
-                message: _msg,
-                replyChat: _replyChat,
-                isLast: widget.isLast,
-                isPinned: _isPinned,
-                onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                onHorizontalDragEnd: _onHorizontalDragEnd,
-                onLongPress: _showMobileChatOptions,
-                onReactionTap: _onReactionTap,
-                currentUserId: _currentUid,
-                onOpenChat: widget.onOpenChat,
-              ),
+            child: _ChatBubbleCore(
+              slideOffset: _slideOffset,
+              showSlideIcon: _showSlideIcon,
+              isSender: widget.isSender,
+              message: _msg,
+              replyChat: _replyChat,
+              isLast: widget.isLast,
+              isPinned: _isPinned,
+              onHorizontalDragUpdate: _onHorizontalDragUpdate,
+              onHorizontalDragEnd: _onHorizontalDragEnd,
+              onLongPress: _showMobileChatOptions,
+              onReactionTap: _onReactionTap,
+              currentUserId: _currentUid,
+              onOpenChat: widget.onOpenChat,
+              // Hover is tracked on the BUBBLE only (not the whole row), so
+              // empty space beside a short message no longer triggers it.
+              bubbleLink: kIsMobile ? null : _bubbleLink,
+              onBubbleEnter: kIsMobile ? null : _onEnterBubble,
+              onBubbleExit: kIsMobile ? null : _onExitBubble,
             ),
           ),
         ),
@@ -378,6 +667,9 @@ class _ChatBubbleCore extends StatelessWidget {
   final Function(String)? onReactionTap;
   final String? currentUserId;
   final Function(ChatModel chat, String opponentUid)? onOpenChat;
+  final LayerLink? bubbleLink;
+  final VoidCallback? onBubbleEnter;
+  final VoidCallback? onBubbleExit;
 
   const _ChatBubbleCore({
     required this.slideOffset,
@@ -393,7 +685,23 @@ class _ChatBubbleCore extends StatelessWidget {
     this.onReactionTap,
     this.currentUserId,
     this.onOpenChat,
+    this.bubbleLink,
+    this.onBubbleEnter,
+    this.onBubbleExit,
   });
+
+  /// Anchors the desktop hover chips to the bubble and tracks hover on it.
+  Widget _wrapHover(Widget child) {
+    if (bubbleLink == null) return child;
+    return CompositedTransformTarget(
+      link: bubbleLink!,
+      child: MouseRegion(
+        onEnter: (_) => onBubbleEnter?.call(),
+        onExit: (_) => onBubbleExit?.call(),
+        child: child,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -469,11 +777,13 @@ class _ChatBubbleCore extends StatelessWidget {
                           ? CrossAxisAlignment.end
                           : CrossAxisAlignment.start,
                       children: [
-                        _ChatBubbleMessageBox(
-                          isSender: isSender,
-                          message: message,
-                          replyChat: replyChat,
-                          onOpenChat: onOpenChat,
+                        _wrapHover(
+                          _ChatBubbleMessageBox(
+                            isSender: isSender,
+                            message: message,
+                            replyChat: replyChat,
+                            onOpenChat: onOpenChat,
+                          ),
                         ),
                         if (message.reactions.isNotEmpty)
                           Padding(
@@ -1007,6 +1317,55 @@ class _ChatBubbleHoverMenuState extends State<_ChatBubbleHoverMenu> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Emoji picker pill shown above the reaction chip (Bitrix style).
+class _EmojiPickerBar extends StatelessWidget {
+  final ValueChanged<String> onSelected;
+  final Alignment alignment;
+  const _EmojiPickerBar({required this.onSelected, required this.alignment});
+
+  static const _emojis = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0.0, 1.0),
+        child: Transform.scale(
+          scale: 0.85 + 0.15 * t,
+          alignment: alignment,
+          child: child,
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: theme.cardTheme.color ?? theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.shadow.withValues(alpha: 0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final e in _emojis)
+              _HoverEmoji(emoji: e, onTap: () => onSelected(e)),
+          ],
+        ),
       ),
     );
   }

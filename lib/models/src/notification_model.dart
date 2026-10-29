@@ -21,6 +21,9 @@ import '/constants/constants.dart';
     final List<String> toFcms;
     final List<String> toUids;
 
+    // Per-user read tracking (uids of users who have already seen this)
+    final List<String> readBy;
+
     // Chat
     final bool isChat;
     final MessagesModel? message;
@@ -44,6 +47,7 @@ import '/constants/constants.dart';
       this.to = const [],
       this.toFcms = const [],
       this.toUids = const [],
+      this.readBy = const [],
       this.isChat = false,
       this.message,
       this.chat,
@@ -65,6 +69,7 @@ import '/constants/constants.dart';
       List<String>? to,
       List<String>? toFcms,
       List<String>? toUids,
+      List<String>? readBy,
       bool? isChat,
       MessagesModel? message,
       ChatModel? chat,
@@ -83,6 +88,7 @@ import '/constants/constants.dart';
         to: to ?? this.to,
         toFcms: toFcms ?? this.toFcms,
         toUids: toUids ?? this.toUids,
+        readBy: readBy ?? this.readBy,
         isChat: isChat ?? this.isChat,
         message: message ?? this.message,
         chat: chat ?? this.chat,
@@ -107,6 +113,7 @@ import '/constants/constants.dart';
         'to': to,
         'toFcms': toFcms,
         'toUids': toUids,
+        'readBy': readBy,
         'isChat': isChat,
         'message': message?.toMap(),
         'chat': chat?.toMap(),
@@ -132,6 +139,7 @@ import '/constants/constants.dart';
         to: map['to'] != null ? List<String>.from(map['to']) : [],
         toFcms: map['toFcms'] != null ? List<String>.from(map['toFcms']) : [],
         toUids: map['toUids'] != null ? List<String>.from(map['toUids']) : [],
+        readBy: map['readBy'] != null ? List<String>.from(map['readBy']) : [],
         isChat: map['isChat'] ?? false,
         message: map['message'] != null
             ? MessagesModel.fromMap('', Map<String, dynamic>.from(map['message']))

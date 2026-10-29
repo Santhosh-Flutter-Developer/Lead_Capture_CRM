@@ -38,6 +38,23 @@ class NotificationsBloc extends Bloc<NotificationsEvent, NotificationsState> {
                 .map((doc) => NotificationModel.fromMap(doc.id, doc.data()))
                 .toList();
 
+            // The user has this screen open, so everything listed here is
+            // "seen": mark the unread ones as read so the header badge
+            // count drops to 0. After the write, the snapshot fires again
+            // with readBy updated -> nothing left to mark -> no loop.
+            final unreadIds = allNotifications
+                .where(
+                  (n) =>
+                      n.uid != null &&
+                      uid != null &&
+                      !n.readBy.contains(uid),
+                )
+                .map((n) => n.uid!)
+                .toList();
+            if (unreadIds.isNotEmpty) {
+              markNotificationsAsRead(unreadIds);
+            }
+
             return allNotifications;
           }),
       onData: (notifications) => NotificationsLoaded(notifications),

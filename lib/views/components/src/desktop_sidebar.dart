@@ -359,6 +359,13 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
     );
   }
 
+  bool _hasValidLogoUrl(String? url) {
+    final u = url?.trim() ?? '';
+    if (u.isEmpty || u.toLowerCase() == 'null') return false;
+    final uri = Uri.tryParse(u);
+    return uri != null && uri.hasScheme && uri.host.isNotEmpty;
+  }
+
   Widget _buildLogo() {
     final String? networkLogo = widget.companyLogo;
 
@@ -377,9 +384,9 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
                   : InkWell(
                       onTap: () =>
                           Navigate.routeReplace(context, RouteScreen()),
-                      child: (networkLogo != null && networkLogo.isNotEmpty)
+                      child: _hasValidLogoUrl(networkLogo)
                           ? Image.network(
-                              networkLogo,
+                              networkLogo??'',
                               height: 34,
                               fit: BoxFit.contain,
                               frameBuilder:
@@ -420,13 +427,35 @@ class _DesktopSidebarState extends State<DesktopSidebar> {
     );
   }
 
+  /// Default LeadCapture logo, used when the company has no logo, the URL is
+  /// empty/invalid, or the network image fails to load.
+  ///
+  /// NOTE: the asset must NOT be tinted (`color:`). The old code painted it
+  /// solid white, which turned the logo into a plain white blob.
+  /// A light rounded tile keeps the grey/blue logo readable on the dark
+  /// sidebar.
   Widget _buildDefaultLogoAsset() {
-    return Image.asset(
-      ImageAssets.logoTransparent,
-      height: 36,
-      color: DesktopColors.white,
-      errorBuilder: (context, error, stackTrace) =>
-          const Icon(Iconsax.buildings, size: 30, color: DesktopColors.white),
+    return Container(
+      height: 40,
+      width: 40,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: DesktopColors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Image.asset(
+        ImageAssets.trademark,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => Image.asset(
+          ImageAssets.logoTransparent,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const Icon(
+            Iconsax.buildings,
+            size: 24,
+            color: Color(0xFF0052D4),
+          ),
+        ),
+      ),
     );
   }
 

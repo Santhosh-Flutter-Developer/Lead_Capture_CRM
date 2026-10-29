@@ -22,6 +22,10 @@ class _HeaderState extends State<Header> {
   // String _selectedFilter = "Today";
   bool _isRefreshing = false;
 
+  // Created once. Calling getNotificationCount() inside build() would open
+  // a brand-new Firestore listener on every rebuild.
+  late final Stream<int> _notificationCountStream = getNotificationCount();
+
   String formatRelativeTime(DateTime lastSync) {
     final now = DateTime.now();
     final difference = now.difference(lastSync);
@@ -282,7 +286,7 @@ class _HeaderState extends State<Header> {
           isDark: isDark,
         ),
         StreamBuilder<int>(
-          stream: getNotificationCount(),
+          stream: _notificationCountStream,
           builder: (context, snapshot) {
             int notificationCount = snapshot.data ?? 0;
 
