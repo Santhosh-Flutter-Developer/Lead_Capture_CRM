@@ -155,7 +155,17 @@ class ChatTopBar extends StatelessWidget implements PreferredSizeWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: GestureDetector(
-                    onTap: isSelfChat ? null : () => openUser(context, user),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: chat.isGroupChat
+                        // Group: show the members list (with search).
+                        ? () => ChatMembersPanel.showAsSheet(
+                            context,
+                            chat: chat,
+                            currentUserUid: currentUserUid,
+                          )
+                        : isSelfChat
+                        ? null
+                        : () => openUser(context, user),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -320,6 +330,10 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchClose;
   final bool isSearching;
 
+  /// Toggles the "Members" side panel (group chats).
+  final VoidCallback? onMembersTap;
+  final bool isMembersOpen;
+
   const ChatTopBarDesktop({
     super.key,
     required this.userUid,
@@ -330,6 +344,8 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
     this.onSearchChanged,
     this.onSearchClose,
     this.isSearching = false,
+    this.onMembersTap,
+    this.isMembersOpen = false,
   });
 
   @override
@@ -503,24 +519,37 @@ class ChatTopBarDesktop extends StatelessWidget implements PreferredSizeWidget {
         children: [
           Expanded(
             child: chat.isGroupChat
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        chat.title ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                ? MouseRegion(
+                    cursor: onMembersTap != null
+                        ? SystemMouseCursors.click
+                        : MouseCursor.defer,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onMembersTap,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            chat.title ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '${chat.participants.length} Members',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isMembersOpen
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${chat.participants.length} Members',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                    ),
                   )
                 : GestureDetector(
                     onTap: isSelfChat ? null : () => openUser(context, user),

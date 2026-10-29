@@ -52,6 +52,7 @@ part 'input_bar.dart';
 part 'attachment_intake.dart';
 part 'chat_options.dart';
 part 'chat_top_bar.dart';
+part 'chat_members_panel.dart';
 part 'pinned_messages_bar.dart';
 part 'utility.dart';
 part 'pending_message.dart';
@@ -82,6 +83,20 @@ class _ChatMessagesState extends State<ChatMessages> {
   StreamSubscription<List<MessagesModel>>? _subscription;
   bool _isSearching = false;
   String _searchQuery = '';
+  // Desktop: "Members" side panel (group chats only).
+  bool _membersOpen = false;
+
+  // Keeps the conversation (StreamBuilder + scroll position) alive when the
+  // members panel opens/closes. Without this, moving the body into a Row
+  // rebuilt the StreamBuilder, which re-subscribed to a BROADCAST stream,
+  // missed the initial snapshot and stayed on the loading spinner forever.
+  final GlobalKey _chatBodyKey = GlobalKey();
+
+  @override
+  void didUpdateWidget(covariant ChatMessages oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.chat.uid != widget.chat.uid) _membersOpen = false;
+  }
 
   // Owns the scroll position for the message list so the pinned-messages
   // bar can jump to (and highlight) a specific message.
@@ -179,6 +194,8 @@ class _ChatMessagesState extends State<ChatMessages> {
                 lastSeen: DateTime.now().formatTime,
                 chat: widget.chat,
                 isSearching: _isSearching,
+                isMembersOpen: _membersOpen,
+                onMembersTap: () => setState(() => _membersOpen = !_membersOpen),
 
                 onSearchChanged: (value) {
                   setState(() {
@@ -194,7 +211,11 @@ class _ChatMessagesState extends State<ChatMessages> {
                   });
                 },
               ),
-        body: SafeArea(
+        body: LayoutBuilder(
+          builder: (context, box) {
+            final chatBody = KeyedSubtree(
+              key: _chatBodyKey,
+              child: SafeArea(
           child: ChatDropZone(
             canAccept: () => _inputKey.currentState?.canAcceptAttachments ?? false,
             onImported: (r) => _inputKey.currentState?.receiveImport(r),
@@ -265,8 +286,50 @@ class _ChatMessagesState extends State<ChatMessages> {
             ),
           ),
           ),
+            );
+
+            // Members side panel: desktop layout + group chats only.
+            final bool desktopLayout =
+                !(kIsMobile || MediaQuery.of(context).size.width < 1000);
+            if (!_membersOpen || !desktopLayout || !widget.chat.isGroupChat) {
+              return chatBody;
+            }
+
+            final panel = ChatMembersPanel(
+              key: ValueKey('members_${widget.chat.uid}'),
+              chat: widget.chat,
+              currentUserUid: widget.currentUser,
+              onOpenChat: widget.onOpenChat,
+              onClose: () => setState(() => _membersOpen = false),
+            );
+
+            // Enough room: conversation + panel side by side (Bitrix).
+            if (box.maxWidth >= 760) {
+              return Row(
+                children: [
+                  Expanded(child: chatBody),
+                  SizedBox(width: 320, child: panel),
+                ],
+              );
+            }
+
+            // Narrow chat pane: float the panel over the conversation.
+            return Stack(
+              children: [
+                chatBody,
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: box.maxWidth < 320 ? box.maxWidth : 320,
+                  child: Material(elevation: 8, child: panel),
+                ),
+              ],
+            );
+          },
         ),
-      );
+      ),
+    );
   }
 }
 
