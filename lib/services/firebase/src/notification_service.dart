@@ -56,6 +56,22 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// `true` only if the push is meant for the user who is logged in on this
+/// device RIGHT NOW. Drops pushes when nobody is logged in (after logout) or
+/// when the logged-in user is not one of the intended recipients (leftover
+/// token of a previous account).
+Future<bool> _isForCurrentUser(Map<String, dynamic> data) async {
+  try {
+    final uid = (await Spdb.getUidFresh())?.trim();
+    if (uid == null || uid.isEmpty) return false; // logged out
+    final raw = (data['toUids'] ?? '').toString();
+    if (raw.isEmpty) return true; // older payload without recipients
+    return raw.split(',').map((e) => e.trim()).contains(uid);
+  } catch (_) {
+    return true; // never lose a notification because of a check failure
+  }
+}
+
 /// Returns the FCM token for the current device/browser.
 Future<String> getToken() async {
   try {
@@ -138,7 +154,10 @@ class NotificationService {
     }
   }
 
-  void _handleWebForegroundMessage(RemoteMessage message) {
+  Future<void> _handleWebForegroundMessage(RemoteMessage message) async {
+    // Not for the user logged in here -> ignore.
+    if (!await _isForCurrentUser(message.data)) return;
+
     // On web, flutter_local_notifications is not available.
     // Show an in-app snackbar/dialog instead.
     final ctx = navigatorKey.currentContext;
@@ -282,6 +301,13 @@ class NotificationService {
     // On web, showNotification is handled by the service worker (SW).
     // Foreground messages are handled by _handleWebForegroundMessage().
     if (kIsWeb) return;
+
+    // Covers foreground + background (Android/iOS): only show the push if it
+    // is for the user who is logged in on this device.
+    if (!await _isForCurrentUser(message.data)) {
+      debugPrint('🔕 [NOTIF] dropped: not for the logged-in user');
+      return;
+    }
 
     try {
       final notification = message.notification;

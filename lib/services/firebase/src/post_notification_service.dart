@@ -95,6 +95,12 @@ class PostNotificationService {
                 "title": model.title,
                 "body": model.body,
                 "type": model.type?.name,
+                // Intended recipients. The receiving app drops the push if
+                // the logged-in user is not in this list (FCM data payload
+                // is limited to 4KB, so skip it for very large groups).
+                if (model.toUids.isNotEmpty &&
+                    model.toUids.join(',').length <= 800)
+                  "toUids": model.toUids.join(','),
               },
             },
           };
@@ -112,6 +118,11 @@ class PostNotificationService {
             if (response.statusCode == 200) {
               debugPrint('✅ [PUSH] sent OK: ${response.body}');
             } else {
+              // Token is dead (app uninstalled / expired): stop using it.
+              if (response.body.contains('UNREGISTERED') ||
+                  response.statusCode == 404) {
+                await AuthService.removeFcmTokenEverywhere(element);
+              }
               debugPrint(
                 '❌ [PUSH] FCM rejected (${response.statusCode}) for token '
                 '${element.substring(0, element.length > 12 ? 12 : element.length)}…: ${response.body}',

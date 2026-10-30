@@ -16,6 +16,14 @@ class FirestoreNotificationListener {
   static final Set<String> _shownIds = {};
   static StreamSubscription? _subscription;
 
+  /// Stops listening (call on logout) so a logged-out machine — or the next
+  /// account that logs in — never shows the previous user's notifications.
+  static Future<void> stopListening() async {
+    await _subscription?.cancel();
+    _subscription = null;
+    _shownIds.clear();
+  }
+
   static Future<void> listenForNotifications() async {
     // Cancel any existing listener before starting a new one
     await _subscription?.cancel();
@@ -31,7 +39,13 @@ class FirestoreNotificationListener {
           .where('toUids', arrayContains: uid.trim())
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .listen((querySnapshot) {
+          .listen((querySnapshot) async {
+            // Session changed (logout / another user logged in) -> stop.
+            final current = (await Spdb.getUid())?.trim();
+            if (current != uid.trim()) {
+              await stopListening();
+              return;
+            }
             for (var change in querySnapshot.docChanges) {
               if (change.type == DocumentChangeType.added) {
                 var data = change.doc.data();

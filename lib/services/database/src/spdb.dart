@@ -159,6 +159,17 @@ class Spdb {
     return cn.getString('cid');
   }
 
+  /// Same as [getUid] but re-reads the preferences from disk first. Needed
+  /// in the push background isolate, whose cached copy can be stale after
+  /// the user logs in/out in the main isolate.
+  static Future<String?> getUidFresh() async {
+    final cn = await _connect();
+    try {
+      await cn.reload();
+    } catch (_) {}
+    return getUid();
+  }
+
   static Future<String?> getUid() async {
     final cn = await _connect();
 

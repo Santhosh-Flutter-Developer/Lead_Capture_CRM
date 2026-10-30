@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:leadcapture/services/firebase/src/notification_service.dart'
+    show getToken;
 import '/utils/utils.dart';
 import '/services/services.dart';
 import '/constants/constants.dart';
@@ -272,6 +275,17 @@ class AuthService {
           "devices": FieldValue.arrayUnion([deviceMap]),
         });
       }
+
+      // A push token belongs to exactly ONE user at a time. If another
+      // account previously logged in on this device/browser (and did not
+      // clean up: uninstall, crash, old app version...), its record still
+      // holds this token, so that user's notifications would keep arriving
+      // here. Remove the token from every other user.
+      await _scrubFcmFromOtherUsers(
+        cid: cid,
+        keepUid: uid,
+        token: deviceMap['fcmId'] as String?,
+      );
     } catch (e, st) {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
@@ -279,42 +293,117 @@ class AuthService {
     }
   }
 
-  static Future<void> removeCurrentDeviceFcm() async {
-    if (kIsWeb) return;
-
-    var cid = await Spdb.getCid();
-    var uid = await Spdb.getUid();
-
+  /// Removes [token] from the `devices` of every employee/admin of the
+  /// company except [keepUid].
+  static Future<void> _scrubFcmFromOtherUsers({
+    required String cid,
+    required String? keepUid,
+    required String? token,
+  }) async {
+    if (token == null || token.isEmpty) return;
     try {
-      var deviceInfo = await DeviceInfo.getDeviceInfo();
-      var userRef = firebase.users
-          .doc(cid)
-          .collection(Collections.employees.name)
-          .doc(uid);
+      for (final collection in [
+        Collections.employees.name,
+        Collections.admins.name,
+      ]) {
+        final snap = await firebase.users.doc(cid).collection(collection).get();
+        for (final doc in snap.docs) {
+          if (keepUid != null && doc.id == keepUid) continue;
+          final raw = doc.data()['devices'];
+          if (raw is! List || raw.isEmpty) continue;
 
-      var userDoc = await userRef.get();
-      if (!userDoc.exists) return;
+          bool changed = false;
+          final updated = raw.map((e) {
+            final m = Map<String, dynamic>.from(e as Map);
+            if (m['fcmId'] == token) {
+              m['fcmId'] = null;
+              changed = true;
+            }
+            return m;
+          }).toList();
 
-      List<dynamic> devicesRaw = userDoc.data()?['devices'] ?? [];
-      List<DeviceModel> devices = devicesRaw
-          .map((e) => DeviceModel.fromMap(e as Map<String, dynamic>))
-          .toList();
-
-      devices = devices.map((d) {
-        if (d.toMatchMap().toString() == deviceInfo.toMatchMap().toString()) {
-          var map = d.toMap();
-          map['fcmId'] = null;
-          return DeviceModel.fromMap(map);
+          if (changed) await doc.reference.update({'devices': updated});
         }
-        return d;
-      }).toList();
-
-      await userRef.update({'devices': devices.map((d) => d.toMap()).toList()});
+      }
     } catch (e, st) {
-      debugPrint("${e.toString()}, ${st.toString()}");
+      // Never block login because of cleanup.
+      await ErrorService.recordError(e, st);
+    }
+  }
+
+  /// Used when FCM reports a token as dead (app uninstalled / token
+  /// expired): drop it from every user so it is never used again.
+  static Future<void> removeFcmTokenEverywhere(String token) async {
+    final cid = await Spdb.getCid();
+    if (cid == null) return;
+    await _scrubFcmFromOtherUsers(cid: cid, keepUid: null, token: token);
+  }
+
+  /// Logout cleanup for push notifications:
+  ///  1. clears this device's token from the logged-in user's record
+  ///     (employee OR admin, on mobile AND web), and
+  ///  2. deletes the token on the device itself, so the next account that
+  ///     logs in gets a brand-new token and can never receive the previous
+  ///     user's pushes.
+  /// Never throws, so logout always completes.
+  static Future<void> removeCurrentDeviceFcm() async {
+    String? token;
+    try {
+      final cid = await Spdb.getCid();
+      final uid = await Spdb.getUid();
+
+      final supportsFcm =
+          kIsWeb ||
+          defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS;
+      if (supportsFcm) {
+        final t = await getToken();
+        token = t.isEmpty ? null : t;
+      }
+
+      if (cid != null && uid != null) {
+        final deviceInfo = await DeviceInfo.getDeviceInfo();
+        final match = deviceInfo.toMatchMap().toString();
+
+        for (final collection in [
+          Collections.employees.name,
+          Collections.admins.name,
+        ]) {
+          final ref = firebase.users.doc(cid).collection(collection).doc(uid);
+          final doc = await ref.get();
+          if (!doc.exists) continue;
+
+          final raw = (doc.data()?['devices'] ?? []) as List;
+          bool changed = false;
+          final devices = raw.map((e) {
+            final d = DeviceModel.fromMap(Map<String, dynamic>.from(e as Map));
+            final isThisDevice = d.toMatchMap().toString() == match;
+            final sameToken = token != null && d.fcmId == token;
+            if ((isThisDevice || sameToken) &&
+                (d.fcmId != null && d.fcmId != '')) {
+              final map = d.toMap();
+              map['fcmId'] = null;
+              changed = true;
+              return DeviceModel.fromMap(map);
+            }
+            return d;
+          }).toList();
+
+          if (changed) {
+            await ref.update({'devices': devices.map((d) => d.toMap()).toList()});
+          }
+        }
+      }
+    } catch (e, st) {
       debugPrint('Error removing device FCM ID: $e');
       await ErrorService.recordError(e, st);
-      throw e.toString();
+    }
+
+    // Invalidate the token on the device (Android, iOS, Web).
+    try {
+      if (token != null) await FirebaseMessaging.instance.deleteToken();
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
     }
   }
 
@@ -422,7 +511,8 @@ class AuthService {
         }
       }
 
-      return fcmIds;
+      // A token can only ever be valid once.
+      return fcmIds.toSet().toList();
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       throw e.toString();

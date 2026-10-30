@@ -3,10 +3,19 @@ import '/app/app.dart';
 import '/services/services.dart';
 import '/views/views.dart';
 
+/// Everything that must stop/clear when a user leaves, in the right order
+/// (token cleanup needs the session, so it runs BEFORE the DB is cleared).
+Future<void> _clearSession() async {
+  try {
+    await FirestoreNotificationListener.stopListening(); // Windows
+  } catch (_) {}
+  await AuthService.removeCurrentDeviceFcm(); // Android / iOS / Web token
+  await Spdb.clearDb();
+}
+
 Future<void> forceLogout() async {
   try {
-    await AuthService.removeCurrentDeviceFcm();
-    Spdb.clearDb();
+    await _clearSession();
     CacheService().clearAllBoxes();
     NotificationService.instance.clearAvatarCache();
 
@@ -32,8 +41,7 @@ Future<void> logout(context) async {
   ).then((value) async {
     if (value != null && value) {
       futureLoading(context);
-      await AuthService.removeCurrentDeviceFcm();
-      Spdb.clearDb();
+      await _clearSession();
       CacheService().clearAllBoxes();
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
