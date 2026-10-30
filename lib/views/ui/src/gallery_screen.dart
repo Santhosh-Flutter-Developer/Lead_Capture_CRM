@@ -88,17 +88,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     Icons.file_download_outlined,
                     color: AppColors.white,
                   ),
-                  onPressed: () async {
-                    futureLoading(context);
-                    await Download.downloadFromUrl(
-                      context,
-                      widget.images[_index].url,
-                      widget.images[_index].name,
-                    );
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context);
-                    }
-                  },
+                  onPressed: () => Download.downloadWithLoading(
+                    context,
+                    widget.images[_index].url,
+                    widget.images[_index].name,
+                  ),
                 ),
               ],
             ),

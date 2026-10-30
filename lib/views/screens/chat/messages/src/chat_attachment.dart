@@ -443,7 +443,7 @@ class _DocsTab extends StatelessWidget {
                     );
                     return;
                   }
-                  await Download.downloadFromUrl(context, file.url, file.name);
+                  await Download.downloadWithLoading(context, file.url, file.name);
                 },
               ),
             );

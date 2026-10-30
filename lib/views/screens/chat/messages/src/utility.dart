@@ -453,6 +453,7 @@ class AudioPlay extends StatefulWidget {
 
 class _AudioPlayState extends State<AudioPlay> {
   late AudioPlayer _player;
+  final List<StreamSubscription> _subs = [];
   bool isPlaying = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
@@ -464,22 +465,28 @@ class _AudioPlayState extends State<AudioPlay> {
     if (widget.file.mimeType.contains('audio')) {
       _initializePlayer();
     }
-    _player.onPositionChanged.listen((position) {
-      setState(() {
-        _position = position;
-      });
-    });
-    _player.onDurationChanged.listen((duration) {
-      setState(() {
-        _duration = duration;
-      });
-    });
-    _player.onPlayerComplete.listen((_) {
-      setState(() {
-        isPlaying = false;
-        _position = Duration.zero;
-      });
-    });
+    // Every callback checks `mounted`: events arriving after the page is
+    // closed (or while a download is running) used to call setState() on a
+    // disposed State and crash.
+    _subs.addAll([
+      _player.onPositionChanged.listen((position) {
+        if (mounted) setState(() => _position = position);
+      }),
+      _player.onDurationChanged.listen((duration) {
+        if (mounted) setState(() => _duration = duration);
+      }),
+      _player.onPlayerComplete.listen((_) {
+        if (!mounted) return;
+        setState(() {
+          isPlaying = false;
+          _position = Duration.zero;
+        });
+      }),
+      _player.onPlayerStateChanged.listen((state) {
+        if (!mounted) return;
+        setState(() => isPlaying = state == PlayerState.playing);
+      }),
+    ]);
   }
 
   Future<void> _initializePlayer() async {
@@ -488,6 +495,7 @@ class _AudioPlayState extends State<AudioPlay> {
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
+      if (!mounted) return;
       FlushBar.show(
         context,
         e.toString(),
@@ -500,18 +508,25 @@ class _AudioPlayState extends State<AudioPlay> {
 
   @override
   void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
     _player.dispose();
     super.dispose();
   }
 
   void _togglePlayPause() async {
-    setState(() {
-      isPlaying = !isPlaying;
-    });
-    if (isPlaying) {
-      await _player.resume();
-    } else {
-      await _player.pause();
+    try {
+      if (isPlaying) {
+        await _player.pause();
+      } else {
+        await _player.resume();
+      }
+    } catch (e, st) {
+      await ErrorService.recordError(e, st);
+      if (mounted) {
+        FlushBar.show(context, 'Could not play audio', isSuccess: false);
+      }
     }
   }
 
@@ -625,17 +640,11 @@ class _AudioPlayState extends State<AudioPlay> {
                       Icons.file_download_outlined,
                       color: AppColors.white,
                     ),
-                    onPressed: () async {
-                      futureLoading(context);
-                      await Download.downloadFromUrl(
-                        context,
-                        widget.file.url,
-                        widget.file.name,
-                      );
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
+                    onPressed: () => Download.downloadWithLoading(
+                      context,
+                      widget.file.url,
+                      widget.file.name,
+                    ),
                   ),
                 ],
               ),
@@ -866,17 +875,11 @@ class _VideoPlayState extends State<VideoPlay> {
                       Icons.file_download_outlined,
                       color: AppColors.white,
                     ),
-                    onPressed: () async {
-                      futureLoading(context);
-                      await Download.downloadFromUrl(
-                        context,
-                        widget.file.url,
-                        widget.file.name,
-                      );
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
+                    onPressed: () => Download.downloadWithLoading(
+                      context,
+                      widget.file.url,
+                      widget.file.name,
+                    ),
                   ),
                 ],
               ),

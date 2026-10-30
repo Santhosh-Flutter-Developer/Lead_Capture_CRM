@@ -53,6 +53,7 @@ part 'attachment_intake.dart';
 part 'chat_options.dart';
 part 'chat_top_bar.dart';
 part 'chat_members_panel.dart';
+part 'forward_message_dialog.dart';
 part 'pinned_messages_bar.dart';
 part 'utility.dart';
 part 'pending_message.dart';

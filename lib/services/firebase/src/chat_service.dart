@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart'
+    show WidgetsBinding, WidgetsBindingObserver, AppLifecycleState;
 // import 'package:mime/mime.dart';
 // import 'package:path/path.dart' as path;
 import '/constants/constants.dart';
@@ -209,6 +211,35 @@ class ChatService {
   static final Set<String> _seenRunning = {};
   static final Set<String> _seenRerun = {};
 
+  // ── "Seen" is only recorded while the user is really looking at the app ──
+  //
+  // A chat that is merely OPEN in a background browser tab / minimized window
+  // / backgrounded phone app used to mark every incoming message as seen
+  // immediately, so "Viewed by ..." listed people who never saw the message.
+  // Now seen-marking is paused while the app is not in the foreground and
+  // the open chat is marked as soon as the user comes back.
+  static final _SeenLifecycleObserver _seenObserver = _SeenLifecycleObserver();
+  static bool _seenObserverAttached = false;
+
+  static void _attachSeenObserver() {
+    if (_seenObserverAttached) return;
+    _seenObserverAttached = true;
+    WidgetsBinding.instance.addObserver(_seenObserver);
+  }
+
+  /// `null` lifecycle (very early start-up) counts as foreground.
+  static bool get _isAppForeground {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == null || state == AppLifecycleState.resumed;
+  }
+
+  /// Called when the app returns to the foreground: mark the chat that is
+  /// open on screen (and only that one) as seen now.
+  static void _onAppResumed() {
+    final active = _activeChatId;
+    if (active != null) markChatMessagesAsSeen(active);
+  }
+
   /// Marks EVERY unseen message of [chatId] as seen by the current user.
   ///
   /// Queries Firestore directly (not the UI list), so messages that are not
@@ -216,6 +247,10 @@ class ChatService {
   /// one failing update can no longer stop the rest. Uses batched writes.
   static Future<void> markChatMessagesAsSeen(String chatId) async {
     if (chatId.isEmpty) return;
+    _attachSeenObserver();
+    // Not looking at the app (background tab, minimized, phone locked):
+    // do NOT mark anything as seen. _onAppResumed() will do it later.
+    if (!_isAppForeground) return;
     if (_seenRunning.contains(chatId)) {
       _seenRerun.add(chatId); // new messages arrived mid-run -> run again
       return;
@@ -243,6 +278,8 @@ class ChatService {
         }).toList();
 
         for (var i = 0; i < unseen.length; i += 400) {
+          // App went to the background while we were fetching: stop.
+          if (!_isAppForeground) return;
           final batch = FirebaseFirestore.instance.batch();
           for (final d in unseen.skip(i).take(400)) {
             batch.update(d.reference, {
@@ -452,6 +489,10 @@ class ChatService {
     DateTime? timestamp,
     // When already known by the caller we skip an extra Firestore read.
     List<String>? participants,
+    // Set when this message is a FORWARD of another message.
+    String? forwardFrom,
+    String? forwardFromMessageId,
+    String? forwardFromChatId,
   }) async {
     try {
       var cid = await Spdb.getCid();
@@ -502,6 +543,9 @@ class ChatService {
         mentions: mentions ?? [],
         threadId: threadId,
         timestamp: timestamp,
+        forwardFrom: forwardFrom,
+        forwardFromMessageId: forwardFromMessageId,
+        forwardFromChatId: forwardFromChatId,
       );
 
       final docRef = await CommonService.add(
@@ -993,41 +1037,75 @@ class ChatService {
     }
   }
 
-  static Future<void> forwardMessage({
-    required String fromChatId,
-    required String messageId,
-    required String targetChatId,
-    required String currentUser,
+  /// Short text used for notifications / chat-list preview of a message.
+  static String _messagePreview(String message, List<FileModel> files) {
+    if (message.trim().isNotEmpty) return message;
+    if (files.isEmpty) return '';
+    final f = files.first;
+    if (f.mimeType.startsWith('image')) return '📷 Photo';
+    if (f.mimeType.startsWith('video')) return '🎥 Video';
+    if (f.mimeType.startsWith('audio')) {
+      return f.isVoice ? '🎤 Voice message' : '🎵 Audio';
+    }
+    return '📄 Document';
+  }
+
+  /// Forwards [source] (text and/or any attachments: image, video, audio,
+  /// voice note, documents) to every target and returns how many chats
+  /// received it.
+  ///
+  ///  • [targetChatIds]: existing chats (groups or 1-to-1).
+  ///  • [targetUserIds]: colleagues; their 1-to-1 chat is found or created.
+  ///
+  /// Attachments are re-used by URL (no re-upload). The forwarded copy keeps
+  /// a pointer to the ORIGINAL author/message, even when a forwarded message
+  /// is forwarded again. Reply link, mentions, reactions, pin and seen state
+  /// are NOT copied.
+  static Future<int> forwardMessage({
+    required MessagesModel source,
+    required String sourceChatId,
+    List<String> targetChatIds = const [],
+    List<String> targetUserIds = const [],
   }) async {
-    var cid = await Spdb.getCid();
+    final chatIds = <String>[...targetChatIds];
 
-    final msgRef = FirebaseFirestore.instance
-        .collection(Collections.users.name)
-        .doc(cid)
-        .collection(Collections.chats.name)
-        .doc(fromChatId)
-        .collection(Collections.messages.name)
-        .doc(messageId);
+    for (final userId in targetUserIds) {
+      try {
+        String? id = await getChatUid(userId);
+        id ??= await createIndividualChat(userId: userId);
+        if (!chatIds.contains(id)) chatIds.add(id);
+      } catch (e, st) {
+        await ErrorService.recordError(e, st);
+      }
+    }
 
-    final snap = await msgRef.get();
-    if (!snap.exists) return;
+    final originSender = source.forwardFrom ?? source.senderId;
+    final originMessageId = source.forwardFromMessageId ?? source.uid;
+    final originChatId = source.forwardFromChatId ?? sourceChatId;
 
-    final msg = snap.data()!;
-
-    await FirebaseFirestore.instance
-        .collection(Collections.users.name)
-        .doc(cid)
-        .collection(Collections.chats.name)
-        .doc(targetChatId)
-        .collection(Collections.messages.name)
-        .add({
-          'text': msg['text'],
-          'senderId': currentUser,
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'reactions': {},
-          'isPinned': false,
-          'forwardedFrom': fromChatId,
-        });
+    int delivered = 0;
+    for (final chatId in chatIds) {
+      try {
+        await sendChatMessage(
+          chatId: chatId,
+          message: source.message,
+          attachments: List<FileModel>.from(source.attachments),
+          forwardFrom: originSender,
+          forwardFromMessageId: originMessageId,
+          forwardFromChatId: originChatId,
+        );
+        sendNotification(
+          chatId: chatId,
+          message: _messagePreview(source.message, source.attachments),
+          isChat: true,
+        );
+        delivered++;
+      } catch (e, st) {
+        // One failing chat must not stop the others.
+        await ErrorService.recordError(e, st);
+      }
+    }
+    return delivered;
   }
 
   static Future<String?> getChatUid(String opponentUserId) async {
@@ -1092,5 +1170,14 @@ class ChatService {
       await ErrorService.recordError(e, st);
       throw 'Failed to update group chat';
     }
+  }
+}
+
+/// Re-runs seen-marking for the open chat when the app comes back to the
+/// foreground (see ChatService._isAppForeground).
+class _SeenLifecycleObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ChatService._onAppResumed();
   }
 }

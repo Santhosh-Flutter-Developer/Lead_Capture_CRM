@@ -84,6 +84,13 @@ class ChatOptions extends StatelessWidget {
             ),
             _tile(
               context,
+              icon: Iconsax.send_2,
+              label: "Forward",
+              accentColor: Theme.of(context).colorScheme.primary,
+              result: 5,
+            ),
+            _tile(
+              context,
               icon: Iconsax.copy,
               label: "Copy Text",
               accentColor: Theme.of(context).colorScheme.onSurfaceVariant,

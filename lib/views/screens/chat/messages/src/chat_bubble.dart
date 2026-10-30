@@ -249,6 +249,7 @@ class _ChatBubbleState extends State<ChatBubble>
         _forceHide();
         messageProvider.replyMessage(_msg);
       },
+      if (_canForward) "forward": _openForward,
       "copy": () {
         _forceHide();
         Clipboard.setData(ClipboardData(text: _msg.message));
@@ -261,6 +262,20 @@ class _ChatBubbleState extends State<ChatBubble>
         },
       if (widget.isSender) "delete": _handleDeleteMessage,
     };
+  }
+
+  bool get _canForward =>
+      _msg.uid != null &&
+      (_msg.message.trim().isNotEmpty || _msg.attachments.isNotEmpty);
+
+  void _openForward() {
+    _forceHide();
+    ForwardMessageDialog.show(
+      context,
+      message: _msg,
+      sourceChatId: widget.chatUid,
+      currentUserUid: _currentUid ?? '',
+    );
   }
 
   /// Opens the "..." actions popup next to the small chip (desktop).
@@ -409,6 +424,7 @@ class _ChatBubbleState extends State<ChatBubble>
       if (result == 2) _handleDeleteMessage();
       if (result == 3) provider.replyMessage(_msg);
       if (result == 4) Clipboard.setData(ClipboardData(text: _msg.message));
+      if (result == 5 && _canForward) _openForward();
     }
   }
 
@@ -500,7 +516,9 @@ class _ChatBubbleState extends State<ChatBubble>
           followerAnchor: isSender
               ? Alignment.bottomLeft
               : Alignment.bottomRight,
-          offset: Offset(isSender ? 10 : -10, 13),
+          // Mostly below the bubble edge so it doesn't cover the reactions
+          // that now sit inside the bubble.
+          offset: Offset(isSender ? 10 : -10, 18),
           child: Align(
             alignment: isSender ? Alignment.bottomLeft : Alignment.bottomRight,
             child: CompositedTransformTarget(
@@ -783,9 +801,16 @@ class _ChatBubbleCore extends StatelessWidget {
                             message: message,
                             replyChat: replyChat,
                             onOpenChat: onOpenChat,
+                            currentUserId: currentUserId,
+                            onReactionTap: onReactionTap,
                           ),
                         ),
-                        if (message.reactions.isNotEmpty)
+                        // Text messages show their reactions INSIDE the
+                        // bubble (see _ChatBubbleMessageBox). Only
+                        // attachment-only messages (no text bubble) keep
+                        // them underneath.
+                        if (message.reactions.isNotEmpty &&
+                            message.message.isEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: _ReactionChips(
@@ -837,12 +862,16 @@ class _ChatBubbleMessageBox extends StatefulWidget {
   final MessagesModel message;
   final MessagesModel? replyChat;
   final Function(ChatModel chat, String opponentUid)? onOpenChat;
+  final String? currentUserId;
+  final Function(String)? onReactionTap;
 
   const _ChatBubbleMessageBox({
     required this.isSender,
     required this.message,
     required this.replyChat,
     this.onOpenChat,
+    this.currentUserId,
+    this.onReactionTap,
   });
 
   @override
@@ -1004,6 +1033,8 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.message.forwardFrom != null)
+                  _forwardedLabel(context),
                 if (widget.replyChat != null)
                   Container(
                     margin: const EdgeInsets.only(bottom: 6),
@@ -1050,8 +1081,27 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
                     ),
                   ),
                 _buildMessageWithMentions(context, widget.message.message),
+                // Reactions live INSIDE the bubble (Bitrix style).
+                if (widget.message.reactions.values.any((u) => u.isNotEmpty))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _ReactionChips(
+                      reactions: widget.message.reactions,
+                      isSender: widget.isSender,
+                      currentUserId: widget.currentUserId,
+                      onTap: widget.onReactionTap,
+                    ),
+                  ),
               ],
             ),
+          ),
+
+        // Forwarded attachment without text (no bubble): label above it.
+        if (widget.message.forwardFrom != null &&
+            widget.message.message.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 2),
+            child: _forwardedLabel(context, onBubble: false),
           ),
 
         // --- Attachment / URL Preview ---
@@ -1064,6 +1114,41 @@ class _ChatBubbleMessageBoxState extends State<_ChatBubbleMessageBox> {
           ),
         ],
       ],
+    );
+  }
+
+  /// "↪ Forwarded from <original author>"
+  Widget _forwardedLabel(BuildContext context, {bool onBubble = true}) {
+    final cs = Theme.of(context).colorScheme;
+    final Color color = onBubble && widget.isSender
+        ? cs.onPrimary.withValues(alpha: 0.85)
+        : cs.onSurfaceVariant;
+    final from = widget.message.forwardFrom;
+    final name = from == null ? '' : _resolveSenderName(from);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: onBubble ? 4 : 0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Iconsax.send_2, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              name.isEmpty || name == 'User'
+                  ? 'Forwarded'
+                  : 'Forwarded from $name',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

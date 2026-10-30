@@ -100,6 +100,10 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
   bool _isPlaying = false;
   bool _isLoading = false;
   bool _hasStarted = false;
+  // True when the player has no loaded source (first play, after the clip
+  // finished — audioplayers releases it — or after an error). Then the next
+  // tap must call play(UrlSource) again; resume() would fail.
+  bool _needsSource = true;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   double _rate = 1.0;
@@ -133,6 +137,8 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
     final existing = _player;
     if (existing != null) return existing;
     final p = AudioPlayer();
+    // Keep the source after the clip ends so it can be replayed.
+    p.setReleaseMode(ReleaseMode.stop);
     _player = p;
     _subs.addAll([
       p.onPositionChanged.listen((pos) {
@@ -152,7 +158,9 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
         if (!mounted) return;
         setState(() {
           _isPlaying = false;
+          _isLoading = false;
           _position = Duration.zero;
+          _needsSource = true; // replay must load the source again
         });
         if (_current == this) _current = null;
       }),
@@ -175,23 +183,51 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
     _current = this;
 
     final player = _ensurePlayer();
-    setState(() => _isLoading = !_hasStarted);
+    setState(() => _isLoading = _needsSource);
     try {
-      if (!_hasStarted) {
-        await player.setPlaybackRate(_rate);
-        await player.play(UrlSource(widget.file.url), position: start);
-        _hasStarted = true;
+      if (_needsSource) {
+        await _playFresh(player, start);
       } else {
-        await player.seek(start);
-        await player.resume();
+        try {
+          await player.seek(start);
+          await player.resume();
+        } catch (_) {
+          // Player lost its source (state error): load it again.
+          await _playFresh(player, start);
+        }
       }
     } catch (e, st) {
       await ErrorService.recordError(e, st);
+      // Throw the broken native player away; the next tap builds a new one.
+      await _discardPlayer();
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isPlaying = false;
+        });
         FlushBar.show(context, 'Could not play voice message', isSuccess: false);
       }
     }
+  }
+
+  Future<void> _playFresh(AudioPlayer player, Duration start) async {
+    await player.setPlaybackRate(_rate);
+    await player.play(UrlSource(widget.file.url), position: start);
+    _hasStarted = true;
+    _needsSource = false;
+  }
+
+  Future<void> _discardPlayer() async {
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    _subs.clear();
+    final p = _player;
+    _player = null;
+    _needsSource = true;
+    try {
+      await p?.dispose();
+    } catch (_) {}
   }
 
   Future<void> _stopPlayback() async {

@@ -15,7 +15,76 @@ import '/utils/utils.dart';
 import 'download_io.dart'
     if (dart.library.html) 'download_web.dart' show saveFileToDownloads, runNativeUrlDownload;
 
+/// Builds a safe local file name for a download.
+///
+/// The old code used `path.basename(url)` when no name was given. For a
+/// Firebase Storage URL that is e.g. `voice.m4a?alt=media&token=...`, and
+/// `?` / `:` / `"` are illegal in Windows file names, so saving failed.
+/// Also strips any folder part and characters no OS accepts.
+String deriveDownloadFileName(String? name, String url) {
+  var base = (name ?? '').trim();
+  if (base.isEmpty) {
+    try {
+      final segs = Uri.parse(url).pathSegments; // already percent-decoded
+      if (segs.isNotEmpty) base = segs.last;
+    } catch (_) {}
+  }
+  base = path.basename(base.replaceAll('\\', '/'));
+  base = base.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_').trim();
+  if (base.isEmpty) {
+    base = 'download_${DateTime.now().millisecondsSinceEpoch}';
+  }
+  return base;
+}
+
 class Download {
+  /// Download with a blocking loading dialog that is ALWAYS closed again
+  /// (success, failure or exception) — the old copy-pasted
+  /// `futureLoading(); await download; Navigator.pop();` left the spinner on
+  /// screen forever when the download threw, and could pop the wrong route.
+  static Future<void> downloadWithLoading(
+    BuildContext context,
+    String url,
+    String? name,
+  ) async {
+    if (url.isEmpty) {
+      FlushBar.show(context, 'Invalid file URL', isSuccess: false);
+      return;
+    }
+    // showDialog() uses the ROOT navigator, so close it on the same one.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    futureLoading(context);
+    try {
+      await downloadFromUrl(context, url, name);
+    } catch (e, st) {
+      debugPrint('${e.toString()}, ${st.toString()}');
+      await ErrorService.recordError(e, st);
+      if (context.mounted) {
+        FlushBar.show(
+          context,
+          'Download Failed',
+          isSuccess: false,
+          error: e,
+          stackTrace: st,
+        );
+      }
+    } finally {
+      if (navigator.mounted && navigator.canPop()) navigator.pop();
+    }
+  }
+
+  /// Best-effort history entry: a failure here (Firestore rules, offline)
+  /// must never turn a finished download into an error / stuck spinner.
+  static Future<void> _logHistory(DownloadHistoryModel model) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('download_history')
+          .add(model.toMap());
+    } catch (e) {
+      debugPrint('download_history not saved: $e');
+    }
+  }
+
   // ── URL download ──────────────────────────────────────────────────────────
   static Future<void> downloadFromUrl(
     BuildContext context,
@@ -35,9 +104,7 @@ class Download {
     String url,
     String? name,
   ) async {
-    final String fileName = name != null && name.isNotEmpty
-        ? path.basename(name)
-        : path.basename(url);
+    final String fileName = deriveDownloadFileName(name, url);
     try {
       final response = await Dio().get<List<int>>(
         url,
@@ -47,20 +114,20 @@ class Download {
         final bytes = Uint8List.fromList(response.data!);
         await saveFileToDownloads(bytes, fileName: fileName);
       }
-      await FirebaseFirestore.instance.collection('download_history').add(
-            DownloadHistoryModel(
-              fileName: fileName,
-              filePath: url,
-              url: url,
-              fileSize: response.data?.length ?? 0,
-              downloadedAt: DateTime.now(),
-              isSuccess: true,
-              userId: await Spdb.getUid() ?? '',
-            ).toMap(),
-          );
       if (context.mounted) {
         FlushBar.show(context, "Download Completed", isSuccess: true);
       }
+      await _logHistory(
+        DownloadHistoryModel(
+          fileName: fileName,
+          filePath: url,
+          url: url,
+          fileSize: response.data?.length ?? 0,
+          downloadedAt: DateTime.now(),
+          isSuccess: true,
+          userId: await Spdb.getUid() ?? '',
+        ),
+      );
     } catch (e, st) {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
@@ -87,24 +154,35 @@ class Download {
     String fileName,
   ) async {
     int progress = 0;
-    final overlayState = Overlay.of(context);
-    final overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        bottom: 80,
-        left: 0,
-        right: 0,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: _DownloadProgressIndicator(progress: progress),
+    final overlayState = Overlay.maybeOf(context, rootOverlay: true);
+    OverlayEntry? overlayEntry;
+    bool removed = false;
+    void removeEntry() {
+      if (overlayEntry != null && !removed) {
+        removed = true;
+        overlayEntry!.remove();
+      }
+    }
+
+    if (overlayState != null) {
+      overlayEntry = OverlayEntry(
+        builder: (context) => Positioned(
+          bottom: 80,
+          left: 0,
+          right: 0,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: _DownloadProgressIndicator(progress: progress),
+          ),
         ),
-      ),
-    );
-    overlayState.insert(overlayEntry);
+      );
+      overlayState.insert(overlayEntry);
+    }
 
     try {
       final ByteData data = await rootBundle.load(assetPath);
       progress = 50;
-      overlayEntry.markNeedsBuild();
+      overlayEntry?.markNeedsBuild();
 
       final Uint8List bytes = data.buffer.asUint8List();
       // saveFileToDownloads is resolved by the conditional import above:
@@ -114,34 +192,35 @@ class Download {
           await saveFileToDownloads(bytes, fileName: fileName);
 
       progress = 100;
-      overlayEntry.markNeedsBuild();
+      overlayEntry?.markNeedsBuild();
+      removeEntry();
 
-      await FirebaseFirestore.instance.collection('download_history').add(
-            DownloadHistoryModel(
-              fileName: fileName,
-              filePath: savePath,
-              url: assetPath,
-              fileSize: bytes.length,
-              downloadedAt: DateTime.now(),
-              isSuccess: true,
-              userId: await Spdb.getUid() ?? '',
-            ).toMap(),
-          );
-
-      overlayEntry.remove();
       if (context.mounted) {
         FlushBar.show(context, "Download Completed", isSuccess: true);
         // On native, open the saved file; on web the browser already downloaded it.
         if (!kIsWeb) openfile(savePath, context);
       }
+      await _logHistory(
+        DownloadHistoryModel(
+          fileName: fileName,
+          filePath: savePath,
+          url: assetPath,
+          fileSize: bytes.length,
+          downloadedAt: DateTime.now(),
+          isSuccess: true,
+          userId: await Spdb.getUid() ?? '',
+        ),
+      );
     } catch (e, st) {
       debugPrint("${e.toString()}, ${st.toString()}");
       await ErrorService.recordError(e, st);
-      overlayEntry.remove();
+      removeEntry();
       if (context.mounted) {
         FlushBar.show(context, "Download Failed",
             isSuccess: false, error: e, stackTrace: st);
       }
+    } finally {
+      removeEntry();
     }
   }
 }
