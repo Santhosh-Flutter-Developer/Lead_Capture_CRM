@@ -296,7 +296,8 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
 
               return Row(
                 children: [
-                  DesktopSidebar(
+                  SelectionContainer.disabled(
+                    child: DesktopSidebar(
                     isCollapsed: _isSidebarCollapsed,
                     onCollapseChanged: (v) {
                       setState(() {
@@ -309,12 +310,15 @@ class _DesktopMainScreenState extends State<DesktopMainScreen> {
                     isAdmin: widget.isAdmin,
                     companyLogo: _companyLogo,
                   ),
+                  ),
                   Expanded(
                     child: Column(
                       children: [
-                        Header(
-                          selectedMenu: _selectedMenu,
-                          onNavigate: _onMenuItemSelected,
+                        SelectionContainer.disabled(
+                          child: Header(
+                            selectedMenu: _selectedMenu,
+                            onNavigate: _onMenuItemSelected,
+                          ),
                         ),
                         Expanded(
                           // No Scrollbar here: this wraps whichever screen

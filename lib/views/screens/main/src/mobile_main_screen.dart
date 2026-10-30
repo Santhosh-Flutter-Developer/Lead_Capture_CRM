@@ -161,7 +161,8 @@ class _MobileMainScreenState extends State<MobileMainScreen> {
           ),
           // drawer: const MobileSidebar(),
           body: _buildMainContentMobile(),
-          bottomNavigationBar: BottomAppBar(
+          bottomNavigationBar: SelectionContainer.disabled(
+            child: BottomAppBar(
             elevation: 0,
             color: Theme.of(context).colorScheme.surface,
             child: SafeArea(
@@ -176,6 +177,7 @@ class _MobileMainScreenState extends State<MobileMainScreen> {
                 ),
               ),
             ),
+          ),
           ),
         );
       },

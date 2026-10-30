@@ -12,6 +12,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show BrowserContextMenu;
 import '/firebase_options.dart';
 import '/app/app.dart';
 import '/services/services.dart';
@@ -61,6 +62,10 @@ class LifecycleHandler extends WidgetsBindingObserver {
 // ─── Entry point ─────────────────────────────────────────────────────────────
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Web: replace the browser's right-click menu by Flutter's own text
+  // selection toolbar (Copy / Select all), which the browser menu cannot
+  // offer for canvas-rendered text.
+  if (kIsWeb) BrowserContextMenu.disableContextMenu();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   FirebaseFirestore.instance.settings = const Settings(

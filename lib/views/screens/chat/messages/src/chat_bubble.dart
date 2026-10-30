@@ -633,7 +633,9 @@ class _ChatBubbleState extends State<ChatBubble>
             );
           },
           child: GestureDetector(
-            onDoubleTap: _onDoubleTap,
+            // Touch only: on desktop/web a mouse double-click must select a
+            // word of the message text (reactions use the hover chip there).
+            onDoubleTap: kIsMobile ? _onDoubleTap : null,
             onLongPress: () {
               if (kIsMobile) {
                 _onEnterMenu();
