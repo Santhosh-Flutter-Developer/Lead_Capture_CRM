@@ -5,7 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:leadcapture/models/src/lead_model.dart';
-import 'package:leadcapture/models/src/region_model.dart';
+import 'package:leadcapture/models/src/lead_source_model.dart';
+import 'package:leadcapture/models/src/lead_category_model.dart';
+import 'package:leadcapture/models/src/lead_priority_model.dart';
+import 'package:leadcapture/models/src/lead_status_model.dart';
 import 'package:leadcapture/models/src/client_model.dart';
 import 'package:leadcapture/models/src/employee_model.dart';
 import 'package:leadcapture/services/firebase/src/follow_up_access.dart';
@@ -15,7 +18,6 @@ import 'package:leadcapture/services/firebase/src/lead_priority_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_source_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_status_service.dart';
-import 'package:leadcapture/services/firebase/src/region_service.dart';
 import 'package:leadcapture/services/firebase/src/client_service.dart';
 
 import 'package:leadcapture/utils/src/download.dart';
@@ -95,260 +97,303 @@ class _LeadUploadState extends State<LeadUpload> {
     return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
-  bool _validateRowData(List<String> row, int rowIndex) {
-    // Check required fields
-    if (row[0].trim().isEmpty ||
-        row[2].trim().isEmpty ||
-        row[4].trim().isEmpty ||
-        row[6].trim().isEmpty) {
-      return false;
-    }
+  // ── column layout (same order as the downloadable template) ─────────────
+  //  0 Master Client (Company Name) *   1 Contact Name   2 Contact Mobile
+  //  3 Lead Name *      4 Lead Email     5 Lead Source *  6 Lead Category *
+  //  7 Lead Priority *  8 Status         9 Lead Value     10 Project Name
+  //  11 Follow Up (employee NAME)        12 Project Description   13 Note
+  //
+  // Contact Name / Contact Mobile are only needed when the Master Client does
+  // not exist yet; for an existing Master Client they are ignored.
+  static const int _cMaster = 0,
+      _cContact = 1,
+      _cMobile = 2,
+      _cLeadName = 3,
+      _cEmail = 4,
+      _cSource = 5,
+      _cCategory = 6,
+      _cPriority = 7,
+      _cStatus = 8,
+      _cValue = 9,
+      _cProject = 10,
+      _cFollowUp = 11,
+      _cProjectDesc = 12,
+      _cNote = 13;
 
-    // Validate email format if provided
-    if (row[1].trim().isNotEmpty) {
-      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-      if (!emailRegex.hasMatch(row[1].trim())) {
-        return false;
-      }
-    }
+  static const String _defaultStatus = 'New';
 
-    // Validate lead value is numeric if provided
-    if (row[5].trim().isNotEmpty) {
-      if (double.tryParse(row[5].trim()) == null) {
-        return false;
-      }
-    }
-
-    return true;
+  /// Trimmed cell; "" when the row is shorter than [i]. Excel sometimes
+  /// stores numbers as "9585038001.0", so a trailing ".0" is removed.
+  String _cell(List<String> row, int i) {
+    if (i >= row.length) return '';
+    final v = row[i].trim();
+    return RegExp(r'^\d+\.0$').hasMatch(v) ? v.substring(0, v.length - 2) : v;
   }
 
-  /// Optional 16th column: "Follow Up" (employee name or e-mail).
-  static const int _followUpCol = 15;
+  bool _isBlank(List<String> row) => row.every((c) => c.trim().isEmpty);
 
-  String _followUpText(List<String> row) =>
-      row.length > _followUpCol ? row[_followUpCol].trim() : '';
+  /// Data rows (header excluded, completely empty rows ignored).
+  List<int> get _dataRowIndexes => [
+    for (var i = 1; i < _rows.length; i++)
+      if (!_isBlank(_rows[i])) i,
+  ];
 
-  bool _validateExcelData(List<EmployeeModel> employees) {
-    if (_rows.isEmpty) return false;
+  String _key(String v) => v.trim().toLowerCase();
 
-    if (_rows.first.length < 14) {
-      FlushBar.show(
-        context,
-        "Error: The uploaded file does not have required columns.",
-        isSuccess: false,
-      );
-      return false;
+  /// All problems found in the file (empty list = OK to import).
+  List<String> _validate(
+    List<ClientModel> masterClients,
+    List<EmployeeModel> employees,
+  ) {
+    if (_rows.isEmpty) return ['The file is empty.'];
+    final header = _rows.first;
+    if (header.length < 6 || !header[0].toLowerCase().contains('master')) {
+      return [
+        'This does not look like the Lead template. '
+            'Download it from the ⋯ menu and fill it in.',
+      ];
     }
+    final indexes = _dataRowIndexes;
+    if (indexes.isEmpty) return ['The file has no data rows.'];
 
-    // Validate all data rows
-    for (var i = 1; i < _rows.length; i++) {
-      // Follow Up is optional, but when given it must be a known employee.
-      final fu = _followUpText(_rows[i]);
-      if (fu.isNotEmpty && FollowUpAccess.findEmployee(employees, fu) == null) {
-        FlushBar.show(
-          context,
-          "Row ${i + 1}: Follow Up employee \"$fu\" was not found. "
-          "Use the employee's name or e-mail, or leave it empty.",
-          isSuccess: false,
-        );
-        return false;
-      }
-      if (!_validateRowData(_rows[i], i)) {
-        FlushBar.show(
-          context,
-          "Data format mismatch. Please verify the imported Excel file and try again.",
-          isSuccess: false,
-        );
-        return false;
-      }
-    }
+    // Master clients that already exist, plus the ones this file will create
+    // (so a company repeated in several rows is only asked for once).
+    final known = <String>{
+      for (final c in masterClients) _key(c.companyName ?? ''),
+    };
+    final emailRegex = RegExp(r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,}$');
+    final errors = <String>[];
 
-    return true;
-  }
+    for (final i in indexes) {
+      final row = _rows[i];
+      final n = i + 1; // Excel row number
 
-  void _uploadLeadData() async {
-    try {
-      if (_rows.isEmpty) return;
-
-      // Employees for the optional "Follow Up" column.
-      List<EmployeeModel> employees = [];
-      try {
-        employees = await FollowUpAccess.employees();
-      } catch (_) {}
-
-      // Validate data before upload
-      if (!_validateExcelData(employees)) {
-        return;
-      }
-
-      futureLoading(context);
-
-      int uploadedCount = 0;
-      int skippedCount = 0;
-      final totalRows = _rows.length - 1;
-
-      // ✅ Load once
-      final currentUser = await Spdb.getUser();
-      final allCountries = await RegionService.getCountries();
-
-      for (var i = 1; i < _rows.length; i++) {
-        final row = _rows[i];
-
-        try {
-          final hasRequiredFields =
-              row[0].trim().isNotEmpty &&
-              row[2].trim().isNotEmpty &&
-              row[4].trim().isNotEmpty &&
-              row[6].trim().isNotEmpty;
-
-          if (!hasRequiredFields) {
-            skippedCount++;
-            continue;
-          }
-
-          RegionModel? country;
-          StateModel? state;
-          CityModel? city;
-
-          if (row[9].trim().isNotEmpty) {
-            country = allCountries.firstWhere(
-              (c) => c.name.toLowerCase() == row[9].trim().toLowerCase(),
-            );
-          }
-
-          if (row[10].trim().isNotEmpty && country != null) {
-            final states = await RegionService.getStates(
-              regionId: country.uid!,
-            );
-
-            state = states.firstWhere(
-              (s) => s.name.toLowerCase() == row[10].trim().toLowerCase(),
-            );
-          }
-
-          if (row[11].trim().isNotEmpty && state != null) {
-            final cities = await RegionService.getCities(
-              regionId: country!.uid!,
-              stateId: state.uid!,
-            );
-
-            city = cities.firstWhere(
-              (c) => c.name.toLowerCase() == row[11].trim().toLowerCase(),
-            );
-          }
-
-          final source = await LeadSourceService.getByNameOrCreate(
-            name: row[2].trim(),
+      final master = _cell(row, _cMaster);
+      if (master.isEmpty) {
+        errors.add('Row $n: Master Client (Company Name) is required');
+      } else if (!known.contains(_key(master))) {
+        // A new Master Client is created -> same rules as the Master Client form.
+        final contact = _cell(row, _cContact);
+        final mobile = _cell(row, _cMobile);
+        if (contact.isEmpty) {
+          errors.add(
+            'Row $n: Master Client "$master" is new - Contact Name is required',
           );
-
-          final category = await LeadCategoryService.getByNameOrCreate(
-            name: row[3].trim(),
+        }
+        if (mobile.isEmpty) {
+          errors.add(
+            'Row $n: Master Client "$master" is new - Contact Mobile is required',
           );
-
-          final priority = await LeadPriorityService.getByNameOrCreate(
-            name: row[4].trim(),
-          );
-
-          final status = await LeadStatusService.getByNameOrCreate(
-            name: row[6].trim(),
-          );
-
-          double leadValue = double.tryParse(row[5].trim()) ?? 0;
-
-          final leadModel = LeadModel(
-            leadName: row[0].trim(),
-            leadEmail: row[1].trim(),
-            leadSource: source,
-            leadCategory: category.uid ?? category.name,
-            leadPriority: priority.uid ?? priority.name,
-            leadValue: leadValue,
-            leadStatus: status.uid ?? status.name,
-            companyName: row[7].trim(),
-            companyMobile: row[8].trim(),
-            companyCountry: country,
-            companyState: state,
-            companyCity: city,
-            companyAddress: row[12].trim(),
-            notes: row[13].trim(),
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-            createdBy: currentUser,
-            attachments: [],
-            workflow: [],
-            leadsConverted: false,
-            followUp: FollowUpAccess.findEmployee(
-              employees,
-              _followUpText(row),
-            )?.uid,
-          );
-
-          final createdLead = await LeadService.createLead(lead: leadModel);
-
-          // Create Company client if company details are provided
-          String? companyId;
-          if (row[7].trim().isNotEmpty) {
-            final companyClient = ClientModel(
-              companyName: row[7].trim(),
-              officePhoneNo: row[8].trim().isNotEmpty ? row[8].trim() : null,
-              country: country,
-              state: state,
-              city: city,
-              companyAddress: row[12].trim().isNotEmpty ? row[12].trim() : null,
-              createdBy: currentUser,
-              isCompany: true,
-              isActive: true,
-            );
-            companyId = await ClientService.createClient(client: companyClient);
-          }
-
-          // Create Contact client if lead name is provided
-          String? contactId;
-          if (row[0].trim().isNotEmpty) {
-            final contactClient = ClientModel(
-              clientName: row[0].trim(),
-              email: row[1].trim().isNotEmpty ? row[1].trim() : null,
-              country: country,
-              state: state,
-              city: city,
-              createdBy: currentUser,
-              isCompany: false,
-              isActive: true,
-            );
-            contactId = await ClientService.createClient(client: contactClient);
-          }
-
-          // Update lead with clientId reference (prefer company if both exist)
-          if (companyId != null || contactId != null) {
-            final clientId = companyId ?? contactId;
-            if (clientId != null) {
-              await LeadService.updateLead(
-                uid: createdLead,
-                lead: leadModel.copyWith(clientId: clientId),
-              );
-            }
-          }
-
-          uploadedCount++;
-        } catch (e, st) {
-          skippedCount++;
-          debugPrint("Error uploading row ${i + 1}: $e\n$st");
+        } else if (!RegExp(r'^\d{10}$').hasMatch(mobile)) {
+          errors.add('Row $n: Contact Mobile must be exactly 10 digits');
+        }
+        if (contact.isNotEmpty && RegExp(r'^\d{10}$').hasMatch(mobile)) {
+          known.add(_key(master));
         }
       }
 
-      if (Navigator.canPop(context)) Navigator.pop(context);
+      if (_cell(row, _cLeadName).isEmpty) {
+        errors.add('Row $n: Lead Name is required');
+      }
+      final email = _cell(row, _cEmail);
+      if (email.isNotEmpty && !emailRegex.hasMatch(email)) {
+        errors.add('Row $n: Lead Email "$email" is not valid');
+      }
+      if (_cell(row, _cSource).isEmpty) {
+        errors.add('Row $n: Lead Source is required');
+      }
+      if (_cell(row, _cCategory).isEmpty) {
+        errors.add('Row $n: Lead Category is required');
+      }
+      if (_cell(row, _cPriority).isEmpty) {
+        errors.add('Row $n: Lead Priority is required');
+      }
+      final value = _cell(row, _cValue);
+      if (value.isNotEmpty && double.tryParse(value) == null) {
+        errors.add('Row $n: Lead Value must be a number');
+      }
+
+      // Follow Up: employee NAME only (optional).
+      final fu = _cell(row, _cFollowUp);
+      if (fu.isNotEmpty) {
+        final matches = _employeesByName(employees, fu);
+        if (matches.isEmpty) {
+          final names = employees.map((e) => e.name.trim()).toSet().take(5);
+          errors.add(
+            'Row $n: Follow Up employee "$fu" was not found. '
+            'Use an employee name exactly as in the Follow Up dropdown'
+            '${names.isEmpty ? '' : ' (e.g. ${names.join(', ')})'}, or leave it empty.',
+          );
+        } else if (matches.length > 1) {
+          errors.add(
+            'Row $n: More than one employee is named "$fu" - '
+            'rename one of them or leave Follow Up empty',
+          );
+        }
+      }
+    }
+    return errors;
+  }
+
+  List<EmployeeModel> _employeesByName(
+    List<EmployeeModel> employees,
+    String name,
+  ) => employees.where((e) => _key(e.name) == _key(name)).toList();
+
+  Future<void> _uploadLeadData() async {
+    if (_rows.isEmpty) return;
+
+    // Loaded ONCE for the whole file.
+    List<ClientModel> masterClients = [];
+    List<EmployeeModel> employees = [];
+    try {
+      masterClients = await ClientService.getMasterClients();
+      employees = await FollowUpAccess.employees();
+    } catch (e) {
+      if (!mounted) return;
+      FlushBar.show(context, 'Could not load data: $e', isSuccess: false);
+      return;
+    }
+
+    final errors = _validate(masterClients, employees);
+    if (errors.isNotEmpty) {
+      if (!mounted) return;
+      FlushBar.show(
+        context,
+        errors.take(4).join('\n') +
+            (errors.length > 4 ? '\n...and ${errors.length - 4} more' : ''),
+        isSuccess: false,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    futureLoading(context);
+
+    int uploaded = 0;
+    int newMasterClients = 0;
+    int skipped = 0;
+    final reasons = <String>[];
+    final indexes = _dataRowIndexes;
+
+    try {
+      final currentUser = await Spdb.getUser();
+
+      // company name -> Master Client (existing + created by this import).
+      final clientsByName = <String, ClientModel>{
+        for (final c in masterClients) _key(c.companyName ?? ''): c,
+      };
+      final sourceCache = <String, LeadSourceModel>{};
+      final categoryCache = <String, LeadCategoryModel>{};
+      final priorityCache = <String, LeadPriorityModel>{};
+      final statusCache = <String, LeadStatusModel>{};
+
+      for (final i in indexes) {
+        final row = _rows[i];
+        final n = i + 1;
+        try {
+          // 1. Master Client: reuse it when it exists, otherwise create it.
+          final masterName = _cell(row, _cMaster);
+          ClientModel? client = clientsByName[_key(masterName)];
+          if (client == null) {
+            final model = ClientModel(
+              companyName: masterName,
+              clientName: _cell(row, _cContact),
+              mobileNumber: _cell(row, _cMobile),
+              loginAllowed: false,
+              receiveEmailNotifications: false,
+              createdBy: currentUser,
+              isCompany: true,
+            );
+            final id = await ClientService.createClient(
+              client: model,
+              skipDuplicateCheck: true,
+            );
+            client = model.copyWith(uid: id);
+            clientsByName[_key(masterName)] = client;
+            newMasterClients++;
+          }
+
+          // 2. Lead Source / Category / Priority / Status.
+          final sourceName = _cell(row, _cSource);
+          final source = sourceCache[_key(sourceName)] ??=
+              await LeadSourceService.getByNameOrCreate(name: sourceName);
+
+          final categoryName = _cell(row, _cCategory);
+          final category = categoryCache[_key(categoryName)] ??=
+              await LeadCategoryService.getByNameOrCreate(name: categoryName);
+
+          final priorityName = _cell(row, _cPriority);
+          final priority = priorityCache[_key(priorityName)] ??=
+              await LeadPriorityService.getByNameOrCreate(name: priorityName);
+
+          final statusText = _cell(row, _cStatus);
+          final statusName = statusText.isEmpty ? _defaultStatus : statusText;
+          final status = statusCache[_key(statusName)] ??=
+              await LeadStatusService.getByNameOrCreate(name: statusName);
+
+          // 3. Follow Up (employee name -> uid).
+          final fu = _cell(row, _cFollowUp);
+          final followUpUid = fu.isEmpty
+              ? null
+              : _employeesByName(employees, fu).first.uid;
+
+          // 4. Lead - company / contact details come from the Master Client,
+          //    exactly like the "Create Leads" form does.
+          final lead = LeadModel(
+            leadName: _cell(row, _cLeadName),
+            leadEmail: _cell(row, _cEmail),
+            leadSource: source,
+            leadCategory: category.uid ?? '',
+            leadPriority: priority.uid ?? '',
+            leadValue: double.tryParse(_cell(row, _cValue)) ?? 0,
+            leadStatus: status.uid ?? '',
+            notes: _cell(row, _cNote),
+            attachments: [],
+            companyName: client.companyName,
+            companyMobile: client.officePhoneNo,
+            companyAddress: client.companyAddress,
+            companyZipCode: client.postalCode,
+            clientName: client.clientName,
+            clientMobile: client.mobileNumber,
+            clientId: client.uid,
+            projectName: _cell(row, _cProject),
+            projectDescription: _cell(row, _cProjectDesc),
+            followUp: followUpUid,
+            createdBy: currentUser,
+            workflow: [],
+          );
+
+          final leadUid = await LeadService.createLead(lead: lead);
+          // Status "Completed" -> a Deal is created automatically, as in the form.
+          await LeadService.convertIfCompleted(leadUid: leadUid);
+          uploaded++;
+        } catch (e, st) {
+          skipped++;
+          reasons.add('Row $n: ${e.toString()}');
+          debugPrint("Error uploading row $n: $e\n$st");
+        }
+      }
+
+      if (!mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context); // loader
       Navigator.pop(context, true);
 
+      final shown = reasons.take(3).join('\n');
       FlushBar.show(
         context,
         "Upload Completed\n"
-        "Total: $totalRows\n"
-        "Uploaded: $uploadedCount\n"
-        "Skipped: $skippedCount",
-        isSuccess: true,
+        "Total: ${indexes.length}\n"
+        "Uploaded: $uploaded\n"
+        "New master clients: $newMasterClients\n"
+        "Skipped: $skipped"
+        "${shown.isEmpty ? '' : '\n$shown'}"
+        "${reasons.length > 3 ? '\n...and ${reasons.length - 3} more' : ''}",
+        isSuccess: uploaded > 0,
       );
     } catch (e) {
+      if (!mounted) return;
       if (Navigator.canPop(context)) Navigator.pop(context);
-
       FlushBar.show(
         context,
         "Error uploading leads: ${e.toString()}",
@@ -465,7 +510,9 @@ class _LeadUploadState extends State<LeadUpload> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Ensure your file contains Lead Name, Mobile, and Source as minimum requirements. The last column "Follow Up" (employee name or e-mail) is optional.',
+                        'Required: Master Client (Company Name), Lead Name, Lead Source, Lead Category and Lead Priority. '
+                        'If the Master Client already exists it is reused; otherwise it is created from the Contact Name and Contact Mobile (10 digits) columns. '
+                        'Follow Up takes the employee name and is optional; Status defaults to New.',
                       ),
                       const SizedBox(height: 32),
             

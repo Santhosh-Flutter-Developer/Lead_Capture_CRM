@@ -389,6 +389,7 @@ class LeadModel {
     String? clientMobile,
     String? clientGender,
     String? salutation,
+    String? projectName,
   }) {
     return LeadModel(
       uid: null,
@@ -419,6 +420,7 @@ class LeadModel {
       createdBy: createdBy,
       workflow: workflow,
       clientId: clientId,
+      projectName: projectName,
       dealId: null,
       leadsConverted: false,
       createdAt: DateTime.now(),

@@ -351,6 +351,7 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
   Widget quickLead(BuildContext context, LeadStatusModel status) {
     final GlobalKey<FormState> quickFormKey = GlobalKey<FormState>();
     final TextEditingController leadNameCtrl = TextEditingController();
+    final TextEditingController projectNameCtrl = TextEditingController();
     final TextEditingController leadValueCtrl = TextEditingController();
 
     final future = ClientService.getMasterClients();
@@ -429,39 +430,6 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
                         const Divider(height: 32),
 
-                        /// Lead Name
-                        Text(
-                          'Lead Name',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
-                        FormFields(
-                          controller: leadNameCtrl,
-                          hintText: 'Enter lead name',
-                          isRequired: true,
-                          valid: (v) => v == null || v.isEmpty
-                              ? 'Lead name is required'
-                              : null,
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        /// Lead Value
-                        Text(
-                          'Lead Value',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
-                        FormFields(
-                          controller: leadValueCtrl,
-                          hintText: 'Enter amount',
-                          keyboardType: TextInputType.number,
-                        ),
-
-                        const SizedBox(height: 20),
-
                         /// Master Client Dropdown
                         Text(
                           'Master Client',
@@ -495,6 +463,53 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
                                 validator: (v) => v == null ? '* Required' : null,
                               ),
 
+                        const SizedBox(height: 20),
+
+                        /// Lead Name
+                        Text(
+                          'Lead Name',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        FormFields(
+                          controller: leadNameCtrl,
+                          hintText: 'Enter lead name',
+                          isRequired: true,
+                          valid: (v) => v == null || v.isEmpty
+                              ? 'Lead name is required'
+                              : null,
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        /// Project Name
+                        Text(
+                          'Project Name',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        FormFields(
+                          controller: projectNameCtrl,
+                          hintText: 'Project this lead is about',
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        /// Lead Value
+                        Text(
+                          'Lead Value',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        FormFields(
+                          controller: leadValueCtrl,
+                          hintText: 'Enter amount',
+                          keyboardType: TextInputType.number,
+                        ),
+
                         const SizedBox(height: 28),
 
                         /// Create Button
@@ -511,6 +526,7 @@ class _LeadKanbanListingState extends State<LeadKanbanListing> {
 
                                   final lead = LeadModel.quick(
                                     leadName: leadNameCtrl.text.trim(),
+                                    projectName: projectNameCtrl.text.trim(),
                                     leadValue:
                                         double.tryParse(leadValueCtrl.text) ??
                                         0,
