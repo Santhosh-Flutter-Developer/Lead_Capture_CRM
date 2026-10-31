@@ -30,13 +30,16 @@ class RolesListing extends StatelessWidget {
           sortLogic: (a, b, col, asc) {
             int compare;
             switch (col) {
-              case 2:
+              case 0:
                 compare = a.name.toLowerCase().compareTo(b.name.toLowerCase());
                 break;
-              case 3:
+              case 1:
                 compare = a.description.toLowerCase().compareTo(
                   b.description.toLowerCase(),
                 );
+                break;
+              case 3:
+                compare = a.createdAt.compareTo(b.createdAt);
                 break;
               default:
                 compare = (a.uid ?? '').compareTo(b.uid ?? '');
@@ -153,7 +156,12 @@ final ScrollController _scrollController = ScrollController();
                                   ? "No roles available"
                                   : "No matching records found",
                             )
-                          : _buildTableCard(context, controllerWatch, controllerRead),
+                          : _buildTableCard(
+                              context,
+                              controllerWatch,
+                              controllerRead,
+                              state.employeeCounts,
+                            ),
                     ],
                   ),
                 ),
@@ -476,6 +484,33 @@ final ScrollController _scrollController = ScrollController();
     );
   }
 
+  Widget _employeeCountChip(BuildContext context, int count) {
+    final color = count > 0
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Iconsax.people, size: 13, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _superAdminBadge(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -507,6 +542,7 @@ final ScrollController _scrollController = ScrollController();
     BuildContext context,
     PaginatedDataController<RoleModel> controllerWatch,
     PaginatedDataController<RoleModel> controllerRead,
+    Map<String, int> employeeCounts,
   ) {
     return Container(
       decoration: BoxDecoration(
@@ -562,6 +598,10 @@ final ScrollController _scrollController = ScrollController();
                             label: const Text("Description"),
                             onSort: controllerRead.setSort,
                           ),
+                          const DataColumn(
+                            label: Text("Employees"),
+                            numeric: true,
+                          ),
                           DataColumn(
                             label: const Text("Created"),
                             onSort: controllerRead.setSort,
@@ -579,6 +619,7 @@ final ScrollController _scrollController = ScrollController();
                             controllerWatch,
                             controllerRead,
                             index,
+                            employeeCounts[role.uid ?? ''] ?? 0,
                           );
                         }),
                       ),
@@ -603,6 +644,7 @@ final ScrollController _scrollController = ScrollController();
     PaginatedDataController<RoleModel> controllerWatch,
     PaginatedDataController<RoleModel> controllerRead,
     int index,
+    int employeeCount,
   ) {
     final isSuperAdmin = role.isSuperAdmin;
     final isSelected = controllerWatch.selectedIds.contains(role.uid);
@@ -661,6 +703,7 @@ final ScrollController _scrollController = ScrollController();
             ),
           ),
         ),
+        DataCell(_employeeCountChip(context, employeeCount)),
         DataCell(
           Row(
             mainAxisSize: MainAxisSize.min,

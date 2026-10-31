@@ -14,10 +14,13 @@ class RolesLoading extends RolesState {}
 // Loaded state with user list
 class RolesLoaded extends RolesState {
   final List<RoleModel> roles;
-  RolesLoaded(this.roles);
+
+  /// roleId -> number of employees mapped to that role
+  final Map<String, int> employeeCounts;
+  RolesLoaded(this.roles, {this.employeeCounts = const {}});
 
   @override
-  List<Object> get props => [roles];
+  List<Object> get props => [roles, employeeCounts];
 }
 
 // Error state
