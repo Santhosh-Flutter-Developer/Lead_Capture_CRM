@@ -32,6 +32,9 @@ class DealModel {
   final bool isLocked;
   final String? projectName;
   final String? projectDescription;
+  /// Employee (uid) responsible for the follow-up. When set, only this
+  /// employee and admins can see the record. `null` = visible as before.
+  final String? followUp;
   final String? leadId;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -65,6 +68,7 @@ class DealModel {
     this.isLocked = false,
     this.projectName,
     this.projectDescription,
+    this.followUp,
     this.leadId,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -100,6 +104,8 @@ class DealModel {
     bool? isLocked,
     String? projectName,
     String? projectDescription,
+    String? followUp,
+    bool clearFollowUp = false,
     String? leadId,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -133,6 +139,7 @@ class DealModel {
       isLocked: isLocked ?? this.isLocked,
       projectName: projectName ?? this.projectName,
       projectDescription: projectDescription ?? this.projectDescription,
+      followUp: clearFollowUp ? null : (followUp ?? this.followUp),
       leadId: leadId ?? this.leadId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -169,6 +176,7 @@ class DealModel {
       'isLocked': isLocked,
       'projectName': projectName,
       'projectDescription': projectDescription,
+      'followUp': followUp,
       'leadId': leadId,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'updatedAt': updatedAt.millisecondsSinceEpoch,
@@ -204,6 +212,7 @@ class DealModel {
       'isLocked': isLocked,
       'projectName': projectName,
       'projectDescription': projectDescription,
+      'followUp': followUp,
       'leadId': leadId,
       'createdBy': createdBy.toMap(),
       'updatedAt': updatedAt.millisecondsSinceEpoch,
@@ -306,6 +315,9 @@ class DealModel {
           : null,
       projectDescription: map['projectDescription'] is String
           ? map['projectDescription'] as String
+          : null,
+      followUp: map['followUp'] is String && (map['followUp'] as String).isNotEmpty
+          ? map['followUp'] as String
           : null,
       leadId: map['leadId'] is String ? map['leadId'] as String : null,
       createdAt: map['createdAt'] is int

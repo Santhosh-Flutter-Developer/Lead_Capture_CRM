@@ -110,7 +110,8 @@ class ProjectUpdationService {
       list.sort(
         (a, b) => (b.updationNumber ?? 0).compareTo(a.updationNumber ?? 0),
       );
-      return list;
+      // Follow Up set -> only that employee + admins see the updation.
+      return FollowUpAccess.filterVisible(list, (u) => u.followUp);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       throw 'Error fetching project updations: $e';

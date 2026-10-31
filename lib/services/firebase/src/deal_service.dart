@@ -653,7 +653,7 @@ class DealService {
 
       deals.sort((a, b) => a.dealName.compareTo(b.dealName));
 
-      return deals;
+      return FollowUpAccess.filterVisible(deals, (d) => d.followUp);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");
@@ -694,7 +694,7 @@ class DealService {
             (b.projectName ?? b.dealName).toLowerCase(),
           ),
         );
-      return deals;
+      return FollowUpAccess.filterVisible(deals, (d) => d.followUp);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       throw 'Error fetching completed deals: $e';
@@ -716,10 +716,13 @@ class DealService {
           .where((s) => s.isFinal || s.lowercaseName == 'completed')
           .map((s) => s.uid)
           .toSet();
-      return snap.docs
-          .map((d) => DealModel.fromMap(d.id, d.data()))
-          .where((d) => d.isLocked || completed.contains(d.dealStatus))
-          .toList();
+      return FollowUpAccess.filterVisible(
+        snap.docs
+            .map((d) => DealModel.fromMap(d.id, d.data()))
+            .where((d) => d.isLocked || completed.contains(d.dealStatus))
+            .toList(),
+        (d) => d.followUp,
+      );
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       throw 'Error fetching completed deals: $e';

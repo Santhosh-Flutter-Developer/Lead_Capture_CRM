@@ -44,6 +44,9 @@ class ProjectUpdationModel {
   final String? assigneeName;
   final List<FileModel> attachments;
   final String notes;
+  /// Employee (uid) responsible for the follow-up. When set, only this
+  /// employee and admins can see the record. `null` = visible as before.
+  final String? followUp;
   final UserDataModel createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -67,6 +70,7 @@ class ProjectUpdationModel {
     this.assigneeName,
     this.attachments = const [],
     this.notes = '',
+    this.followUp,
     required this.createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -98,6 +102,8 @@ class ProjectUpdationModel {
     String? assigneeName,
     List<FileModel>? attachments,
     String? notes,
+    String? followUp,
+    bool clearFollowUp = false,
     UserDataModel? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -121,6 +127,7 @@ class ProjectUpdationModel {
       assigneeName: assigneeName ?? this.assigneeName,
       attachments: attachments ?? this.attachments,
       notes: notes ?? this.notes,
+      followUp: clearFollowUp ? null : (followUp ?? this.followUp),
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -145,6 +152,7 @@ class ProjectUpdationModel {
     'assigneeName': assigneeName,
     'attachments': attachments.map((x) => x.toMap()).toList(),
     'notes': notes,
+    'followUp': followUp,
     'createdBy': createdBy.toMap(),
     'createdAt': createdAt.millisecondsSinceEpoch,
     'updatedAt': updatedAt.millisecondsSinceEpoch,
@@ -189,6 +197,7 @@ class ProjectUpdationModel {
             )
           : [],
       notes: str('notes') ?? '',
+      followUp: (str('followUp') ?? '').isEmpty ? null : str('followUp'),
       createdBy: map['createdBy'] is Map<String, dynamic>
           ? UserDataModel.fromMap(map['createdBy'] as Map<String, dynamic>)
           : UserDataModel.fromEmptyMap(),

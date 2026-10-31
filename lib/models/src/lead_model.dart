@@ -41,6 +41,9 @@ class LeadModel {
   final String? dealId;
   final String? projectName;
   final String? projectDescription;
+  /// Employee (uid) responsible for the follow-up. When set, only this
+  /// employee and admins can see the record. `null` = visible as before.
+  final String? followUp;
 
   LeadModel({
     this.uid,
@@ -74,6 +77,7 @@ class LeadModel {
     this.dealId,
     this.projectName,
     this.projectDescription,
+    this.followUp,
     this.leadsConverted = false,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -115,6 +119,8 @@ class LeadModel {
     String? dealId,
     String? projectName,
     String? projectDescription,
+    String? followUp,
+    bool clearFollowUp = false,
   }) {
     return LeadModel(
       uid: uid ?? this.uid,
@@ -151,6 +157,7 @@ class LeadModel {
       dealId: dealId ?? this.dealId,
       projectName: projectName ?? this.projectName,
       projectDescription: projectDescription ?? this.projectDescription,
+      followUp: clearFollowUp ? null : (followUp ?? this.followUp),
     );
   }
 
@@ -190,6 +197,7 @@ class LeadModel {
       'dealId': dealId,
       'projectName': projectName,
       'projectDescription': projectDescription,
+      'followUp': followUp,
     };
   }
 
@@ -228,6 +236,7 @@ class LeadModel {
       'dealId': dealId,
       'projectName': projectName,
       'projectDescription': projectDescription,
+      'followUp': followUp,
     };
     data.removeWhere(
       (key, value) =>
@@ -352,6 +361,9 @@ class LeadModel {
           : null,
       projectDescription: map['projectDescription'] is String
           ? map['projectDescription'] as String
+          : null,
+      followUp: map['followUp'] is String && (map['followUp'] as String).isNotEmpty
+          ? map['followUp'] as String
           : null,
     );
   }

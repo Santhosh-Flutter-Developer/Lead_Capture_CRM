@@ -416,7 +416,10 @@ class DashboardService {
           .orderBy('createdAt', descending: true)
           .limit(500)
           .get();
-      return snap.docs.map((d) => LeadModel.fromMap(d.id, d.data())).toList();
+      return FollowUpAccess.filterVisible(
+        snap.docs.map((d) => LeadModel.fromMap(d.id, d.data())).toList(),
+        (l) => l.followUp,
+      );
     } catch (e, st) {
       debugPrint("Error fetching leads for charts: $e\n$st");
       return [];
@@ -432,7 +435,10 @@ class DashboardService {
           .orderBy('createdAt', descending: true)
           .limit(500)
           .get();
-      return snap.docs.map((d) => DealModel.fromMap(d.id, d.data())).toList();
+      return FollowUpAccess.filterVisible(
+        snap.docs.map((d) => DealModel.fromMap(d.id, d.data())).toList(),
+        (d) => d.followUp,
+      );
     } catch (e, st) {
       debugPrint("Error fetching deals for charts: $e\n$st");
       return [];

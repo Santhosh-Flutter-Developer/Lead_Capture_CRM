@@ -50,6 +50,12 @@ class _LeadFormState extends State<LeadForm> {
   List<LeadStatusModel> _statuses = [];
   LeadStatusModel? _status;
 
+  // Follow Up (optional): the employee who owns the follow-up. When set,
+  // only that employee and admins can see this lead.
+  List<EmployeeModel> _employees = [];
+  Map<String, String> _employeeLabels = {}; // uid -> label
+  String? _followUp; // employee uid
+
   final List<PlatformFile> _newFiles = [];
   List<FileModel> _uploaded = [];
 
@@ -108,9 +114,17 @@ class _LeadFormState extends State<LeadForm> {
         statuses: true,
       );
 
+      try {
+        _employees = await FollowUpAccess.employees();
+        _employeeLabels = FollowUpAccess.labelsByUid(_employees);
+      } catch (_) {
+        // Follow Up is optional: never block the form if it can't load.
+      }
+
       if (_isEdit) {
         final lead = await LeadService.getLead(uid: widget.uid!);
         _existing = lead;
+        _followUp = lead.followUp;
         _leadName.text = lead.leadName;
         _leadEmail.text = lead.leadEmail;
         _leadValue.text = lead.leadValue == 0 ? '' : lead.leadValue.toString();
@@ -469,6 +483,20 @@ class _LeadFormState extends State<LeadForm> {
             hintText: 'Project this lead is about',
           ),
         ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey('followup_${_employees.length}'),
+            label: 'Follow Up',
+            initialItem: _employeeLabels[_followUp],
+            items: _employeeLabels.values.toList(),
+            onChanged: (v) => _followUp = v == null
+                ? null
+                : _employeeLabels.entries
+                      .where((e) => e.value == v)
+                      .map((e) => e.key)
+                      .firstOrNull,
+          ),
+        ),
         full(
           FormFields(
             label: 'Project Description',
@@ -623,6 +651,8 @@ class _LeadFormState extends State<LeadForm> {
           clientId: c.uid,
           projectName: _projectName.text.trim(),
           projectDescription: _projectDescription.text.trim(),
+          followUp: _followUp,
+          clearFollowUp: _followUp == null,
           workflow: workflow,
         );
         await LeadService.updateLead(uid: leadUid, lead: updated);
@@ -646,6 +676,7 @@ class _LeadFormState extends State<LeadForm> {
           clientId: c.uid,
           projectName: _projectName.text.trim(),
           projectDescription: _projectDescription.text.trim(),
+          followUp: _followUp,
           createdBy: await Spdb.getUser(),
           workflow: workflow,
         );

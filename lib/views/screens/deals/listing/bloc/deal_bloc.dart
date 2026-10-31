@@ -39,10 +39,14 @@ class DealBloc extends Bloc<DealEvent, DealState> {
         .doc(cid)
         .collection(Collections.deals.name)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => DealModel.fromMap(doc.id, doc.data()))
-              .toList(),
+        .asyncMap(
+          (snapshot) => FollowUpAccess.filterVisible(
+            snapshot.docs
+                .map((doc) => DealModel.fromMap(doc.id, doc.data()))
+                .toList(),
+            // Follow Up set -> only that employee + admins see the deal.
+            (d) => d.followUp,
+          ),
         );
 
     final statusStream = firestore

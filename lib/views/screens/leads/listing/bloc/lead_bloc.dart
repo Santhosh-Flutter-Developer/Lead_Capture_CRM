@@ -38,10 +38,14 @@ class LeadBloc extends Bloc<LeadEvent, LeadState> {
         .doc(cid)
         .collection(Collections.leads.name)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
-            return LeadModel.fromMap(doc.id, doc.data());
-          }).toList(),
+        .asyncMap(
+          (snapshot) => FollowUpAccess.filterVisible(
+            snapshot.docs
+                .map((doc) => LeadModel.fromMap(doc.id, doc.data()))
+                .toList(),
+            // Follow Up set -> only that employee + admins see the lead.
+            (l) => l.followUp,
+          ),
         );
 
     final statusStream = firestore

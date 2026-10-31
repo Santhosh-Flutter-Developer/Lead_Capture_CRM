@@ -44,6 +44,11 @@ class _DealFormState extends State<DealForm> {
   List<DealStatusModel> _statuses = [];
   DealStatusModel? _status;
 
+  // Follow Up (optional): only this employee and admins can see the deal.
+  List<EmployeeModel> _employees = [];
+  Map<String, String> _employeeLabels = {}; // uid -> label
+  String? _followUp; // employee uid
+
   final List<PlatformFile> _newFiles = [];
   List<FileModel> _uploaded = [];
 
@@ -77,10 +82,17 @@ class _DealFormState extends State<DealForm> {
     try {
       _clients = await ClientService.getMasterClients();
       _statuses = await DealStatusService.getAllDealStatus();
+      try {
+        _employees = await FollowUpAccess.employees();
+        _employeeLabels = FollowUpAccess.labelsByUid(_employees);
+      } catch (_) {
+        // Follow Up is optional: never block the form if it can't load.
+      }
 
       if (_isEdit) {
         final deal = await DealService.getDeal(uid: widget.uid!);
         _existing = deal;
+        _followUp = deal.followUp;
 
         if (deal.isLocked) {
           if (mounted) {
@@ -352,6 +364,20 @@ class _DealFormState extends State<DealForm> {
             ],
           ),
         ),
+        box(
+          FormDropdownSearch(
+            key: ValueKey('followup_${_employees.length}'),
+            label: 'Follow Up',
+            initialItem: _employeeLabels[_followUp],
+            items: _employeeLabels.values.toList(),
+            onChanged: (v) => _followUp = v == null
+                ? null
+                : _employeeLabels.entries
+                      .where((e) => e.value == v)
+                      .map((e) => e.key)
+                      .firstOrNull,
+          ),
+        ),
         full(
           FormFields(
             label: 'Project Description',
@@ -486,6 +512,8 @@ class _DealFormState extends State<DealForm> {
           clientId: c.uid,
           projectName: project,
           projectDescription: _projectDescription.text.trim(),
+          followUp: _followUp,
+          clearFollowUp: _followUp == null,
         );
         await DealService.updateDeal(uid: widget.uid!, deal: updated);
       } else {
@@ -506,6 +534,7 @@ class _DealFormState extends State<DealForm> {
           clientId: c.uid,
           projectName: project,
           projectDescription: _projectDescription.text.trim(),
+          followUp: _followUp,
           createdBy: await Spdb.getUser(),
           workFlow: [await Spdb.getUid() ?? ''],
         );

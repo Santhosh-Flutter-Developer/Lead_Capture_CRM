@@ -552,6 +552,7 @@ class LeadService {
         clientId: lead.clientId,
         projectName: projectName.isNotEmpty ? projectName : lead.leadName,
         projectDescription: lead.projectDescription,
+        followUp: lead.followUp, // keep the same follow-up employee
         leadId: lead.uid,
       );
 
@@ -712,7 +713,7 @@ class LeadService {
 
       leads.sort((a, b) => a.leadName.compareTo(b.leadName));
 
-      return leads;
+      return FollowUpAccess.filterVisible(leads, (l) => l.followUp);
     } catch (e, st) {
       await ErrorService.recordError(e, st);
       debugPrint("${e.toString()}, ${st.toString()}");

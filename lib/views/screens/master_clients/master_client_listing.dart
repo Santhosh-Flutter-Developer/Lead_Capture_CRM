@@ -281,6 +281,18 @@ class _MasterClientListingState extends State<MasterClientListing> {
     if (val is Map && val['status'] == true) await _load();
   }
 
+  /// Bulk import (xlsx / csv). Refreshes the list when something was imported.
+  Future<void> _openUpload(BuildContext context) async {
+    const upload = MasterClientUpload();
+    dynamic val;
+    if (_isWide(context)) {
+      val = await GeneralDialog.showRTLSheet(context, upload);
+    } else {
+      val = await Sheet.showSheet(context, widget: upload);
+    }
+    if (val == true) await _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWide = _isWide(context);
@@ -431,6 +443,53 @@ class _MasterClientListingState extends State<MasterClientListing> {
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Add Master Client'),
         ),
+      if (_permissions?.canImport ?? false) ...[
+        FilledButton.tonalIcon(
+          onPressed: () => _openUpload(context),
+          icon: const Icon(Iconsax.cloud_plus, size: 18),
+          label: const Text('Upload'),
+        ),
+        // Sample template / sample data download
+        PopupMenuButton<String>(
+          tooltip: 'Download template',
+          onSelected: (v) => Download.downloadFromAsset(
+            context,
+            v == 'template'
+                ? 'assets/templates/master_client_upload_template.xlsx'
+                : 'assets/templates/master_client_upload_template_with_data.xlsx',
+            v == 'template'
+                ? 'Master Client Template.xlsx'
+                : 'Master Client Sample Data.xlsx',
+          ),
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+              value: 'template',
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.file_download_outlined),
+                title: Text('Master Client Template'),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'sample',
+              child: ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.contact_page_outlined),
+                title: Text('Sample Master Client Data'),
+              ),
+            ),
+          ],
+          child: IgnorePointer(
+            child: OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Iconsax.document_download, size: 18),
+              label: const Text('Template'),
+            ),
+          ),
+        ),
+      ],
       if ((_permissions?.canExport ?? false) &&
           controller.paginatedItems.isNotEmpty)
         OutlinedButton.icon(

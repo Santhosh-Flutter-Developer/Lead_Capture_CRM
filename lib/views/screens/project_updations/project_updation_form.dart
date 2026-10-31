@@ -61,6 +61,11 @@ class _ProjectUpdationFormState extends State<ProjectUpdationForm> {
   DateTime _requested = DateTime.now();
   UpdationStatus _status = UpdationStatus.pending;
 
+  // Follow Up (optional): only this employee and admins can see the updation.
+  List<EmployeeModel> _employees = [];
+  Map<String, String> _employeeLabels = {}; // uid -> label
+  String? _followUp; // employee uid
+
   final List<PlatformFile> _newFiles = [];
   List<FileModel> _uploaded = [];
 
@@ -94,10 +99,17 @@ class _ProjectUpdationFormState extends State<ProjectUpdationForm> {
   Future<void> _init() async {
     try {
       _clients = await ClientService.getMasterClients();
+      try {
+        _employees = await FollowUpAccess.employees();
+        _employeeLabels = FollowUpAccess.labelsByUid(_employees);
+      } catch (_) {
+        // Follow Up is optional: never block the form if it can't load.
+      }
 
       if (_isEdit) {
         final u = await ProjectUpdationService.getUpdation(uid: widget.uid!);
         _existing = u;
+        _followUp = u.followUp;
         _title.text = u.title;
         _description.text = u.description;
         _requested = u.requestedDate;
@@ -444,6 +456,21 @@ class _ProjectUpdationFormState extends State<ProjectUpdationForm> {
             },
           ),
         ),
+        // Follow Up (optional)
+        box(
+          FormDropdownSearch(
+            key: ValueKey('followup_${_employees.length}'),
+            label: 'Follow Up',
+            initialItem: _employeeLabels[_followUp],
+            items: _employeeLabels.values.toList(),
+            onChanged: (v) => _followUp = v == null
+                ? null
+                : _employeeLabels.entries
+                      .where((e) => e.value == v)
+                      .map((e) => e.key)
+                      .firstOrNull,
+          ),
+        ),
         // 11. Note
         full(
           FormFields(
@@ -570,6 +597,7 @@ class _ProjectUpdationFormState extends State<ProjectUpdationForm> {
         value: double.tryParse(_value.text.trim()),
         attachments: attachments,
         notes: _notes.text.trim(),
+        followUp: _followUp,
         createdBy: _existing?.createdBy ?? await Spdb.getUser(),
         createdAt: _existing?.createdAt,
       );

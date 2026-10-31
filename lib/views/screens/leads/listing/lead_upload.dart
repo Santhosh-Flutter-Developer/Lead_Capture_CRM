@@ -7,6 +7,8 @@ import 'package:iconsax/iconsax.dart';
 import 'package:leadcapture/models/src/lead_model.dart';
 import 'package:leadcapture/models/src/region_model.dart';
 import 'package:leadcapture/models/src/client_model.dart';
+import 'package:leadcapture/models/src/employee_model.dart';
+import 'package:leadcapture/services/firebase/src/follow_up_access.dart';
 import 'package:leadcapture/services/database/src/spdb.dart';
 import 'package:leadcapture/services/firebase/src/lead_category_service.dart';
 import 'package:leadcapture/services/firebase/src/lead_priority_service.dart';
@@ -120,7 +122,13 @@ class _LeadUploadState extends State<LeadUpload> {
     return true;
   }
 
-  bool _validateExcelData() {
+  /// Optional 16th column: "Follow Up" (employee name or e-mail).
+  static const int _followUpCol = 15;
+
+  String _followUpText(List<String> row) =>
+      row.length > _followUpCol ? row[_followUpCol].trim() : '';
+
+  bool _validateExcelData(List<EmployeeModel> employees) {
     if (_rows.isEmpty) return false;
 
     if (_rows.first.length < 14) {
@@ -134,6 +142,17 @@ class _LeadUploadState extends State<LeadUpload> {
 
     // Validate all data rows
     for (var i = 1; i < _rows.length; i++) {
+      // Follow Up is optional, but when given it must be a known employee.
+      final fu = _followUpText(_rows[i]);
+      if (fu.isNotEmpty && FollowUpAccess.findEmployee(employees, fu) == null) {
+        FlushBar.show(
+          context,
+          "Row ${i + 1}: Follow Up employee \"$fu\" was not found. "
+          "Use the employee's name or e-mail, or leave it empty.",
+          isSuccess: false,
+        );
+        return false;
+      }
       if (!_validateRowData(_rows[i], i)) {
         FlushBar.show(
           context,
@@ -151,8 +170,14 @@ class _LeadUploadState extends State<LeadUpload> {
     try {
       if (_rows.isEmpty) return;
 
+      // Employees for the optional "Follow Up" column.
+      List<EmployeeModel> employees = [];
+      try {
+        employees = await FollowUpAccess.employees();
+      } catch (_) {}
+
       // Validate data before upload
-      if (!_validateExcelData()) {
+      if (!_validateExcelData(employees)) {
         return;
       }
 
@@ -251,6 +276,10 @@ class _LeadUploadState extends State<LeadUpload> {
             attachments: [],
             workflow: [],
             leadsConverted: false,
+            followUp: FollowUpAccess.findEmployee(
+              employees,
+              _followUpText(row),
+            )?.uid,
           );
 
           final createdLead = await LeadService.createLead(lead: leadModel);
@@ -436,7 +465,7 @@ class _LeadUploadState extends State<LeadUpload> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Ensure your file contains Lead Name, Mobile, and Source as minimum requirements.',
+                        'Ensure your file contains Lead Name, Mobile, and Source as minimum requirements. The last column "Follow Up" (employee name or e-mail) is optional.',
                       ),
                       const SizedBox(height: 32),
             
