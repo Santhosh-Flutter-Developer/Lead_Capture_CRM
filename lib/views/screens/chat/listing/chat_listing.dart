@@ -1001,6 +1001,7 @@ class _ChatListItemState extends State<_ChatListItem> {
                                   '${chat.title ?? ''} ${chat.isFavorite == true ? '❤️' : ''}',
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(fontWeight: FontWeight.bold),
+                                  maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 )
                               : InkWell(
@@ -1012,19 +1013,24 @@ class _ChatListItemState extends State<_ChatListItem> {
                                     '$name ${chat.isFavorite == true ? '❤️' : ''}',
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(fontWeight: FontWeight.bold),
+                                    maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                           Text(
-                            chat.lastMessage?.senderId == currentUserUid
-                                ? ("You: ${chat.lastMessage?.message ?? ''}")
-                                : (chat.lastMessage?.message ?? ''),
+                            // Flatten line breaks so the preview stays on one line
+                            (chat.lastMessage?.senderId == currentUserUid
+                                    ? ("You: ${chat.lastMessage?.message ?? ''}")
+                                    : (chat.lastMessage?.message ?? ''))
+                                .replaceAll(RegExp(r'\s*[\r\n]+\s*'), ' '),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(
                                     context,
                                   ).colorScheme.onSurfaceVariant,
                                 ),
+                            maxLines: 1,
+                            softWrap: false,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
